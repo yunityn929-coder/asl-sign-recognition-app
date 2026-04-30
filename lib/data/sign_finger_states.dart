@@ -1,0 +1,43 @@
+// Finger order: [thumb, index, middle, ring, pinky]
+// States: "extended" | "curled" | "any"
+// Extended = tip.y < pip.y (normalised); Curled = tip.y > pip.y
+const Map<String, List<String>> kSignFingerStates = {
+  'A': ['curled',   'curled',   'curled',   'curled',   'curled'],
+  'B': ['curled',   'extended', 'extended', 'extended', 'extended'],
+  'C': ['any',      'any',      'any',      'any',      'any'],
+  'D': ['any',      'extended', 'curled',   'curled',   'curled'],
+  'E': ['curled',   'curled',   'curled',   'curled',   'curled'],
+  'F': ['any',      'curled',   'extended', 'extended', 'extended'],
+  'G': ['extended', 'extended', 'curled',   'curled',   'curled'],
+  'H': ['curled',   'extended', 'extended', 'curled',   'curled'],
+  'I': ['curled',   'curled',   'curled',   'curled',   'extended'],
+  'J': ['curled',   'curled',   'curled',   'curled',   'extended'],
+  'K': ['extended', 'extended', 'extended', 'curled',   'curled'],
+  'L': ['extended', 'extended', 'curled',   'curled',   'curled'],
+  'M': ['curled',   'curled',   'curled',   'curled',   'curled'],
+  'N': ['curled',   'curled',   'curled',   'curled',   'curled'],
+  'O': ['any',      'any',      'any',      'any',      'any'],
+  'P': ['extended', 'extended', 'extended', 'curled',   'curled'],
+  'Q': ['extended', 'extended', 'curled',   'curled',   'curled'],
+  'R': ['curled',   'extended', 'extended', 'curled',   'curled'],
+  'S': ['curled',   'curled',   'curled',   'curled',   'curled'],
+  'T': ['extended', 'curled',   'curled',   'curled',   'curled'],
+  'U': ['curled',   'extended', 'extended', 'curled',   'curled'],
+  'V': ['curled',   'extended', 'extended', 'curled',   'curled'],
+  'W': ['curled',   'extended', 'extended', 'extended', 'curled'],
+  'X': ['curled',   'extended', 'curled',   'curled',   'curled'],
+  'Y': ['extended', 'curled',   'curled',   'curled',   'extended'],
+  'Z': ['curled',   'extended', 'curled',   'curled',   'curled'],
+  '0': ['any',      'any',      'any',      'any',      'any'],
+  '1': ['curled',   'extended', 'curled',   'curled',   'curled'],
+  '2': ['curled',   'extended', 'extended', 'curled',   'curled'],
+  '3': ['extended', 'extended', 'extended', 'curled',   'curled'],
+  '4': ['curled',   'extended', 'extended', 'extended', 'extended'],
+  '5': ['extended', 'extended', 'extended', 'extended', 'extended'],
+  '6': ['any',      'extended', 'extended', 'extended', 'curled'],
+  '7': ['any',      'extended', 'extended', 'curled',   'extended'],
+  '8': ['any',      'extended', 'extended', 'curled',   'curled'],
+  '9': ['any',      'extended', 'curled',   'curled',   'curled'],
+};
+
+const List<String> kFingerNames = ['thumb', 'index', 'middle', 'ring', 'pinky'];

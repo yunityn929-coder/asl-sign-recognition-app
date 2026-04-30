@@ -1,0 +1,36 @@
+const String kRouteSplash               = '/';
+const String kRouteLogin                = '/login';
+const String kRouteOnboardingLevel      = '/onboarding/level';
+const String kRouteOnboardingGoal       = '/onboarding/goal';
+const String kRouteOnboardingNotifications = '/onboarding/notifications';
+const String kRouteOnboardingStart      = '/onboarding/start';
+const String kRouteOnboardingPlacement  = '/onboarding/placement';
+const String kRouteHome                 = '/home';
+const String kRouteStreak               = '/streak';
+const String kRouteModeSelect           = '/lesson/:lessonId/mode';
+const String kRouteLearn                = '/lesson/:lessonId/learn';
+const String kRoutePracticeSetup        = '/lesson/:lessonId/practice/setup';
+const String kRoutePracticeSession      = '/lesson/:lessonId/practice/session';
+const String kRouteCheckout             = '/session/checkout';
+const String kRouteLearnComplete        = '/lesson/:lessonId/complete';
+const String kRouteSettings             = '/settings';
+const String kRouteConvertGuest         = '/account/convert';
+
+// Named route identifiers (used in GoRouter `name:`)
+const String kRouteNameSplash               = 'splash';
+const String kRouteNameLogin                = 'login';
+const String kRouteNameOnboardingLevel      = 'onboarding-level';
+const String kRouteNameOnboardingGoal       = 'onboarding-goal';
+const String kRouteNameOnboardingNotifications = 'onboarding-notifications';
+const String kRouteNameOnboardingStart      = 'onboarding-start';
+const String kRouteNameOnboardingPlacement  = 'onboarding-placement';
+const String kRouteNameHome                 = 'home';
+const String kRouteNameStreak               = 'streak';
+const String kRouteNameModeSelect           = 'mode-select';
+const String kRouteNameLearn                = 'learn';
+const String kRouteNamePracticeSetup        = 'practice-setup';
+const String kRouteNamePracticeSession      = 'practice-session';
+const String kRouteNameCheckout             = 'checkout';
+const String kRouteNameLearnComplete        = 'learn-complete';
+const String kRouteNameSettings             = 'settings';
+const String kRouteNameConvertGuest         = 'convert-guest';

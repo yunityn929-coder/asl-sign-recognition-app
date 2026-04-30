@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter --version)",
+      "Bash(mkdir *)",
+      "Bash(touch *)",
+      "Bash(flutter doctor *)"
+    ]
+  }
+}

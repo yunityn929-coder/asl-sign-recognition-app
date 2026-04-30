@@ -1,0 +1,97 @@
+class DailyQuestModel {
+  final String date;
+  final String generatedAt;
+  final List<QuestModel> quests;
+  final int totalQuestsCompleted;
+  final int bonusXpAwarded;
+
+  const DailyQuestModel({
+    required this.date,
+    required this.generatedAt,
+    required this.quests,
+    required this.totalQuestsCompleted,
+    required this.bonusXpAwarded,
+  });
+
+  DailyQuestModel copyWith({
+    List<QuestModel>? quests,
+    int? totalQuestsCompleted,
+    int? bonusXpAwarded,
+  }) =>
+      DailyQuestModel(
+        date: date,
+        generatedAt: generatedAt,
+        quests: quests ?? this.quests,
+        totalQuestsCompleted: totalQuestsCompleted ?? this.totalQuestsCompleted,
+        bonusXpAwarded: bonusXpAwarded ?? this.bonusXpAwarded,
+      );
+
+  factory DailyQuestModel.fromMap(Map<String, dynamic> map) => DailyQuestModel(
+        date: map['date'] as String,
+        generatedAt: map['generatedAt'] as String,
+        quests: (map['quests'] as List<dynamic>)
+            .map((e) => QuestModel.fromMap(e as Map<String, dynamic>))
+            .toList(),
+        totalQuestsCompleted: (map['totalQuestsCompleted'] as num?)?.toInt() ?? 0,
+        bonusXpAwarded: (map['bonusXpAwarded'] as num?)?.toInt() ?? 0,
+      );
+
+  Map<String, dynamic> toMap() => {
+        'date': date,
+        'generatedAt': generatedAt,
+        'quests': quests.map((e) => e.toMap()).toList(),
+        'totalQuestsCompleted': totalQuestsCompleted,
+        'bonusXpAwarded': bonusXpAwarded,
+      };
+}
+
+// Inline here to keep daily_quest_model.dart self-contained; QuestModel has its own file too.
+class QuestModel {
+  final String id;
+  final String type;
+  final String description;
+  final int target;
+  final int progress;
+  final bool completed;
+  final int xpReward;
+
+  const QuestModel({
+    required this.id,
+    required this.type,
+    required this.description,
+    required this.target,
+    required this.progress,
+    required this.completed,
+    required this.xpReward,
+  });
+
+  QuestModel copyWith({int? progress, bool? completed}) => QuestModel(
+        id: id,
+        type: type,
+        description: description,
+        target: target,
+        progress: progress ?? this.progress,
+        completed: completed ?? this.completed,
+        xpReward: xpReward,
+      );
+
+  factory QuestModel.fromMap(Map<String, dynamic> map) => QuestModel(
+        id: map['id'] as String,
+        type: map['type'] as String,
+        description: map['description'] as String,
+        target: (map['target'] as num).toInt(),
+        progress: (map['progress'] as num?)?.toInt() ?? 0,
+        completed: map['completed'] as bool? ?? false,
+        xpReward: (map['xpReward'] as num?)?.toInt() ?? 30,
+      );
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'type': type,
+        'description': description,
+        'target': target,
+        'progress': progress,
+        'completed': completed,
+        'xpReward': xpReward,
+      };
+}

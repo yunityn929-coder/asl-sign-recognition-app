@@ -1,0 +1,56 @@
+name: hiasl
+description: HiASL — Beginner ASL learning app with on-device gesture recognition.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Camera & Gesture Recognition
+  camera: ^0.11.0
+  google_mlkit_commons: ^0.9.0
+  tflite_flutter: ^0.10.4
+
+  # 3D Rendering
+  flutter_3d_controller: ^2.3.0
+
+  # Firebase
+  firebase_core: ^3.0.0
+  firebase_auth: ^5.0.0
+  cloud_firestore: ^5.0.0
+  firebase_messaging: ^15.0.0
+
+  # Authentication
+  google_sign_in: ^6.2.1
+
+  # Audio
+  flutter_tts: ^4.0.2
+  audioplayers: ^6.0.0
+
+  # Notifications
+  flutter_local_notifications: ^17.0.0
+  permission_handler: ^11.3.0
+  timezone: ^0.9.4
+
+  # Navigation & State
+  go_router: ^14.0.0
+  flutter_riverpod: ^2.5.1
+  shared_preferences: ^2.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/models/
+    - assets/models/3d/
+    - assets/audio/
+    - assets/images/
