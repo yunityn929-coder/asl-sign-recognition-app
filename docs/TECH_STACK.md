@@ -17,9 +17,9 @@
 |---|---|---|
 | `camera` | Live camera feed | Use for CameraPreview widget |
 | `google_mlkit_commons` | MLKit base dependency | Required |
-| `tflite_flutter` | Run `.tflite` model on-device | Input tensor [1,42]; load from assets |
+| `tflite_flutter` | Run `.tflite` model on-device | Input tensor [1,63]; load from assets |
 
-> MediaPipe Hands integration: use platform channel (MethodChannel) to call native MediaPipe Android SDK. Source model and pipeline from github.com/kinivi/hand-gesture-recognition-mediapipe — retrained on ASL data. Model file: `keypoint_classifier.tflite`, label file: `keypoint_classifier_label.csv`.
+> MediaPipe Hands integration: use platform channel (MethodChannel) to call native MediaPipe Android SDK if no stable Flutter plugin is available. Alternatively use `google_mlkit_pose_detection` as fallback for hand landmarks.
 
 ### 3D Rendering
 | Package | Purpose | Notes |
@@ -81,11 +81,9 @@ assets/
 ## Gesture Recognition Pipeline
 
 ### Input
-- MediaPipe Hands → 21 landmarks × 2 (x,y only — z not used) = **42 floats**
+- MediaPipe Hands → 21 landmarks × 3 (x,y,z) = **63 floats**
 - Normalise all values relative to wrist (landmark index 0) before model input
-- Input tensor shape: `[1, 42]`
-- z coordinate is dropped — sufficient for static one-hand signs
-- Pipeline sourced from kinivi/hand-gesture-recognition-mediapipe, retrained on ASL
+- Input tensor shape: `[1, 63]`
 
 ### Output
 - Softmax probabilities over 36 classes (A–Z, 0–9)
@@ -226,3 +224,34 @@ if (result.additionalUserInfo?.isNewUser == true) {
 
 **Required: add to android/app/build.gradle**
 SHA-1 fingerprint must be registered in Firebase Console for Google Sign-In to work.
+
+---
+## Amendment — No-Login-First Auth (appended)
+
+### Removed packages
+- `google_sign_in` is now OPTIONAL — only needed if user taps social/leaderboard feature
+- Email/password auth removed entirely — no signup form needed
+
+### Auth flow change
+```dart
+// On first app launch (S-01 Splash) — silent, no UI:
+await FirebaseAuth.instance.signInAnonymously();
+// Then create user doc in Firestore with isAnonymous: true
+
+// Only when user wants social features (S-25):
+final googleUser = await GoogleSignIn().signIn();
+final credential = GoogleAuthProvider.credential(...);
+await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
+// Update Firestore: isAnonymous: false, authProvider: "google"
+```
+
+### New screen assets needed
+- Mascot illustrations (Hani) in multiple poses:
+  - `assets/images/mascot_wave.png` — S-02 welcome
+  - `assets/images/mascot_speech.png` — onboarding Q screens
+  - `assets/images/mascot_excited.png` — S-04 preview
+  - `assets/images/mascot_celebrate.png` — S-19 checkout, S-11 placement result
+  - `assets/images/mascot_streak.png` — S-21 streak born
+  - `assets/images/mascot_commit.png` — S-12 streak goal
+- Flame icon for streak: `assets/images/flame.png`
+- Welcome/onboarding background: dark theme matching Duolingo reference

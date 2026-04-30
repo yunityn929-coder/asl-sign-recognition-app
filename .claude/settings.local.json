@@ -4,7 +4,10 @@
       "Bash(flutter --version)",
       "Bash(mkdir *)",
       "Bash(touch *)",
-      "Bash(flutter doctor *)"
+      "Bash(flutter doctor *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter run *)",
+      "Bash(findstr *)"
     ]
   }
 }

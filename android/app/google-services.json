@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "875587847059",
+    "project_id": "hiasl-5b861",
+    "storage_bucket": "hiasl-5b861.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:875587847059:android:350b004c3737c21b515e66",
+        "android_client_info": {
+          "package_name": "com.hiasl.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "875587847059-0jo3b2q0ea6vdu4vav737rcc70gocq9o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.hiasl.app",
+            "certificate_hash": "7203016907b61025c7f25272023c477432fdaad5"
+          }
+        },
+        {
+          "client_id": "875587847059-2tp9rorm9vin1t98fb51s4dfeprvfjfq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpQywtIJrcnlSFEDVLI51Swi_qhjDF91g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "875587847059-2tp9rorm9vin1t98fb51s4dfeprvfjfq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

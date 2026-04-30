@@ -29,6 +29,7 @@ Rules (always follow ARCHITECTURE.md):
 Stack: Flutter + Dart, Android 10+, Firebase Auth + Firestore, Riverpod, go_router.
 Audio: flutter_tts (TTS), audioplayers (sound effects). No custom backend.
 On-device inference: MediaPipe Hands + TFLite. Camera data never leaves device.
+Design: Bondee-inspired soft pastel UI. All colours and styles from AppColors in ARCHITECTURE.md. Never hardcode colours.
 ```
 
 ---
@@ -52,51 +53,103 @@ Follow ARCHITECTURE.md folder structure exactly.
 Output: compiles, shows splash, routes correctly to login or onboarding/level.
 ```
 
-### 2. Authentication (S-02) + Guest Conversion (S-18)
+### 2. Silent Auth + UserModel + FirestoreService
 ```
-Task: Build the single Login/Sign-Up screen (S-02) and Guest Conversion screen (S-18).
-Follow ARCHITECTURE.md: all auth logic in AuthService, screen is thin.
+Task: Build silent anonymous auth, AuthService, UserModel, FirestoreService base.
+Follow ARCHITECTURE.md: all auth/Firestore in services, never in screens.
 
-Spec: APP_FLOW.md S-02 and S-18. DATA_SCHEMA.md users/{uid} + amendment section.
-TECH_STACK.md auth implementation notes. Packages: firebase_auth, google_sign_in.
+Spec: APP_FLOW.md S-01. DATA_SCHEMA.md users/{uid} + all amendment sections.
+TECH_STACK.md auth amendment section. No login screen needed.
 
-auth_service.dart — methods (all throw AuthException on error):
-  signInWithGoogle(): google_sign_in flow → Firebase credential → signInWithCredential
-    Use result.additionalUserInfo?.isNewUser to detect new vs returning
-  signInAnonymously(): FirebaseAuth.signInAnonymously()
-  signInWithEmail(email, password): signInWithEmailAndPassword
-  signUpWithEmail(displayName, email, password): createUserWithEmailAndPassword
-  convertGuestWithGoogle(): currentUser.linkWithCredential(GoogleAuthProvider)
-  convertGuestWithEmail(email, password): currentUser.linkWithCredential(EmailAuthProvider)
-  sendPasswordReset(email): sendPasswordResetEmail
-  signOut(): FirebaseAuth.signOut() + GoogleSignIn.signOut()
+auth_service.dart:
+  signInSilently(): FirebaseAuth.signInAnonymously() — called on S-01, no UI
+  linkWithGoogle(): currentUser.linkWithCredential(GoogleAuthProvider.credential)
+    — only called from S-25 (leaderboard social unlock)
+  get isAnonymous: FirebaseAuth.currentUser?.isAnonymous ?? true
 
-FirestoreService.createUser(uid, {displayName, isGuest, authProvider}):
-  Writes ALL fields from DATA_SCHEMA.md users/{uid} including:
-  isGuest, authProvider, onboardingComplete:false, ttsEnabled:true, soundEnabled:true,
-  totalXp:0, currentStreak:0, longestStreak:0, notificationsEnabled:false
-  Only called for NEW users (check additionalUserInfo.isNewUser for Google)
+FirestoreService.createUser(uid):
+  Write ALL fields from DATA_SCHEMA.md users/{uid} with defaults:
+  displayName:"Learner", isAnonymous:true, authProvider:"anonymous",
+  onboardingComplete:false, ttsEnabled:true, soundEnabled:true,
+  totalXp:0, currentStreak:0, longestStreak:0, streakGoalDays:7,
+  streakGoalAchieved:false, notificationsEnabled:false
+  Only write if doc does not already exist
 
-FirestoreService.convertGuestUser(uid, {email, displayName, authProvider}):
-  Updates: isGuest:false, authProvider, email, displayName on existing user doc
+FirestoreService.updateUser(uid, Map fields): partial Firestore update
 
-UserModel: all fields from DATA_SCHEMA.md users/{uid} including isGuest + authProvider
+UserModel: ALL fields from DATA_SCHEMA.md + amendments. fromMap/toMap/copyWith.
 
-S-02 screen layout (single screen, no separate register screen):
-  1. "Continue with Google" button (prominent, top)
-  2. "Continue as Guest" button (second)
-  3. Divider "— or —"
-  4. Tab toggle: "Log In" | "Sign Up"
-     Log In: email + password + "Forgot password?" link
-     Sign Up: displayName + email + password
-  Inline errors only; all 4 auth paths route to onboarding or home based on onboardingComplete
+S-01 Splash:
+  1. Show logo ~1.5s
+  2. AuthService.signInSilently()
+  3. If no Firestore doc → FirestoreService.createUser(uid)
+  4. Read onboardingComplete
+  5. Route: false → /welcome/brand | true → /home
+```
 
-S-18 Convert Guest Account screen:
-  "Continue with Google" → AuthService.convertGuestWithGoogle()
-  Email + password fields → AuthService.convertGuestWithEmail()
-  "Not now" → back (data preserved)
-  On success: FirestoreService.convertGuestUser() → update UserProvider → back to S-09
-  Note in code: UID does not change; all Firestore data auto-preserved
+### 2b. Welcome Screens + Full Onboarding (S-02 to S-12)
+```
+UI must follow the design system in ARCHITECTURE.md — 
+soft pastel backgrounds, white cards, Bondee-inspired aesthetic.
+Welcome/onboarding screens use dark navy background (AppColors.onboardingBg).
+Home and all post-onboarding screens use light pastel background (AppColors.backgroundPrimary).
+
+Task: Build welcome screens (S-02, S-03, S-04) and onboarding flow (S-05 to S-12).
+Follow ARCHITECTURE.md: OnboardingController holds answers, screens are thin.
+
+Spec: APP_FLOW.md S-02 through S-12 — read EACH screen spec carefully.
+DATA_SCHEMA.md onboarding fields + streakGoalDays + kStreakGoalXp + amendment section.
+
+OnboardingController (StateNotifier<OnboardingState>):
+  Fields: aslLevel, dailyGoalMinutes, notificationsEnabled, startingPoint, streakGoalDays
+  complete(startLessonId): batch write all fields + onboardingComplete:true +
+    streakGoalStartDate:today to Firestore via FirestoreService.updateUser()
+
+Build screens in this order (each calls TTS on entry for speech bubble text):
+
+S-02: Full screen dark bg. mascot_wave.png centre. "GET STARTED" → S-03.
+      Small link "I already have an account" → S-25.
+
+S-03: mascot_speech.png. Speech bubble: "Hi there! I am Hani!" CONTINUE → S-04.
+
+S-04: mascot_excited.png. Speech bubble: "Just 4 quick questions before we start!"
+      CONTINUE → S-05.
+
+S-05: Progress 1/4. Small mascot top-left + speech bubble "How much ASL do you know?"
+      4 radio cards with signal-bar icon. CONTINUE (disabled until selected) → S-06.
+
+S-06: Progress 2/4. Speech bubble "What is your daily learning goal?"
+      4 cards: 5/10/15/20 min with Casual/Regular/Serious/Intense labels.
+      Button: "I'M COMMITTED" (disabled until selected) → S-07.
+
+S-07: Progress 3/4. Speech bubble "I will remind you to practice so it becomes a habit!"
+      Button: "REMIND ME TO PRACTICE" → permission_handler POST_NOTIFICATIONS → S-08.
+      Link: "Maybe later" → S-08 (notificationsEnabled: false).
+
+S-08: Progress 4/4. Speech bubble "Here is what you can achieve!"
+      3 feature rows: 🤟 Sign with confidence / ⚡ Build vocabulary / 🔥 Develop habit.
+      CONTINUE → S-09.
+
+S-09: 2 large option cards. "Start from scratch" always shown.
+      "Find my level" with RECOMMENDED badge — hidden if aslLevel == "none".
+      CONTINUE → scratch: initLessons() → S-12 | level: S-10.
+
+S-10: Placement test. 10 items. Hard (5s). No skip. No TTS. No XP. No checkout.
+      Complete → S-11.
+
+S-11: Celebration screen. Coloured background. mascot_celebrate.png animated.
+      "Since you [aslLevel answer], start with [SectionName]!"
+      "LET'S GO" → initLessons(startLessonId) → S-12.
+
+S-12: Streak goal. mascot_commit.png + flame icon.
+      4 cards: 7/14/30/50 days with XP rewards from kStreakGoalXp in DATA_SCHEMA.md.
+      "COMMIT TO MY GOAL" → OnboardingController.complete(startLessonId) → S-13.
+
+Shared requirements for ALL onboarding screens:
+  - Dark background
+  - TTS reads speech bubble text on screen entry
+  - Back arrow to previous screen
+  - No skip except S-07 notification screen
 ```
 
 ### 3. Onboarding Flow (S-04 → S-07)

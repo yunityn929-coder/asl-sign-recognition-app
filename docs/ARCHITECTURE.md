@@ -5,6 +5,99 @@ This document defines the rules Claude must follow when generating any code for 
 Consistency across all features is non-negotiable — every file must fit this structure.
 
 ---
+## Design System
+
+HiASL uses a soft pastel design language inspired by Bondee — 
+friendly, clean, and approachable. Claude must follow these tokens 
+for every screen and widget generated.
+
+### Colour Palette
+```dart
+// lib/core/constants/app_colors.dart
+class AppColors {
+  // Backgrounds
+  static const backgroundPrimary = Color(0xFFF0F4FF);   // soft lavender-white
+  static const backgroundCard    = Color(0xFFFFFFFF);   // pure white cards
+  static const backgroundAccent  = Color(0xFFE8F4FD);   // light sky blue
+
+  // Brand
+  static const primary    = Color(0xFF5B8DEF);   // Bondee-style medium blue
+  static const primarySoft= Color(0xFFD6E6FF);   // pale blue (selected state)
+  static const secondary  = Color(0xFF7CC8A4);   // soft mint green
+
+  // Text
+  static const textPrimary   = Color(0xFF1A1A2E); // near-black
+  static const textSecondary = Color(0xFF8A8A9A); // medium grey
+  static const textOnDark    = Color(0xFFFFFFFF); // white on coloured bg
+
+  // Feedback
+  static const success = Color(0xFF58CC02);  // green (correct)
+  static const error   = Color(0xFFFF4B4B);  // red (incorrect)
+  static const warning = Color(0xFFFFB347);  // amber (streak/XP)
+  static const xpGold  = Color(0xFFFFD700);  // gold (XP counter)
+
+  // Onboarding screens
+  static const onboardingBg = Color(0xFF1A1A2E); // dark navy (welcome screens only)
+}
+```
+
+### Typography
+```dart
+// Always use these — never inline TextStyle
+// Heading large:  fontSize 28, fontWeight 800, color textPrimary
+// Heading medium: fontSize 22, fontWeight 700, color textPrimary
+// Body:           fontSize 16, fontWeight 400, color textSecondary
+// Button text:    fontSize 16, fontWeight 700, color white or primary
+// Caption:        fontSize 13, fontWeight 400, color textSecondary
+// Font family: system default (no custom font needed)
+```
+
+### Card Style
+```dart
+// All cards use this decoration:
+BoxDecoration(
+  color: AppColors.backgroundCard,
+  borderRadius: BorderRadius.circular(16),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.06),
+      blurRadius: 12,
+      offset: Offset(0, 4),
+    )
+  ],
+)
+```
+
+### Button Style
+```dart
+// Primary button (full width):
+BorderRadius.circular(14)
+height: 54
+color: AppColors.primary
+// Disabled state: AppColors.primarySoft with textSecondary text
+
+// Secondary/outline button:
+BorderRadius.circular(14)
+border: Border.all(color: AppColors.primary, width: 1.5)
+color: transparent
+```
+
+### Spacing
+```dart
+// Page padding: 24px horizontal
+// Card padding: 20px all sides
+// Gap between elements: 12px / 16px / 24px (small/medium/large)
+// Bottom safe area: always respect SafeArea
+```
+
+### General Rules
+- Backgrounds are LIGHT (soft pastel) — not dark, except welcome/onboarding screens
+- Cards always WHITE with soft shadow — never flat coloured backgrounds
+- Buttons always FULL WIDTH at bottom of screen
+- Icons: use rounded/friendly style (Material Rounded or similar)
+- No harsh borders — use shadows and rounded corners instead
+- Bottom navigation bar: white bg, selected item uses primary colour dot/pill
+- Mascot images always centred with adequate whitespace around them
 
 ## Folder Structure
 

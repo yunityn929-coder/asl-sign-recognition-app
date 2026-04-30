@@ -4,69 +4,71 @@ import 'package:go_router/go_router.dart';
 
 import '../../controllers/onboarding_controller.dart';
 import '../../core/constants/route_constants.dart';
+import '../../core/constants/xp_constants.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
-import '../../widgets/progress_step_indicator.dart';
 import '../../widgets/speech_bubble.dart';
 
 const _kDarkBg = Color(0xFF1A1A2E);
 
-const _kGoals = [
-  (5,  'Casual'),
-  (10, 'Regular'),
-  (15, 'Serious'),
-  (20, 'Intense'),
-];
+const _kGoalOptions = [7, 14, 30, 50];
 
-// S-06 — Onboarding Q2: Daily Goal
-class OnboardingGoalScreen extends ConsumerStatefulWidget {
-  const OnboardingGoalScreen({super.key});
+// S-12 — Streak Goal Selection
+// Receives startLessonId via route extra (String).
+class StreakGoalScreen extends ConsumerStatefulWidget {
+  final String startLessonId;
+
+  const StreakGoalScreen({super.key, required this.startLessonId});
 
   @override
-  ConsumerState<OnboardingGoalScreen> createState() => _OnboardingGoalScreenState();
+  ConsumerState<StreakGoalScreen> createState() => _StreakGoalScreenState();
 }
 
-class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
-  // dailyGoalMinutes defaults to 5 in OnboardingState so treat 0 as unselected.
-  int? _selected;
+class _StreakGoalScreenState extends ConsumerState<StreakGoalScreen> {
+  int _selectedDays = 7;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ttsServiceProvider).speak("What's your daily learning goal?");
+      ref.read(ttsServiceProvider).speak("Let's commit to learning with a Streak Goal!");
     });
+  }
+
+  Future<void> _onCommit() async {
+    setState(() => _loading = true);
+    final ctrl = ref.read(onboardingControllerProvider.notifier);
+    ctrl.setStreakGoal(_selectedDays);
+    try {
+      await ctrl.complete(widget.startLessonId);
+    } catch (_) {}
+    if (mounted) {
+      setState(() => _loading = false);
+      context.go(kRouteHome);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = ref.read(onboardingControllerProvider.notifier);
-
     return Scaffold(
       backgroundColor: _kDarkBg,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.go(kRouteOnboardingLevel),
-        ),
-      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const ProgressStepIndicator(currentStep: 2, totalSteps: 4),
             const Padding(
-              padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  MascotImage(assetName: 'mascot_speech', size: 56),
-                  SizedBox(width: 12),
+                  MascotImage(assetName: 'mascot_commit', size: 56),
+                  SizedBox(width: 8),
+                  Icon(Icons.local_fire_department, color: Colors.orange, size: 32),
+                  SizedBox(width: 8),
                   Flexible(
-                    child: SpeechBubble(text: "What's your daily learning goal?"),
+                    child: SpeechBubble(text: "Let's commit to learning with a Streak Goal!"),
                   ),
                 ],
               ),
@@ -74,27 +76,24 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                children: _kGoals
-                    .map((g) => _GoalCard(
-                          minutes: g.$1,
-                          label: g.$2,
-                          selected: _selected == g.$1,
-                          onTap: () => setState(() => _selected = g.$1),
+                children: _kGoalOptions
+                    .map((days) => _GoalCard(
+                          days: days,
+                          xpBonus: kStreakGoalXp[days] ?? 0,
+                          selected: _selectedDays == days,
+                          onTap: () => setState(() => _selectedDays = days),
                         ))
                     .toList(),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-              child: AppButton(
-                label: "I'M COMMITTED",
-                onPressed: _selected == null
-                    ? null
-                    : () {
-                        ctrl.setDailyGoal(_selected!);
-                        context.go(kRouteOnboardingNotifications);
-                      },
-              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : AppButton(
+                      label: 'COMMIT TO MY GOAL',
+                      onPressed: _onCommit,
+                    ),
             ),
           ],
         ),
@@ -104,14 +103,14 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
 }
 
 class _GoalCard extends StatelessWidget {
-  final int minutes;
-  final String label;
+  final int days;
+  final int xpBonus;
   final bool selected;
   final VoidCallback onTap;
 
   const _GoalCard({
-    required this.minutes,
-    required this.label,
+    required this.days,
+    required this.xpBonus,
     required this.selected,
     required this.onTap,
   });
@@ -132,12 +131,15 @@ class _GoalCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.timer_outlined, color: Colors.white54, size: 20),
+            const Icon(Icons.local_fire_department, color: Colors.orange, size: 22),
             const SizedBox(width: 12),
             Expanded(
-              child: Text('$minutes min / day', style: const TextStyle(color: Colors.white, fontSize: 15)),
+              child: Text(
+                '$days days',
+                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+              ),
             ),
-            Text(label, style: TextStyle(color: selected ? primary : Colors.white54, fontSize: 13)),
+            Text('+$xpBonus XP', style: TextStyle(color: selected ? primary : Colors.white54, fontSize: 14, fontWeight: FontWeight.bold)),
             if (selected) ...[
               const SizedBox(width: 8),
               Icon(Icons.check_circle, color: primary, size: 20),

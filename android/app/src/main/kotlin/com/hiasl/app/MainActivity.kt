@@ -1,4 +1,4 @@
-package com.hiasl.hiasl
+package com.hiasl.app
 
 import io.flutter.embedding.android.FlutterActivity
 

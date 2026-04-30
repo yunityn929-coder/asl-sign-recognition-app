@@ -5,169 +5,206 @@
 
 | ID | Name | Route |
 |---|---|---|
-| S-01 | Splash / Auth Gate | `/` |
-| S-02 | Login / Sign-Up | `/login` |
-| S-04 | Onboarding Q1: ASL Level | `/onboarding/level` |
-| S-05 | Onboarding Q2: Daily Goal | `/onboarding/goal` |
-| S-06 | Onboarding Q3: Notifications | `/onboarding/notifications` |
-| S-07 | Onboarding Q4: Starting Point | `/onboarding/start` |
-| S-08 | Placement Test | `/onboarding/placement` |
-| S-09 | Home (Section + Lesson List) | `/home` |
-| S-10 | Streak Page | `/streak` |
-| S-11 | Mode Select | `/lesson/:lessonId/mode` |
-| S-12 | Learn Session | `/lesson/:lessonId/learn` |
-| S-13 | Practice Setup | `/lesson/:lessonId/practice/setup` |
-| S-14 | Practice Session | `/lesson/:lessonId/practice/session` |
-| S-15 | Session Checkout | `/session/checkout` |
-| S-16 | Learn Completion | `/lesson/:lessonId/complete` |
-| S-17 | Settings | `/settings` |
-| S-18 | Convert Guest Account | `/account/convert` |
+| S-01 | Splash | `/` |
+| S-02 | Welcome — Brand | `/welcome/brand` |
+| S-03 | Welcome — Mascot Intro | `/welcome/intro` |
+| S-04 | Welcome — Questions Preview | `/welcome/preview` |
+| S-05 | Onboarding Q1: ASL Level | `/onboarding/level` |
+| S-06 | Onboarding Q2: Daily Goal | `/onboarding/goal` |
+| S-07 | Onboarding Q3: Notifications | `/onboarding/notifications` |
+| S-08 | Onboarding Q4: Achievement Preview | `/onboarding/achievement` |
+| S-09 | Onboarding Q5: Starting Point | `/onboarding/start` |
+| S-10 | Placement Test | `/onboarding/placement` |
+| S-11 | Placement Result | `/onboarding/placement-result` |
+| S-12 | Streak Goal Selection | `/onboarding/streak-goal` |
+| S-13 | Home (Section + Lesson List) | `/home` |
+| S-14 | Streak Page | `/streak` |
+| S-15 | Mode Select | `/lesson/:lessonId/mode` |
+| S-16 | Learn Session | `/lesson/:lessonId/learn` |
+| S-17 | Practice Setup | `/lesson/:lessonId/practice/setup` |
+| S-18 | Practice Session | `/lesson/:lessonId/practice/session` |
+| S-19 | Session Checkout | `/session/checkout` |
+| S-20 | Learn Completion | `/lesson/:lessonId/complete` |
+| S-21 | Post-Checkout Streak Born | `/session/streak` |
+| S-22 | Daily Quest Update | `/session/quest` |
+| S-23 | Settings | `/settings` |
+| S-24 | Leaderboard (login-gated) | `/leaderboard` |
+| S-25 | Google Sign-In (social unlock) | `/login/social` |
 
 ---
 
 ## Navigation Flow
 
 ```
+FIRST LAUNCH:
 [S-01 Splash]
-  ├── not authenticated → [S-02 Login / Sign-Up]
-  │     ├── "Continue with Google" → Google Sign-In
-  │     │     ├── new Google user → create Firestore doc → [S-04 Onboarding Q1]
-  │     │     └── returning Google user → check onboardingComplete → [S-04] or [S-09]
-  │     ├── "Continue as Guest" → Firebase Anonymous Auth
-  │     │     └── always → [S-04 Onboarding Q1]  (guests always onboard fresh)
-  │     ├── "Log In" → email + password → check onboardingComplete → [S-04] or [S-09]
-  │     └── "Sign Up" → email + displayName + password → [S-04 Onboarding Q1]
-  └── authenticated:
-        ├── onboardingComplete == false → [S-04 Onboarding Q1]
-        └── onboardingComplete == true  → [S-09 Home]
+  → Firebase.signInAnonymously() silently in background
+  → onboardingComplete == false → [S-02 Welcome Brand]
 
-[S-04] → [S-05] → [S-06] → [S-07]
-  ├── "Start from scratch" → initialise lessons → [S-09 Home]
-  └── "Find my level" + Q1 != "none" → [S-08 Placement Test]
-        ├── score ≥ 8/10 → advance section → initialise lessons → [S-09 Home]
-        └── score < 8/10 → Q1 start point → initialise lessons → [S-09 Home]
+WELCOME FLOW (first launch only, shown in sequence):
+[S-02] → [S-03 Mascot Intro] → [S-04 Questions Preview]
+  → [S-05 Q1: ASL Level]
+  → [S-06 Q2: Daily Goal]
+  → [S-07 Q3: Notifications]
+  → [S-08 Achievement Preview]
+  → [S-09 Q4: Starting Point]
+    ├── "Start from scratch" → initLessons() → [S-12 Streak Goal]
+    └── "Find my level" → [S-10 Placement Test]
+          → [S-11 Placement Result]
+          → [S-12 Streak Goal]
+          → [S-13 Home]
 
-[S-09 Home]
-  ├── streak icon → [S-10 Streak]
-  ├── settings icon → [S-17 Settings]
-  │     └── "Save Account" (guest only) → [S-18 Convert Guest]
-  └── tap lesson → [S-11 Mode Select]
-        ├── "Learn" → [S-12 Learn Session]
-        │     └── ends → [S-15 Checkout] → "Continue" → [S-16 Learn Completion]
-        │                                               ├── "Practice Now" → [S-13]
-        │                                               └── "Back to Home" → [S-09]
-        └── "Practice" (completed lessons only) → [S-13 Practice Setup]
-              └── "Start" → [S-14 Practice Session]
-                    └── ends → [S-15 Checkout] → "Continue" → [S-09]
-                                                  "Try Again" → [S-13]
+RETURNING USER:
+[S-01 Splash] → onboardingComplete == true → [S-13 Home]
+
+HOME FLOW:
+[S-13 Home]
+  ├── streak icon → [S-14 Streak]
+  ├── settings icon → [S-23 Settings]
+  ├── leaderboard icon → [S-24 Leaderboard]
+  │     └── "Login to join" → [S-25 Google Sign-In]
+  │           → link anonymous account → back to [S-24]
+  └── tap lesson → [S-15 Mode Select]
+        ├── "Learn" → [S-16 Learn Session]
+        │     → ends → [S-19 Checkout]
+        │           → "Continue" → [S-21 Streak Born] (if first today)
+        │                        → [S-22 Quest Update]
+        │                        → [S-20 Learn Completion]
+        │                              ├── "Practice Now" → [S-17]
+        │                              └── "Back to Home" → [S-13]
+        └── "Practice" → [S-17 Practice Setup]
+              → [S-18 Practice Session]
+              → [S-19 Checkout]
+              → "Continue" → [S-21] (if first today) → [S-22] → [S-13]
+              → "Try Again" → [S-17]
 ```
 
 ---
 
 ## Screen Specifications
 
-### S-01 — Splash / Auth Gate
-- Show app logo ~1.5s
-- Check `FirebaseAuth.currentUser` + `onboardingComplete` in Firestore
-- Route accordingly; no back button
+### S-01 — Splash
+- Show HiASL logo ~1.5s
+- Call `FirebaseAuth.signInAnonymously()` silently (no UI)
+- Check `onboardingComplete` on user Firestore doc
+- Route to S-02 (first launch) or S-13 (returning)
+- No back button
 
-### S-02 — Login / Sign-Up
-Single screen handling all auth entry points. Priority order top to bottom:
+### S-02 — Welcome: Brand Screen
+- Full screen: HiASL mascot (hand signing) + large logo
+- Tagline: "Learn ASL. For free. Forever."
+- Button: "GET STARTED" → S-03
+- Small link: "I already have an account" → S-25 (Google Sign-In to restore progress)
+- No back button
 
-**Primary (fastest, top of screen):**
-- Large button: "Continue with Google" (Google logo + text)
-  - Calls `google_sign_in` → `GoogleAuthProvider.credential` → `signInWithCredential`
-  - New user (no Firestore doc) → `FirestoreService.createUser()` → S-04
-  - Returning user → check `onboardingComplete` → S-04 or S-09
+### S-03 — Welcome: Mascot Intro
+- Dark background, mascot centre screen
+- Speech bubble: "Hi there! I'm Hani! 🤟"
+- Subtext: "I'll be your ASL learning buddy"
+- Button: "CONTINUE" → S-04
+- Back arrow → S-02
 
-- Large button: "Continue as Guest" (person icon + text)
-  - Calls `FirebaseAuth.signInAnonymously()`
-  - Always → `FirestoreService.createUser(isGuest: true, displayName: "Guest")` → S-04
-  - Guest banner shown throughout app (see S-09)
+### S-04 — Welcome: Questions Preview
+- Mascot with excited expression
+- Speech bubble: "Just **4 quick questions** before we start your first lesson!"
+- Button: "CONTINUE" → S-05
+- Back arrow → S-03
 
-**Divider:** "— or —"
-
-**Secondary (below divider):**
-- Tab toggle: "Log In" | "Sign Up"
-  - Log In tab: Email + Password fields + "Log In" button
-  - Sign Up tab: Display Name + Email + Password fields + "Create Account" button
-- Inline errors only (no dialogs)
-- Forgot password link on Log In tab (send reset email via Firebase)
-
-**Rules:**
-- Google button and Guest button always visible regardless of which tab is active
-- No separate Register screen — everything on S-02
-- On any successful auth: create Firestore user doc if it doesn't exist, then route
-
-### S-04 — Onboarding Q1: ASL Level
-- Progress indicator: step 1 of 4
-- TTS reads question on screen entry
-- Question: "How much ASL do you know?"
-- Options (radio cards):
-  - "I know no ASL" → aslLevel: "none"
-  - "I know the alphabet" → aslLevel: "alphabet"
-  - "I know numbers too" → aslLevel: "numbers"
-  - "I can have a basic ASL conversation" → aslLevel: "conversational"
-- "Next" button → S-05
-
-### S-05 — Onboarding Q2: Daily Goal
-- Progress indicator: step 2 of 4
-- TTS reads question on screen entry
-- Question: "What's your daily learning goal?"
-- Options: "5 minutes 🌱" / "10 minutes ⚡" / "15 minutes 🔥"
-- Subtext: "We'll remind you when you're close to your goal"
-- "Next" → S-06
-
-### S-06 — Onboarding Q3: Notifications
-- Progress indicator: step 3 of 4
-- TTS reads screen text on entry
-- Title: "I'll remind you to practice so it becomes a habit"
-- Body: "Get a daily reminder so you never break your streak"
-- Button: "Allow Notifications" → POST_NOTIFICATIONS permission → S-07
-- Link: "Maybe later" → skip → S-07 (notificationsEnabled: false)
-
-### S-07 — Onboarding Q4: Starting Point
-- Progress indicator: step 4 of 4
+### S-05 — Onboarding Q1: ASL Level
+- Progress bar: step 1 of 4 (top)
+- Mascot top-left with speech bubble: "How much ASL do you know?"
 - TTS reads question on entry
-- Question: "Where would you like to start?"
-- Option A: "Start from scratch" → always available
-  - set startLessonId from Q1 → write Firestore → initLessons() → S-09
-- Option B: "Find my level" → hidden if Q1 == "none"
-  - navigate S-08
-- Subtext under "Find my level": "Answer 10 quick questions to find your starting point"
+- Radio option cards (full width, with signal bar icon like Duolingo):
+  - 📶 "I'm new to ASL"
+  - 📶 "I know some signs"
+  - 📶 "I know the alphabet"
+  - 📶 "I can have a basic ASL conversation"
+- Selected card highlights in app accent colour
+- "CONTINUE" button (disabled until selection made) → S-06
 
-### S-08 — Placement Test
-- No app bar; no back button
+### S-06 — Onboarding Q2: Daily Goal
+- Progress bar: step 2 of 4
+- Mascot with speech bubble: "What's your daily learning goal?"
+- TTS reads on entry
+- Option cards with right-aligned label:
+  - "5 min / day" — Casual
+  - "10 min / day" — Regular
+  - "15 min / day" — Serious
+  - "20 min / day" — Intense
+- "I'M COMMITTED" button (disabled until selected) → S-07
+
+### S-07 — Onboarding Q3: Notifications
+- Progress bar: step 3 of 4
+- Mascot with speech bubble: "I'll remind you to practice so it becomes a habit!"
+- System notification permission dialog triggered on button tap
+- Button: "REMIND ME TO PRACTICE" → request POST_NOTIFICATIONS → S-08
+- Small link: "Maybe later" → S-08 (notificationsEnabled: false)
+
+### S-08 — Onboarding: Achievement Preview
+- Progress bar: step 4 of 4
+- Mascot with speech bubble: "Here's what you can achieve!"
+- 3 feature highlights with icons:
+  - 🤟 "Sign with confidence — Learn every letter and number"
+  - ⚡ "Build your vocabulary — Fingerspell real words"
+  - 🔥 "Develop a habit — Streaks, quests, and daily goals"
+- Button: "CONTINUE" → S-09
+
+### S-09 — Onboarding Q4: Starting Point
+- Mascot with speech bubble: "Where would you like to start?"
+- Two large option cards:
+  - 📖 **"Start from scratch"** — "Take the easiest lesson of the ASL course"
+  - 🧭 **"Find my level"** *(RECOMMENDED badge)* — "Let me recommend where you should start"
+    - Hidden/disabled if Q1 = "I'm new to ASL"
+- "CONTINUE" button → routes based on selection
+- No progress bar (this is the last question)
+
+### S-10 — Placement Test
 - Header: "Let's find your level"
-- 10 items, Hard difficulty, no skip, no TTS prompts
-- No XP; no checkout
-- On complete: score → startLessonId → Firestore → S-09
-- Brief result shown: "You scored X/10 — starting you at [Section Name]"
+- Mascot small top-left
+- 10 random signs from entry section for Q1 answer
+- Practice-style session: Hard difficulty (5s), no skip, no TTS prompts
+- Progress bar shows items completed
+- No XP, no checkout after
+- On complete → navigate S-11
 
-### S-09 — Home
-- App bar: HiASL logo + XP counter "✦ 340 XP" + streak flame + settings icon
-- **Guest banner** (shown only if `isGuest == true`):
-  - Yellow bar below app bar: "You're in guest mode — Save your progress →"
-  - Taps to S-18 (Convert Guest Account)
-- Daily quest strip: horizontal scroll, 3 quest cards
+### S-11 — Placement Result
+- Celebration screen (coloured background like Duolingo image 20)
+- Mascot animated celebration
+- Text: "Since you know [Q1 answer], you should start with **[Section Name]**!"
+- Button: "LET'S GO" → initLessons(startLessonId) → S-12
+
+### S-12 — Streak Goal Selection
+- Mascot with speech bubble: "Let's commit to learning with a Streak Goal!"
+- Mascot + flame icon
+- Option cards with right-aligned reward:
+  - "7 days" — +100 XP bonus
+  - "14 days" — +250 XP bonus
+  - "30 days" — +500 XP bonus
+  - "50 days" — +1000 XP bonus
+- "COMMIT TO MY GOAL" button → write streakGoalDays to Firestore → S-13
+- Write `onboardingComplete: true` here
+
+### S-13 — Home
+- App bar: HiASL logo + XP counter "✦ 340 XP" + streak flame + leaderboard icon + settings icon
+- Daily quest strip: horizontal scroll, 3 quest cards below app bar
 - Body: collapsible section cards → lesson cards
   - locked (grey + 🔒) | available | completed (+ ✓)
 - TTS reads lesson title on tap
 
-### S-10 — Streak Page
-- Current streak (large + flame animation)
-- Longest streak
-- 30-day activity heatmap
+### S-14 — Streak Page
+- Large streak count + flame animation
+- Weekly calendar heatmap (dots)
+- Streak goal progress (e.g. "5 / 7 days toward your goal")
 - Motivational message
-- Back → S-09
+- Back → S-13
 
-### S-11 — Mode Select
+### S-15 — Mode Select
 - Lesson title + section name + sign count
 - "Learn" (always active)
 - "Practice" (disabled if lesson not completed)
-- Back → S-09
+- Back → S-13
 
-### S-12 — Learn Session
+### S-16 — Learn Session
 **Layout:** progress bar | 3D model (rotate/zoom) | sign label (TTS on load) | camera preview | feedback overlay
 
 **State machine:**
@@ -176,86 +213,114 @@ LOADING → camera activates; TTS reads sign name → DETECTING
 
 DETECTING
   ├── no hand / low confidence → show hint (no sound) → DETECTING
-  ├── incorrect → error sound + finger guidance + TTS guidance → DETECTING
+  ├── incorrect → error sound + finger guidance + TTS → DETECTING
   └── correct → success sound + TTS "Correct!" + XP sound → CORRECT
 
 CORRECT (1.5s)
   ├── more signs → load next; TTS reads name → DETECTING
-  └── last sign → navigate S-15 (checkout)
+  └── last sign → navigate S-19 (checkout)
 ```
 On exit: `RecognitionController.stopSession()`
 
-### S-13 — Practice Setup
-- Difficulty: Easy 🐢 (10s) / Medium ⚡ (7s) / Hard 🔥 (5s), default Easy
-- "Start Practice" → S-14
+### S-17 — Practice Setup
+- Difficulty: Easy 🐢 (10s) / Medium ⚡ (7s) / Hard 🔥 (5s)
+- Default: Easy
+- "Start Practice" → S-18
 
-### S-14 — Practice Session
-**Layout:** progress + score | "Sign: [LABEL]" prompt (TTS on load) | camera preview | timer bar + Skip
+### S-18 — Practice Session
+**Layout:** progress + score | "Sign: [LABEL]" (TTS on load) | camera preview | timer bar + Skip
 
 **State machine:**
 ```
-ITEM_START → TTS reads sign → timer starts → WAITING
-  ├── correct → success + TTS "Correct!" + XP → ✓ 0.8s → next
+ITEM_START → TTS reads sign → timer → WAITING
+  ├── correct → success + TTS + XP → ✓ 0.8s → next
   ├── timeout → error + TTS "Time's up" → ✗ 0.8s → next
   └── skip → timeout (no sound)
-SESSION_END → S-15
+SESSION_END → S-19
 ```
-No 3D model in Practice mode.
 
-### S-15 — Session Checkout
-- Fanfare + animation on entry
-- Animated XP counter 0 → earned; TTS "You earned N XP!"
-- Accuracy % (green ≥80%, amber ≥60%, red <60%)
-- Duration "⏱ 3 min 24 sec"
-- Streak row + "Streak extended! ✓" if applicable
-- 3 quest progress bars; completed quest → badge + TTS "Quest complete!" + XP sound
-- "Continue" → Learn: S-16 | Practice: S-09
-- "Try Again" (practice only) → S-13
-- Writes: practiceResult to Firestore, XP increment, streak update, quest progress
+### S-19 — Session Checkout
+Inspired by Duolingo image 15 — celebration layout.
 
-### S-16 — Learn Completion
+- Full screen, coloured background (accent colour)
+- Mascot animated (jumping/celebrating) at top
+- Title: "Amazing!" / "Learning legend!" / "Great work!" (random positive)
+- 3 stat cards in a row:
+  - 🟡 "TOTAL XP" — animated counter → earned XP
+  - 🟢 "ACCURACY" — percentage with label (AMAZING/GOOD/KEEP TRYING)
+  - 🔵 "TIME" — session duration (mm:ss) with label "COMMITTED"
+- Fanfare sound on entry
+- TTS: "You earned {N} XP!"
+- Button: "CLAIM XP" → animate XP into total → navigate:
+  - If streak extended today → S-21 (Streak Born)
+  - Else → S-22 (Quest Update)
+  - From Learn → eventually S-20
+  - From Practice → eventually S-13
+
+### S-20 — Learn Completion
 - "Lesson complete! 🎉"
-- Write status="completed"; unlock next lesson; trigger streak update
-- "Practice Now" → S-13 | "Back to Home" → S-09
+- Write status="completed"; unlock next lesson; trigger streak
+- "Practice Now" → S-17 | "Back to Home" → S-13
 
-### S-17 — Settings
-- Toggle: Text-to-Speech (default ON)
+### S-21 — Streak Born / Extended
+Inspired by Duolingo image 17.
+
+- Mascot hugging flame icon
+- Large number: current streak count
+- Text: "day streak" below number
+- Weekly calendar row (Tu/We/Th... dots, today checked ✓)
+- Message: "A streak is born! Practice every day to build a habit." (day 1)
+         OR "🔥 Keep it up! You're on a roll." (day 2+)
+- Button: "I'M COMMITTED" → S-22
+
+### S-22 — Daily Quest Update
+Inspired by Duolingo image 19.
+
+- Title: "Daily Quest update!" (in accent colour)
+- Shows updated quest card with progress bar
+- e.g. "Complete your next 2 lessons — 1/2 ●●○"
+- If quest just completed → show completion badge + TTS "Quest complete!"
+- Button: "CONTINUE" → S-20 (from learn) or S-13 (from practice)
+
+### S-23 — Settings
+- Toggle: TTS (default ON)
 - Toggle: Sound Effects (default ON)
 - Reminder time picker
-- Display Name edit
-- **"Save Account" button** (shown only if `isGuest == true`) → S-18
-- Logout button
-- Changes write to Firestore immediately
+- Streak goal change
+- "Back up my progress" → S-25 (Google Sign-In)
+- App version
 
-### S-18 — Convert Guest Account
-- Title: "Save your progress"
-- Body: "Create an account so you never lose your lessons, XP, or streak"
-- Option A: "Continue with Google" → link Google credential to anonymous account
-  - `FirebaseAuth.currentUser.linkWithCredential(GoogleAuthProvider.credential)`
-  - On success: update user doc (`isGuest: false`, set email + displayName from Google)
-  - Navigate back to S-09; dismiss guest banner
-- Option B: Email + Password fields → "Create Account"
-  - `linkWithCredential(EmailAuthProvider.credential)`
-  - On success: update user doc → S-09
-- "Not now" link → back to S-09 (data is preserved; still guest)
-- All existing Firestore data (lessons, XP, streak) is preserved — same UID throughout
+### S-24 — Leaderboard (Login-Gated)
+- Blurred/locked preview of leaderboard rankings
+- Overlay: "Login to join the leaderboard"
+- Button: "CONTINUE WITH GOOGLE" → S-25
+- Back → S-13
+
+### S-25 — Google Sign-In (Social Unlock)
+- Shown only when user wants social features or backup
+- Title: "Save your progress & join the leaderboard"
+- Button: "Continue with Google"
+  - `currentUser.linkWithCredential(GoogleAuthProvider)`
+  - Update Firestore: `isAnonymous: false`, set email + displayName
+  - On success: navigate back to where user came from
+- "Not now" → back
 
 ---
 
 ## State Management
 
-| State | Provider / Controller |
+| State | Provider |
 |---|---|
-| Auth state | `FirebaseAuth.authStateChanges()` stream, top-level |
+| Auth state | `FirebaseAuth.authStateChanges()` top-level |
 | User profile + settings | `UserProvider` — streams Firestore user doc |
-| Onboarding | `OnboardingController` — ephemeral; batch-writes on complete |
+| Onboarding answers | `OnboardingController` — ephemeral, batch write on S-12 |
 | Lesson list + progress | `LessonProvider` — streams lessons subcollection |
-| Daily quests | `QuestProvider` — reads/writes dailyQuests/{today} |
-| Streak | `StreakProvider` — reads/writes user doc streak fields |
-| XP | `XpProvider` — increments user doc totalXp |
+| Daily quests | `QuestProvider` |
+| Streak + streak goal | `StreakProvider` |
+| XP | `XpProvider` |
 | Learn session | `LearnSessionController` — ephemeral |
 | Practice session | `PracticeSessionController` — ephemeral |
-| Checkout data | `CheckoutData` — nav argument to S-15 |
+| Checkout data | `CheckoutData` — nav argument |
 | Recognition | `RecognitionController` — Stream<RecognitionResult> |
 | TTS | `TtsService` — singleton |
 | Sound | `SoundService` — singleton |
@@ -275,7 +340,7 @@ class RecognitionResult {
   final String label;
   final double confidence;
   final bool handDetected;
-  final List<double> landmarks; // 63 floats
+  final List<double> landmarks;
 }
 ```
 

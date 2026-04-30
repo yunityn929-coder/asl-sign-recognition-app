@@ -1,0 +1,73 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
+
+class OnboardingState {
+  final String aslLevel;
+  final int dailyGoalMinutes;
+  final bool notificationsEnabled;
+  final String startingPoint;
+  final int streakGoalDays;
+
+  const OnboardingState({
+    this.aslLevel = '',
+    this.dailyGoalMinutes = 5,
+    this.notificationsEnabled = false,
+    this.startingPoint = 'scratch',
+    this.streakGoalDays = 7,
+  });
+
+  OnboardingState copyWith({
+    String? aslLevel,
+    int? dailyGoalMinutes,
+    bool? notificationsEnabled,
+    String? startingPoint,
+    int? streakGoalDays,
+  }) =>
+      OnboardingState(
+        aslLevel: aslLevel ?? this.aslLevel,
+        dailyGoalMinutes: dailyGoalMinutes ?? this.dailyGoalMinutes,
+        notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+        startingPoint: startingPoint ?? this.startingPoint,
+        streakGoalDays: streakGoalDays ?? this.streakGoalDays,
+      );
+}
+
+class OnboardingController extends StateNotifier<OnboardingState> {
+  OnboardingController(this._firestore, this._uid) : super(const OnboardingState());
+
+  final FirestoreService _firestore;
+  final String _uid;
+
+  void setAslLevel(String level) => state = state.copyWith(aslLevel: level);
+  void setDailyGoal(int minutes) => state = state.copyWith(dailyGoalMinutes: minutes);
+  void setNotifications(bool enabled) => state = state.copyWith(notificationsEnabled: enabled);
+  void setStartingPoint(String point) => state = state.copyWith(startingPoint: point);
+  void setStreakGoal(int days) => state = state.copyWith(streakGoalDays: days);
+
+  Future<void> initLessons(String startLessonId) async {
+    if (_uid.isEmpty) return;
+    await _firestore.initLessons(_uid, startLessonId);
+  }
+
+  Future<void> complete(String startLessonId) async {
+    if (_uid.isEmpty) return;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    await _firestore.updateUser(_uid, {
+      'aslLevel': state.aslLevel,
+      'dailyGoalMinutes': state.dailyGoalMinutes,
+      'notificationsEnabled': state.notificationsEnabled,
+      'startLessonId': startLessonId,
+      'streakGoalDays': state.streakGoalDays,
+      'streakGoalStartDate': today,
+      'onboardingComplete': true,
+    });
+  }
+}
+
+final onboardingControllerProvider =
+    StateNotifierProvider<OnboardingController, OnboardingState>((ref) {
+  final uid = ref.read(authServiceProvider).currentUser?.uid ?? '';
+  return OnboardingController(ref.read(firestoreServiceProvider), uid);
+});

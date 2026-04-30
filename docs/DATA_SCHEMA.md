@@ -217,24 +217,20 @@ const kXpQuestBonus     = 30;    // per completed quest
 ```
 
 ### Sign Label Map (TFLite class index → label)
-⚠️ Confirm this order from `keypoint_classifier_label.csv` after retraining.
-Update this map to match your actual CSV before writing RecognitionController.
-
 ```
 0→A, 1→B, 2→C, 3→D, 4→E, 5→F, 6→G, 7→H, 8→I, 9→J,
 10→K, 11→L, 12→M, 13→N, 14→O, 15→P, 16→Q, 17→R, 18→S, 19→T,
 20→U, 21→V, 22→W, 23→X, 24→Y, 25→Z,
 26→0, 27→1, 28→2, 29→3, 30→4, 31→5, 32→6, 33→7, 34→8, 35→9
 ```
-Also copy CSV to `assets/models/keypoint_classifier_label.csv` — one label per line.
+Also in `assets/models/label_map.txt`, one label per line.
 
 ### Finger-State Target Map
 Finger order: `[thumb, index, middle, ring, pinky]`
 States: `"extended"` | `"curled"` | `"any"`
 
-Extended = tip.y < pip.y (normalised x,y coords — z not used)
+Extended = tip.y < pip.y (normalised coords)
 Curled   = tip.y > pip.y
-Only x and y values used from MediaPipe output — drop z before processing.
 
 ```dart
 const kSignFingerStates = {
@@ -331,3 +327,56 @@ authProvider: String,   // "google" | "email" | "anonymous"
 - All Firestore data under `users/{uid}/` is automatically preserved (same path)
 - After conversion: update user doc fields: `isGuest: false`, `authProvider: "google"` or `"email"`, set `email` + `displayName` from new credential
 - No data migration needed — UID does not change
+
+---
+## Amendment — No-Login-First + Streak Goal (appended)
+
+### users/{uid} — Additional/Changed Fields
+
+```dart
+// Auth
+isAnonymous: bool,          // true until Google Sign-In linked
+authProvider: String,       // "anonymous" | "google"
+
+// Streak Goal (new — set during onboarding S-12)
+streakGoalDays: int,        // 7 | 14 | 30 | 50
+streakGoalStartDate: String, // "YYYY-MM-DD" when goal was set
+streakGoalAchieved: bool,   // true when currentStreak >= streakGoalDays
+```
+
+### createUser() — anonymous flow
+```dart
+// Called silently on first launch (no UI)
+{
+  displayName: "Learner",   // default until onboarding complete
+  isAnonymous: true,
+  authProvider: "anonymous",
+  onboardingComplete: false,
+  streakGoalDays: 7,        // default, updated in S-12
+  streakGoalStartDate: "",
+  streakGoalAchieved: false,
+  // all other fields same as before
+}
+```
+
+### Streak Goal XP Rewards
+```dart
+const kStreakGoalXp = {
+  7:  100,
+  14: 250,
+  30: 500,
+  50: 1000,
+};
+```
+
+### Checkout Screen Labels (for accuracy display)
+```dart
+// accuracyPercent → label
+≥ 90% → "AMAZING"
+≥ 70% → "GREAT"
+≥ 50% → "GOOD"
+< 50%  → "KEEP TRYING"
+```
+
+### Mascot Name
+The HiASL mascot is named **"Hani"** — used in all speech bubbles throughout onboarding.

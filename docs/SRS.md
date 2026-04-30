@@ -257,3 +257,51 @@ SECTION 4 — Mixed Review & Mastery
 1. Google Sign-In (top, largest button)
 2. Guest / Anonymous (second button)
 3. Email Log In / Sign Up (below divider, tab-toggled)
+
+---
+## Amendment — No-Login-First Approach (appended)
+
+### Core Philosophy Change
+Users access the full app immediately with no login required.
+Firebase Anonymous Auth runs silently in the background on first launch.
+Login (Google) is only required for social/leaderboard features.
+
+### Revised Authentication FRs
+
+| ID | Requirement | Acceptance Criteria |
+|---|---|---|
+| FR-01 | Silent anonymous auth on first launch | `FirebaseAuth.signInAnonymously()` called automatically; user sees nothing |
+| FR-01b | Google Sign-In | Available only when user taps a locked social feature |
+| FR-01c | Email Sign-Up/Login | Removed — not needed |
+| FR-02 | Account linking | Anonymous → Google via `linkWithCredential()`; all progress preserved |
+| FR-02b | No forced login screen | App never shows login screen unless user taps a social feature |
+
+### Welcome Screens (NEW)
+| ID | Requirement | Acceptance Criteria |
+|---|---|---|
+| FR-60 | Welcome screens shown on first launch only | 2-3 swipeable illustration screens before onboarding |
+| FR-61 | Welcome screen 1 | "Welcome to HiASL" + app tagline + illustration |
+| FR-62 | Welcome screen 2 | "Learn ASL at your own pace" + feature highlights |
+| FR-63 | Welcome screen 3 | "Track your progress every day" + streak/XP preview |
+| FR-64 | "Get Started" button on last welcome screen | Navigates to onboarding Q&A |
+| FR-65 | Skip button on welcome screens | Skips to onboarding Q&A |
+
+### Social / Leaderboard (Login Gate)
+| ID | Requirement | Acceptance Criteria |
+|---|---|---|
+| FR-66 | Leaderboard screen exists but is login-gated | Shows preview with blur/lock; "Login to join" button |
+| FR-67 | Tapping "Login to join" → Google Sign-In flow | Links anonymous account to Google; unlocks leaderboard |
+| FR-68 | All other features work without login | Lessons, practice, XP, streak, quests — fully local via anonymous Firebase |
+
+### Storage Strategy
+- **Primary:** Firebase Firestore via anonymous UID (same as before)
+- **No SQLite** — single storage system only
+- **Anonymous UID persists** across app restarts automatically
+- **Data survives** app reinstall only if user has linked Google account
+- **Unlinked anonymous data** is lost on reinstall — acceptable trade-off for zero-friction onboarding
+- Add subtle "Back up your progress" nudge in Settings after 7 days of activity
+
+### Out of Scope (removed)
+- Email/password registration and login — removed entirely
+- Guest banner — replaced by silent anonymous approach (no banner needed)
+- S-18 Convert Guest Account screen — replaced by inline login gate on leaderboard

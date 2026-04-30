@@ -15,8 +15,11 @@ class UserModel {
   final int totalXp;
   final bool ttsEnabled;
   final bool soundEnabled;
-  final bool isGuest;
+  final bool isAnonymous;
   final String authProvider;
+  final int streakGoalDays;
+  final String streakGoalStartDate;
+  final bool streakGoalAchieved;
 
   const UserModel({
     required this.uid,
@@ -35,11 +38,15 @@ class UserModel {
     required this.totalXp,
     required this.ttsEnabled,
     required this.soundEnabled,
-    required this.isGuest,
+    required this.isAnonymous,
     required this.authProvider,
+    required this.streakGoalDays,
+    required this.streakGoalStartDate,
+    required this.streakGoalAchieved,
   });
 
   UserModel copyWith({
+    String? email,
     String? displayName,
     String? lastActiveDate,
     bool? onboardingComplete,
@@ -53,9 +60,11 @@ class UserModel {
     int? totalXp,
     bool? ttsEnabled,
     bool? soundEnabled,
-    bool? isGuest,
+    bool? isAnonymous,
     String? authProvider,
-    String? email,
+    int? streakGoalDays,
+    String? streakGoalStartDate,
+    bool? streakGoalAchieved,
   }) =>
       UserModel(
         uid: uid,
@@ -74,8 +83,11 @@ class UserModel {
         totalXp: totalXp ?? this.totalXp,
         ttsEnabled: ttsEnabled ?? this.ttsEnabled,
         soundEnabled: soundEnabled ?? this.soundEnabled,
-        isGuest: isGuest ?? this.isGuest,
+        isAnonymous: isAnonymous ?? this.isAnonymous,
         authProvider: authProvider ?? this.authProvider,
+        streakGoalDays: streakGoalDays ?? this.streakGoalDays,
+        streakGoalStartDate: streakGoalStartDate ?? this.streakGoalStartDate,
+        streakGoalAchieved: streakGoalAchieved ?? this.streakGoalAchieved,
       );
 
   factory UserModel.fromMap(String uid, Map<String, dynamic> map) => UserModel(
@@ -85,7 +97,7 @@ class UserModel {
         createdAt: map['createdAt'] as String? ?? '',
         lastActiveDate: map['lastActiveDate'] as String? ?? '',
         onboardingComplete: map['onboardingComplete'] as bool? ?? false,
-        aslLevel: map['aslLevel'] as String? ?? 'none',
+        aslLevel: map['aslLevel'] as String? ?? '',
         dailyGoalMinutes: (map['dailyGoalMinutes'] as num?)?.toInt() ?? 5,
         notificationsEnabled: map['notificationsEnabled'] as bool? ?? false,
         startLessonId: map['startLessonId'] as String? ?? 's1l1',
@@ -95,8 +107,11 @@ class UserModel {
         totalXp: (map['totalXp'] as num?)?.toInt() ?? 0,
         ttsEnabled: map['ttsEnabled'] as bool? ?? true,
         soundEnabled: map['soundEnabled'] as bool? ?? true,
-        isGuest: map['isGuest'] as bool? ?? false,
-        authProvider: map['authProvider'] as String? ?? 'email',
+        isAnonymous: map['isAnonymous'] as bool? ?? true,
+        authProvider: map['authProvider'] as String? ?? 'anonymous',
+        streakGoalDays: (map['streakGoalDays'] as num?)?.toInt() ?? 7,
+        streakGoalStartDate: map['streakGoalStartDate'] as String? ?? '',
+        streakGoalAchieved: map['streakGoalAchieved'] as bool? ?? false,
       );
 
   Map<String, dynamic> toMap() => {
@@ -115,7 +130,10 @@ class UserModel {
         'totalXp': totalXp,
         'ttsEnabled': ttsEnabled,
         'soundEnabled': soundEnabled,
-        'isGuest': isGuest,
+        'isAnonymous': isAnonymous,
         'authProvider': authProvider,
+        'streakGoalDays': streakGoalDays,
+        'streakGoalStartDate': streakGoalStartDate,
+        'streakGoalAchieved': streakGoalAchieved,
       };
 }

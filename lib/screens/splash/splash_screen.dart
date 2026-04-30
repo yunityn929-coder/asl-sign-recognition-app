@@ -1,18 +1,16 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/route_constants.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
 
-// S-01 — Splash / Auth Gate
-// Shows logo for ~1.5s, then:
-//   - no user         → /login
-//   - user, no onboarding → /onboarding/level
-//   - user, onboarding done → /home
-// TODO (Feature 2+): replace _checkOnboarding() body with FirestoreService call
-//   so onboardingComplete is read from Firestore, not hardcoded to false.
-
+// S-01 — Splash
+// 1. Show logo ~1.5s
+// 2. AuthService.signInSilently()
+// 3. FirestoreService.createUser() if first launch
+// 4. Read onboardingComplete → route to /welcome/brand or /home
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -24,29 +22,37 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _route());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
   }
 
-  Future<void> _route() async {
+  Future<void> _init() async {
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final authService = ref.read(authServiceProvider);
+    final firestoreService = ref.read(firestoreServiceProvider);
 
-    if (user == null) {
-      context.go(kRouteLogin);
+    late String uid;
+    try {
+      final user = await authService.signInSilently();
+      uid = user.uid;
+    } catch (_) {
+      if (!mounted) return;
+      context.go(kRouteWelcomeBrand);
       return;
     }
-
-    final onboardingComplete = await _checkOnboarding(user.uid);
     if (!mounted) return;
 
-    context.go(onboardingComplete ? kRouteHome : kRouteOnboardingLevel);
-  }
-
-  // Returns false until FirestoreService is wired in Feature 2.
-  Future<bool> _checkOnboarding(String uid) async {
-    return false;
+    try {
+      await firestoreService.createUser(uid);
+      final userModel = await firestoreService.getUserOnce(uid);
+      if (!mounted) return;
+      final onboardingComplete = userModel?.onboardingComplete ?? false;
+      context.go(onboardingComplete ? kRouteHome : kRouteWelcomeBrand);
+    } catch (_) {
+      if (!mounted) return;
+      context.go(kRouteWelcomeBrand);
+    }
   }
 
   @override
@@ -56,10 +62,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'HiASL',
-              style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-            ),
+            Text('HiASL', style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
             SizedBox(height: 24),
             CircularProgressIndicator(),
           ],

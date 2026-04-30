@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// S-18 — Convert Guest Account
-class RegisterScreen extends ConsumerWidget {
-  const RegisterScreen({super.key});
+// S-24 — Leaderboard (login-gated)
+class LeaderboardScreen extends ConsumerWidget {
+  const LeaderboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return const Scaffold(
-      body: Center(child: Text('Convert Guest Account — TODO')),
+      body: Center(child: Text('Leaderboard — TODO')),
     );
   }
 }
