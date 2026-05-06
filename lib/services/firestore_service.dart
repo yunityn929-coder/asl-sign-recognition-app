@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/errors/app_exception.dart';
 import '../data/lesson_definitions.dart';
+import '../models/lesson_model.dart';
 import '../models/user_model.dart';
 
 class FirestoreService {
@@ -37,6 +38,9 @@ class FirestoreService {
         'streakGoalAchieved': false,
       });
     } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw FirestorePermissionException('Permission denied. Deploy Firestore security rules.');
+      }
       throw FirestoreException(e.message ?? 'Failed to create user');
     }
   }
@@ -59,8 +63,29 @@ class FirestoreService {
     try {
       await _db.collection('users').doc(uid).update(fields);
     } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw FirestorePermissionException('Permission denied. Deploy Firestore security rules.');
+      }
       throw FirestoreException(e.message ?? 'Failed to update user');
     }
+  }
+
+  Stream<List<LessonModel>> watchLessons(String uid) =>
+      _db.collection('users').doc(uid).collection('lessons').snapshots().map(
+            (snap) => snap.docs
+                .map((d) => LessonModel.fromMap(_normaliseLesson(d.data())))
+                .toList(),
+          );
+
+  Map<String, dynamic> _normaliseLesson(Map<String, dynamic> raw) {
+    final map = Map<String, dynamic>.from(raw);
+    if (map['completedAt'] is Timestamp) {
+      map['completedAt'] =
+          (map['completedAt'] as Timestamp).toDate().toIso8601String().substring(0, 10);
+    } else if (map['completedAt'] == null) {
+      map.remove('completedAt');
+    }
+    return map;
   }
 
   // Writes lesson docs for all lessons; marks lessons before startLessonId as

@@ -3,14 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../core/constants/xp_constants.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/speech_bubble.dart';
-
-const _kDarkBg = Color(0xFF1A1A2E);
 
 const _kGoalOptions = [7, 14, 30, 50];
 
@@ -53,7 +52,7 @@ class _StreakGoalScreenState extends ConsumerState<StreakGoalScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kDarkBg,
+      backgroundColor: AppColors.backgroundPrimary,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -68,7 +67,8 @@ class _StreakGoalScreenState extends ConsumerState<StreakGoalScreen> {
                   Icon(Icons.local_fire_department, color: Colors.orange, size: 32),
                   SizedBox(width: 8),
                   Flexible(
-                    child: SpeechBubble(text: "Let's commit to learning with a Streak Goal!"),
+                    child: SpeechBubble(
+                        text: "Let's commit to learning with a Streak Goal!"),
                   ),
                 ],
               ),
@@ -117,7 +117,6 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -125,9 +124,18 @@ class _GoalCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? primary.withValues(alpha: 0.18) : Colors.white10,
-          border: Border.all(color: selected ? primary : Colors.white24, width: selected ? 2 : 1),
-          borderRadius: BorderRadius.circular(12),
+          color: selected ? AppColors.primarySoft : AppColors.backgroundCard,
+          border: selected ? Border.all(color: AppColors.primary, width: 2) : null,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: selected
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: Row(
           children: [
@@ -136,13 +144,20 @@ class _GoalCard extends StatelessWidget {
             Expanded(
               child: Text(
                 '$days days',
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600),
               ),
             ),
-            Text('+$xpBonus XP', style: TextStyle(color: selected ? primary : Colors.white54, fontSize: 14, fontWeight: FontWeight.bold)),
+            Text('+$xpBonus XP',
+                style: TextStyle(
+                    color: selected ? AppColors.primary : AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold)),
             if (selected) ...[
               const SizedBox(width: 8),
-              Icon(Icons.check_circle, color: primary, size: 20),
+              const Icon(Icons.check_circle, color: AppColors.primary, size: 20),
             ],
           ],
         ),

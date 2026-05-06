@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/constants/app_colors.dart';
+
 class AppButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -19,21 +21,21 @@ class AppButton extends StatelessWidget {
         onPressed: onPressed,
         child: Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
+          style: const TextStyle(color: AppColors.primary, fontSize: 14),
         ),
       );
     }
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 54,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          disabledBackgroundColor: Colors.white24,
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white38,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: AppColors.primary,
+          disabledBackgroundColor: AppColors.primarySoft,
+          foregroundColor: AppColors.textOnDark,
+          disabledForegroundColor: AppColors.textSecondary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 2,
         ),
         child: Text(

@@ -3,14 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/progress_step_indicator.dart';
 import '../../widgets/speech_bubble.dart';
-
-const _kDarkBg = Color(0xFF1A1A2E);
 
 const _kGoals = [
   (5,  'Casual'),
@@ -44,12 +43,12 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
     final ctrl = ref.read(onboardingControllerProvider.notifier);
 
     return Scaffold(
-      backgroundColor: _kDarkBg,
+      backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => context.go(kRouteOnboardingLevel),
         ),
       ),
@@ -118,7 +117,6 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -126,21 +124,35 @@ class _GoalCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? primary.withValues(alpha: 0.18) : Colors.white10,
-          border: Border.all(color: selected ? primary : Colors.white24, width: selected ? 2 : 1),
-          borderRadius: BorderRadius.circular(12),
+          color: selected ? AppColors.primarySoft : AppColors.backgroundCard,
+          border: selected ? Border.all(color: AppColors.primary, width: 2) : null,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: selected
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: Row(
           children: [
-            const Icon(Icons.timer_outlined, color: Colors.white54, size: 20),
+            Icon(Icons.timer_outlined,
+                color: selected ? AppColors.primary : AppColors.textSecondary, size: 20),
             const SizedBox(width: 12),
             Expanded(
-              child: Text('$minutes min / day', style: const TextStyle(color: Colors.white, fontSize: 15)),
+              child: Text('$minutes min / day',
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 15)),
             ),
-            Text(label, style: TextStyle(color: selected ? primary : Colors.white54, fontSize: 13)),
+            Text(label,
+                style: TextStyle(
+                    color: selected ? AppColors.primary : AppColors.textSecondary,
+                    fontSize: 13)),
             if (selected) ...[
               const SizedBox(width: 8),
-              Icon(Icons.check_circle, color: primary, size: 20),
+              const Icon(Icons.check_circle, color: AppColors.primary, size: 20),
             ],
           ],
         ),

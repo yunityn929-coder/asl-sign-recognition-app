@@ -6,7 +6,7 @@
 |---|---|---|
 | Flutter | Latest stable | Dart, null-safe |
 | Dart | Latest stable | |
-| Android SDK | API 29+ (Android 10) | Target API 34+ |
+| Android SDK | API 26+ min, Target API 34+ | tflite_flutter requires min SDK 26 |
 
 ---
 
@@ -16,10 +16,7 @@
 | Package | Purpose | Notes |
 |---|---|---|
 | `camera` | Live camera feed | Use for CameraPreview widget |
-| `google_mlkit_commons` | MLKit base dependency | Required |
-| `tflite_flutter` | Run `.tflite` model on-device | Input tensor [1,63]; load from assets |
-
-> MediaPipe Hands integration: use platform channel (MethodChannel) to call native MediaPipe Android SDK if no stable Flutter plugin is available. Alternatively use `google_mlkit_pose_detection` as fallback for hand landmarks.
+| `tflite_flutter` | Run `.tflite` model on-device | Input tensor [1,42]; load from assets |
 
 ### 3D Rendering
 | Package | Purpose | Notes |
@@ -30,29 +27,51 @@
 | Package | Purpose |
 |---|---|
 | `firebase_core` | Firebase init |
-| `firebase_auth` | Email/password auth |
+| `firebase_auth` | Anonymous + Google auth |
 | `cloud_firestore` | All persistent data |
-| `firebase_messaging` | Push notifications (daily reminders) |
+
+### Auth
+| Package | Purpose | Notes |
+|---|---|---|
+| `google_sign_in` | Google OAuth | Only used for social/leaderboard unlock (S-25) |
 
 ### Audio
 | Package | Purpose | Notes |
 |---|---|---|
-| `flutter_tts` | Text-to-speech | Call `speak()` async; does not block UI |
-| `audioplayers` | Sound effects | Preload `.mp3` assets on app start |
+| `flutter_tts` | Text-to-speech | Call speak() async; never blocks UI |
+| `audioplayers` | Sound effects | Preload all .mp3 assets on app start |
 
 ### Notifications
 | Package | Purpose | Notes |
 |---|---|---|
-| `flutter_local_notifications` | Schedule daily reminder notification | Trigger at user's reminder time if no activity today |
-| `permission_handler` | Request POST_NOTIFICATIONS + camera permissions | Use for both |
-| `timezone` | Timezone-aware notification scheduling | Required by flutter_local_notifications |
+| `flutter_local_notifications` | Daily reminder | Trigger at 19:00 if no activity today |
+| `permission_handler` | Camera + POST_NOTIFICATIONS | Used in onboarding S-07 |
+| `timezone` | Timezone-aware scheduling | Required by flutter_local_notifications |
 
 ### Navigation & State
 | Package | Purpose |
 |---|---|
-| `go_router` | Named routes + navigation |
-| `riverpod` (or `provider`) | State management — use Riverpod preferred |
-| `shared_preferences` | Local cache for lightweight session data |
+| `go_router` | Named routes + navigation (25 routes) |
+| `flutter_riverpod` | State management |
+| `shared_preferences` | Lightweight local cache |
+
+---
+
+## Confirmed Model Specifications
+
+| Property | Value |
+|---|---|
+| Model file | `assets/models/keypoint_classifier.tflite` |
+| Label file | `assets/models/keypoint_classifier_label.csv` |
+| Input shape | `[1, 42]` — 21 landmarks x (x,y) only, z dropped |
+| Output classes | 26 — A-Z alphabet only |
+| Label order | A=0, B=1, C=2 ... Z=25 |
+| Confidence threshold | 0.85 — below this show low-detection hint |
+| Training samples | 142,082 landmark vectors |
+| Dataset | grassknoted ASL Alphabet via Kaggle |
+| Weakest classes | M (4,391 samples), N (3,392 samples) |
+
+Numbers (0-9): OUT OF SCOPE — no suitable landmark dataset. Future work.
 
 ---
 
@@ -61,90 +80,83 @@
 ```
 assets/
 ├── models/
-│   ├── asl_classifier.tflite
-│   ├── label_map.txt               # one label per line, index = class
+│   ├── keypoint_classifier.tflite
+│   ├── keypoint_classifier_label.csv   # one label per line, A-Z
 │   └── 3d/
-│       ├── sign_A.glb
-│       ├── sign_B.glb  ... sign_Z.glb
-│       └── sign_0.glb  ... sign_9.glb
+│       ├── sign_A.glb ... sign_Z.glb
 ├── audio/
-│   ├── success.mp3                 # correct attempt chime
-│   ├── error.mp3                   # incorrect attempt tone
-│   ├── fanfare.mp3                 # session checkout celebration
-│   └── xp_gain.mp3                 # XP awarded sparkle
+│   ├── success.mp3
+│   ├── error.mp3
+│   ├── fanfare.mp3
+│   └── xp_gain.mp3
 └── images/
-    └── (UI icons, onboarding illustrations)
+    ├── mascot_wave.png       # S-02
+    ├── mascot_speech.png     # onboarding Q screens
+    ├── mascot_excited.png    # S-04
+    ├── mascot_celebrate.png  # S-19, S-11
+    ├── mascot_streak.png     # S-21
+    ├── mascot_commit.png     # S-12
+    └── flame.png
 ```
+
+---
+
+## Auth Flow
+
+### First launch — silent, no UI
+```dart
+await FirebaseAuth.instance.signInAnonymously();
+// Create Firestore user doc with isAnonymous: true
+```
+
+### Social unlock only (S-25)
+```dart
+final googleUser = await GoogleSignIn().signIn();
+final credential = GoogleAuthProvider.credential(...);
+await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
+// Update Firestore: isAnonymous: false, authProvider: "google"
+```
+
+No email/password auth. No login screen. Anonymous-first.
 
 ---
 
 ## Gesture Recognition Pipeline
 
 ### Input
-- MediaPipe Hands → 21 landmarks × 3 (x,y,z) = **63 floats**
-- Normalise all values relative to wrist (landmark index 0) before model input
-- Input tensor shape: `[1, 63]`
+- MediaPipe Hands: 21 landmarks x 2 (x,y only — z dropped) = 42 floats
+- Normalise relative to wrist (landmark index 0)
+- Input tensor: `[1, 42]`
+- Based on kinivi/hand-gesture-recognition-mediapipe, retrained on ASL data
 
 ### Output
-- Softmax probabilities over 36 classes (A–Z, 0–9)
-- Class order → `assets/models/label_map.txt`
-- Confidence threshold: **0.85** — below this, treat as `handDetected: true` but label uncertain → show hint (FR-17)
+- Softmax over 26 classes (A-Z)
+- Confidence < 0.85 → emit as uncertain → show hint (FR-17)
 
-### Session Control (FR-14)
-- `RecognitionController.startSession()` called once on screen entry
-- `stopSession()` called on screen exit (dispose)
+### Session Control
+- startSession() once on screen entry
+- stopSession() in dispose()
 - Never start/stop per attempt
 
-### Finger-State Feedback (FR-10)
-- Use raw landmark positions, NOT the TFLite model
-- Extended: `tip.y < pip.y` (normalised)
-- Curled: `tip.y > pip.y`
-- Compare to `kSignFingerStates` in DATA_SCHEMA.md
+### Finger-State Feedback
+- Uses raw landmarks, NOT TFLite model
+- Extended: tip.y < pip.y
+- Curled: tip.y > pip.y
 - Report first mismatching finger only
 
 ---
 
-## TTS Usage Pattern
+## TTS Pattern
 ```dart
-// In any screen that shows a sign label or prompt:
-@override
 void initState() {
-  super.initState();
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (ttsService.enabled) ttsService.speak(signLabel);
+    if (ttsService.enabled) ttsService.speak(label);
   });
 }
-// On sign change:
 void onNextSign(String label) {
-  ttsService.stop();  // cancel any in-progress speech
+  ttsService.stop();
   ttsService.speak(label);
 }
-```
-TTS must run async — never await in build or gesture handlers.
-
-## Sound Effects Usage Pattern
-```dart
-// Preload on app start (in main.dart or SoundService init):
-await soundService.preloadAll();
-
-// In session logic:
-onCorrect: () {
-  soundService.playSuccess();   // non-blocking
-  ttsService.speak("Correct!"); // non-blocking
-  xpService.award(xpAmount);
-  soundService.playXpGain();
-}
-```
-
----
-
-## Notification Setup
-```dart
-// Schedule daily reminder (called after onboarding if permission granted):
-// 1. Use flutter_local_notifications + timezone
-// 2. Schedule repeating daily notification at user's chosen time (default 19:00)
-// 3. Before showing: check if lastStreakDate == today → cancel if already practiced
-// 4. Notification payload: 'daily_reminder' → on tap, open app to Home
 ```
 
 ---
@@ -152,106 +164,26 @@ onCorrect: () {
 ## Performance Targets
 | Metric | Target |
 |---|---|
-| Recognition feedback latency | ≤ 1000ms end-to-end |
+| Feedback latency | ≤ 1000ms |
 | Camera framerate | ≥ 15fps |
-| TFLite inference | ≤ 50ms per frame |
-| TTS response (speak called → audio starts) | ≤ 300ms |
-| Sound effect trigger → playback | ≤ 100ms |
+| TFLite inference | ≤ 50ms |
+| TTS response | ≤ 300ms |
+| Sound playback | ≤ 100ms |
 
 ---
 
 ## Firebase Config
-- `google-services.json` → `android/app/`
-- Enable: Email/Password Auth, Firestore, Firebase Cloud Messaging
+- google-services.json → android/app/
+- Enable: Anonymous Auth, Google Auth, Firestore
+- SHA-1 debug fingerprint in Firebase Console
+- android/app/build.gradle.kts: minSdk = 26, isCoreLibraryDesugaringEnabled = true
 - Firestore rules: see DATA_SCHEMA.md
 
 ## What NOT to Use
 - No custom REST API or cloud functions
 - No image upload or cloud inference
-- No `tflite` (deprecated) — use `tflite_flutter` only
-- No ARCore/ARKit — 3D via `flutter_3d_controller` only
-- No `just_audio` (licence constraints) — use `audioplayers`
-
----
-## Amendment — Quick Auth Packages (appended)
-
-### Authentication
-| Package | Purpose | Notes |
-|---|---|---|
-| `google_sign_in` | Google OAuth flow | Pairs with `firebase_auth` `GoogleAuthProvider.credential` |
-| `firebase_auth` | All auth methods | Handles email, Google, and anonymous sign-in |
-
-### Auth Implementation Notes
-
-**Google Sign-In flow:**
-```dart
-final googleUser = await GoogleSignIn().signIn();
-final googleAuth = await googleUser!.authentication;
-final credential = GoogleAuthProvider.credential(
-  accessToken: googleAuth.accessToken,
-  idToken: googleAuth.idToken,
-);
-await FirebaseAuth.instance.signInWithCredential(credential);
-```
-
-**Anonymous Sign-In flow:**
-```dart
-await FirebaseAuth.instance.signInAnonymously();
-// Then create Firestore user doc with isGuest: true
-```
-
-**Guest → Google conversion flow:**
-```dart
-final credential = GoogleAuthProvider.credential(...); // from google_sign_in
-await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
-// Then update Firestore doc: isGuest=false, authProvider="google"
-```
-
-**Guest → Email conversion flow:**
-```dart
-final credential = EmailAuthProvider.credential(email: email, password: password);
-await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
-// Then update Firestore doc: isGuest=false, authProvider="email"
-```
-
-**New user detection (Google Sign-In):**
-```dart
-final result = await FirebaseAuth.instance.signInWithCredential(credential);
-if (result.additionalUserInfo?.isNewUser == true) {
-  await FirestoreService.createUser(...); // only for new users
-}
-```
-
-**Required: add to android/app/build.gradle**
-SHA-1 fingerprint must be registered in Firebase Console for Google Sign-In to work.
-
----
-## Amendment — No-Login-First Auth (appended)
-
-### Removed packages
-- `google_sign_in` is now OPTIONAL — only needed if user taps social/leaderboard feature
-- Email/password auth removed entirely — no signup form needed
-
-### Auth flow change
-```dart
-// On first app launch (S-01 Splash) — silent, no UI:
-await FirebaseAuth.instance.signInAnonymously();
-// Then create user doc in Firestore with isAnonymous: true
-
-// Only when user wants social features (S-25):
-final googleUser = await GoogleSignIn().signIn();
-final credential = GoogleAuthProvider.credential(...);
-await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
-// Update Firestore: isAnonymous: false, authProvider: "google"
-```
-
-### New screen assets needed
-- Mascot illustrations (Hani) in multiple poses:
-  - `assets/images/mascot_wave.png` — S-02 welcome
-  - `assets/images/mascot_speech.png` — onboarding Q screens
-  - `assets/images/mascot_excited.png` — S-04 preview
-  - `assets/images/mascot_celebrate.png` — S-19 checkout, S-11 placement result
-  - `assets/images/mascot_streak.png` — S-21 streak born
-  - `assets/images/mascot_commit.png` — S-12 streak goal
-- Flame icon for streak: `assets/images/flame.png`
-- Welcome/onboarding background: dark theme matching Duolingo reference
+- No tflite (deprecated) — use tflite_flutter
+- No ARCore/ARKit — 3D via flutter_3d_controller
+- No just_audio — use audioplayers
+- No email/password auth
+- No SQLite — Firestore only

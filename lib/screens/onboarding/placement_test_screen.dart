@@ -4,9 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../controllers/onboarding_controller.dart';
 import '../../controllers/placement_test_controller.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
-
-const _kDarkBg = Color(0xFF1A1A2E);
 
 // S-10 — Placement Test
 // 10 random signs, 5s timer per sign, no skip, no TTS, no XP.
@@ -50,7 +49,7 @@ class _PlacementTestScreenState extends ConsumerState<PlacementTestScreen> {
     final state = ref.watch(placementTestControllerProvider(_aslLevel));
 
     return Scaffold(
-      backgroundColor: _kDarkBg,
+      backgroundColor: AppColors.backgroundPrimary,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -62,22 +61,23 @@ class _PlacementTestScreenState extends ConsumerState<PlacementTestScreen> {
                 children: [
                   const Text(
                     "Let's find your level",
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary),
                   ),
                   const SizedBox(height: 12),
                   LinearProgressIndicator(
                     value: state.itemProgress,
-                    backgroundColor: Colors.white24,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Theme.of(context).colorScheme.primary,
-                    ),
+                    backgroundColor: AppColors.primarySoft,
+                    color: AppColors.primary,
                     minHeight: 6,
                     borderRadius: BorderRadius.circular(3),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     '${state.currentIndex + 1} / ${state.totalSigns}',
-                    style: const TextStyle(color: Colors.white54, fontSize: 13),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   ),
                 ],
               ),
@@ -88,13 +88,13 @@ class _PlacementTestScreenState extends ConsumerState<PlacementTestScreen> {
                 children: [
                   const Text(
                     'Sign:',
-                    style: TextStyle(color: Colors.white54, fontSize: 18),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 18),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     state.currentSign,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 96,
                       fontWeight: FontWeight.bold,
                     ),
@@ -103,7 +103,7 @@ class _PlacementTestScreenState extends ConsumerState<PlacementTestScreen> {
                   const Text(
                     'Hold your hand up to the camera\nand show the sign',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white54, fontSize: 15),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
                   ),
                 ],
               ),
@@ -114,15 +114,16 @@ class _PlacementTestScreenState extends ConsumerState<PlacementTestScreen> {
                 children: [
                   Text(
                     '${state.timeLeftSeconds}s',
-                    style: const TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(
                     value: state.timeProgress,
-                    backgroundColor: Colors.white24,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      state.timeLeftSeconds <= 2 ? Colors.red : Theme.of(context).colorScheme.primary,
-                    ),
+                    backgroundColor: AppColors.primarySoft,
+                    color: state.timeLeftSeconds <= 2 ? AppColors.error : AppColors.primary,
                     minHeight: 8,
                     borderRadius: BorderRadius.circular(4),
                   ),

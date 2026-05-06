@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/speech_bubble.dart';
 
-const _kDarkBg = Color(0xFF1A1A2E);
 const _kSpeech = 'Just 4 quick questions before we start your first lesson!';
 
 // S-04 — Welcome: Questions Preview
@@ -31,12 +31,13 @@ class _WelcomePreviewScreenState extends ConsumerState<WelcomePreviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kDarkBg,
+      backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        foregroundColor: AppColors.textPrimary,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(kRouteWelcomeIntro),
         ),
       ),

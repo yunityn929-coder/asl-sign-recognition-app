@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/progress_step_indicator.dart';
 import '../../widgets/speech_bubble.dart';
-
-const _kDarkBg = Color(0xFF1A1A2E);
 
 const _kFeatures = [
   (Icons.sign_language_rounded, '🤟 Sign with confidence', 'Learn every letter and number'),
@@ -38,12 +37,12 @@ class _OnboardingAchievementScreenState extends ConsumerState<OnboardingAchievem
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kDarkBg,
+      backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => context.go(kRouteOnboardingNotifications),
         ),
       ),
@@ -105,18 +104,23 @@ class _FeatureRow extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white12,
+              color: AppColors.backgroundAccent,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(icon, color: AppColors.primary, size: 24),
           ),
           const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+              Text(title,
+                  style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+              Text(subtitle,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
             ],
           ),
         ],

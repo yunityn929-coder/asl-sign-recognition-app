@@ -14,6 +14,10 @@ class FirestoreException extends AppException {
   const FirestoreException(super.message);
 }
 
+class FirestorePermissionException extends FirestoreException {
+  const FirestorePermissionException(super.message);
+}
+
 class RecognitionException extends AppException {
   const RecognitionException(super.message);
 }

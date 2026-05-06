@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../services/notification_service.dart';
 import '../../services/tts_service.dart';
@@ -10,8 +11,6 @@ import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/progress_step_indicator.dart';
 import '../../widgets/speech_bubble.dart';
-
-const _kDarkBg = Color(0xFF1A1A2E);
 
 // S-07 — Onboarding Q3: Notifications
 class OnboardingNotificationsScreen extends ConsumerStatefulWidget {
@@ -52,12 +51,12 @@ class _OnboardingNotificationsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _kDarkBg,
+      backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => context.go(kRouteOnboardingGoal),
         ),
       ),

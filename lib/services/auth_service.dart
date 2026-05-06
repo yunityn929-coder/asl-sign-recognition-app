@@ -20,19 +20,55 @@ class AuthService {
     }
   }
 
-  Future<User> linkWithGoogle() async {
+  // Returns the signed-in User, or null if the user cancelled the picker.
+  // Throws AuthException on actual failures.
+  Future<User?> linkWithGoogle() async {
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) return null; // user dismissed the picker
+
     try {
-      final googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) throw const AuthException('Google sign-in cancelled');
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      final result = await _auth.currentUser!.linkWithCredential(credential);
-      return result.user!;
+
+      final current = _auth.currentUser;
+      if (current != null && current.isAnonymous) {
+        // Link to preserve all Firestore data under this UID.
+        final result = await current.linkWithCredential(credential);
+        return result.user;
+      } else {
+        final result = await _auth.signInWithCredential(credential);
+        return result.user;
+      }
     } on FirebaseAuthException catch (e) {
-      throw AuthException(e.message ?? 'Google link failed');
+      // The Google account is already tied to a different Firebase UID.
+      // Fall through to sign in with that existing account.
+      if (e.code == 'credential-already-in-use' && e.credential != null) {
+        try {
+          final result = await _auth.signInWithCredential(e.credential!);
+          return result.user;
+        } on FirebaseAuthException catch (inner) {
+          throw AuthException(_friendly(inner.code));
+        }
+      }
+      throw AuthException(_friendly(e.code));
+    }
+  }
+
+  static String _friendly(String code) {
+    switch (code) {
+      case 'account-exists-with-different-credential':
+        return 'This Google account is linked to a different sign-in method.';
+      case 'network-request-failed':
+        return 'No internet connection. Please try again.';
+      case 'sign_in_failed':
+        return 'Google Sign-In failed. Check your internet connection.';
+      case 'invalid-credential':
+        return 'Sign-in credential expired. Please try again.';
+      default:
+        return 'Sign-in failed. Please try again.';
     }
   }
 }

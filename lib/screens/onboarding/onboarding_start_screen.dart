@@ -3,13 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/speech_bubble.dart';
-
-const _kDarkBg = Color(0xFF1A1A2E);
 
 // S-09 — Onboarding Q4: Starting Point
 class OnboardingStartScreen extends ConsumerStatefulWidget {
@@ -61,12 +60,12 @@ class _OnboardingStartScreenState extends ConsumerState<OnboardingStartScreen> {
     final showFindLevel = aslLevel != 'none' && aslLevel.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: _kDarkBg,
+      backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => context.go(kRouteOnboardingAchievement),
         ),
       ),
@@ -146,20 +145,29 @@ class _StartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: selected ? primary.withValues(alpha: 0.18) : Colors.white10,
-          border: Border.all(color: selected ? primary : Colors.white24, width: selected ? 2 : 1),
+          color: selected ? AppColors.primarySoft : AppColors.backgroundCard,
+          border: selected ? Border.all(color: AppColors.primary, width: 2) : null,
           borderRadius: BorderRadius.circular(16),
+          boxShadow: selected
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: Row(
           children: [
-            Icon(icon, color: selected ? primary : Colors.white70, size: 28),
+            Icon(icon,
+                color: selected ? AppColors.primary : AppColors.textSecondary, size: 28),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -167,19 +175,31 @@ class _StartCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(title,
+                          style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
                       if (recommended) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
-                          child: const Text('RECOMMENDED', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          decoration: BoxDecoration(
+                              color: AppColors.success,
+                              borderRadius: BorderRadius.circular(4)),
+                          child: const Text('RECOMMENDED',
+                              style: TextStyle(
+                                  color: AppColors.textOnDark,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13)),
                 ],
               ),
             ),

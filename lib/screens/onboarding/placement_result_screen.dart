@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../data/lesson_definitions.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
-
-const _kDarkBg = Color(0xFF3D5A80);
 
 const _kLevelLabels = {
   'none': "I'm new to ASL",
@@ -58,7 +57,7 @@ class _PlacementResultScreenState extends ConsumerState<PlacementResultScreen> {
     final levelLabel = _kLevelLabels[aslLevel] ?? aslLevel;
 
     return Scaffold(
-      backgroundColor: _kDarkBg,
+      backgroundColor: AppColors.backgroundPrimary,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -74,7 +73,8 @@ class _PlacementResultScreenState extends ConsumerState<PlacementResultScreen> {
                     child: RichText(
                       textAlign: TextAlign.center,
                       text: TextSpan(
-                        style: const TextStyle(color: Colors.white, fontSize: 20, height: 1.5),
+                        style: const TextStyle(
+                            color: AppColors.textPrimary, fontSize: 20, height: 1.5),
                         children: [
                           const TextSpan(text: 'Since you said '),
                           TextSpan(
@@ -94,7 +94,7 @@ class _PlacementResultScreenState extends ConsumerState<PlacementResultScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Score: ${widget.correctCount} / 10',
-                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
                   ),
                 ],
               ),
@@ -102,7 +102,7 @@ class _PlacementResultScreenState extends ConsumerState<PlacementResultScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                  ? const Center(child: CircularProgressIndicator())
                   : AppButton(
                       label: "LET'S GO",
                       onPressed: _onLetsGo,

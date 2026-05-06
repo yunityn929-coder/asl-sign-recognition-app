@@ -29,7 +29,7 @@ users/
 
   // Onboarding
   onboardingComplete: bool,     // false until onboarding finished
-  aslLevel: String,             // "none" | "alphabet" | "numbers" | "conversational"
+  aslLevel: String,             // "none" | "alphabet" | "conversational"
   dailyGoalMinutes: int,        // 5 | 10 | 15
   notificationsEnabled: bool,
   startLessonId: String,        // e.g. "s1l1" — set at end of onboarding
@@ -161,26 +161,20 @@ class LessonDefinition {
 }
 
 const kLessons = [
-  LessonDefinition(id:'s1l1', section:1, title:'Alphabet A–E',       signs:['A','B','C','D','E']),
-  LessonDefinition(id:'s1l2', section:1, title:'Alphabet F–J',       signs:['F','G','H','I','J']),
-  LessonDefinition(id:'s1l3', section:1, title:'Alphabet K–O',       signs:['K','L','M','N','O']),
-  LessonDefinition(id:'s1l4', section:1, title:'Alphabet P–T',       signs:['P','Q','R','S','T']),
-  LessonDefinition(id:'s1l5', section:1, title:'Alphabet U–Z',       signs:['U','V','W','X','Y','Z']),
-  LessonDefinition(id:'s1l6', section:1, title:'Numbers 0–4',        signs:['0','1','2','3','4']),
-  LessonDefinition(id:'s1l7', section:1, title:'Numbers 5–9',        signs:['5','6','7','8','9']),
-  LessonDefinition(id:'s2l1', section:2, title:'Short Words',        signs:['C','A','T','D','O','G']), // letters used in words
-  LessonDefinition(id:'s2l2', section:2, title:'Spell Your Name',    signs:[]), // dynamic, from displayName
-  LessonDefinition(id:'s2l3', section:2, title:'Common Words',       signs:['F','I','S','H','B','O','K']),
-  LessonDefinition(id:'s2l4', section:2, title:'Longer Words',       signs:['A','P','L','E','H','O','U','S']),
-  LessonDefinition(id:'s2l5', section:2, title:'Speed Challenge',    signs:['A','B','C','D','E','F','G','H','I','J']),
-  LessonDefinition(id:'s3l1', section:3, title:'Count 0–9',         signs:['0','1','2','3','4','5','6','7','8','9']),
-  LessonDefinition(id:'s3l2', section:3, title:'Random Numbers',    signs:['0','1','2','3','4','5','6','7','8','9']),
-  LessonDefinition(id:'s3l3', section:3, title:'Number Pairs',      signs:['1','2','3','4','5','6','7','8','9','0']),
-  LessonDefinition(id:'s3l4', section:3, title:'Number Expressions',signs:['1','2','3','4','5']),
-  LessonDefinition(id:'s4l1', section:4, title:'Full Alphabet Review',signs:['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']),
-  LessonDefinition(id:'s4l2', section:4, title:'Alphabet Speed Run', signs:['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']),
-  LessonDefinition(id:'s4l3', section:4, title:'Numbers + Letters',  signs:['A','B','C','1','2','3','D','E','F','4','5','6']),
-  LessonDefinition(id:'s4l4', section:4, title:'Mastery Test',       signs:[]), // dynamic: 30 random from full set
+  LessonDefinition(id:'s1l1', section:1, title:'Alphabet A–E',  signs:['A','B','C','D','E']),
+  LessonDefinition(id:'s1l2', section:1, title:'Alphabet F–J',  signs:['F','G','H','I','J']),
+  LessonDefinition(id:'s1l3', section:1, title:'Alphabet K–O',  signs:['K','L','M','N','O']),
+  LessonDefinition(id:'s1l4', section:1, title:'Alphabet P–T',  signs:['P','Q','R','S','T']),
+  LessonDefinition(id:'s1l5', section:1, title:'Alphabet U–Z',  signs:['U','V','W','X','Y','Z']),
+  LessonDefinition(id:'s2l1', section:2, title:'Short Words',   signs:['C','A','T','D','O','G']),
+  LessonDefinition(id:'s2l2', section:2, title:'Spell Your Name', signs:[]),
+  LessonDefinition(id:'s2l3', section:2, title:'Common Words',  signs:['F','I','S','H','B','O','K']),
+  LessonDefinition(id:'s2l4', section:2, title:'Longer Words',  signs:['A','P','L','E','H','O','U','S']),
+  LessonDefinition(id:'s2l5', section:2, title:'Speed Challenge', signs:['A','B','C','D','E','F','G','H','I','J']),
+  LessonDefinition(id:'s3l1', section:3, title:'Full Alphabet Review', signs:['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']),
+  LessonDefinition(id:'s3l2', section:3, title:'Alphabet Speed Run',   signs:['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']),
+  LessonDefinition(id:'s3l3', section:3, title:'Mixed Review',         signs:['A','B','C','D','E','F','G','H','I','J','K','L']),
+  LessonDefinition(id:'s3l4', section:3, title:'Mastery Test',         signs:[]),
 ];
 ```
 
@@ -193,10 +187,9 @@ class SectionDefinition {
 }
 
 const kSections = [
-  SectionDefinition(number:1, title:'Foundations',             description:'Learn every letter and number'),
+  SectionDefinition(number:1, title:'Foundations',             description:'Learn every letter A–Z'),
   SectionDefinition(number:2, title:'Fingerspelling Practice', description:'Spell real words'),
-  SectionDefinition(number:3, title:'Numbers in Context',      description:'Use numbers naturally'),
-  SectionDefinition(number:4, title:'Mixed Review & Mastery',  description:'Prove what you know'),
+  SectionDefinition(number:3, title:'Review & Mastery',        description:'Put it all together'),
 ];
 ```
 
@@ -218,10 +211,10 @@ const kXpQuestBonus     = 30;    // per completed quest
 
 ### Sign Label Map (TFLite class index → label)
 ```
-0→A, 1→B, 2→C, 3→D, 4→E, 5→F, 6→G, 7→H, 8→I, 9→J,
-10→K, 11→L, 12→M, 13→N, 14→O, 15→P, 16→Q, 17→R, 18→S, 19→T,
-20→U, 21→V, 22→W, 23→X, 24→Y, 25→Z,
-26→0, 27→1, 28→2, 29→3, 30→4, 31→5, 32→6, 33→7, 34→8, 35→9
+0→A,  1→B,  2→C,  3→D,  4→E,  5→F,  6→G,
+7→H,  8→I,  9→J, 10→K, 11→L, 12→M, 13→N,
+14→O, 15→P, 16→Q, 17→R, 18→S, 19→T, 20→U,
+21→V, 22→W, 23→X, 24→Y, 25→Z
 ```
 Also in `assets/models/label_map.txt`, one label per line.
 
@@ -260,16 +253,6 @@ const kSignFingerStates = {
   'X': ['curled','extended','curled','curled','curled'],
   'Y': ['extended','curled','curled','curled','extended'],
   'Z': ['curled','extended','curled','curled','curled'],  // + motion
-  '0': ['any','any','any','any','any'],
-  '1': ['curled','extended','curled','curled','curled'],
-  '2': ['curled','extended','extended','curled','curled'],
-  '3': ['extended','extended','extended','curled','curled'],
-  '4': ['curled','extended','extended','extended','extended'],
-  '5': ['extended','extended','extended','extended','extended'],
-  '6': ['any','extended','extended','extended','curled'],
-  '7': ['any','extended','extended','curled','extended'],
-  '8': ['any','extended','extended','curled','curled'],
-  '9': ['any','extended','curled','curled','curled'],
 };
 ```
 

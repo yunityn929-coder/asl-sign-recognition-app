@@ -2,7 +2,7 @@ class RecognitionResult {
   final String label;
   final double confidence;
   final bool handDetected;
-  final List<double> landmarks; // 63 floats (21 landmarks × x,y,z)
+  final List<double> landmarks; // 42 floats (21 landmarks × x,y only, normalised)
 
   const RecognitionResult({
     required this.label,
