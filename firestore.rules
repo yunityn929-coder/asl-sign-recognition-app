@@ -33,9 +33,11 @@ service cloud.firestore {
       let data = request.resource.data;
       return data.lessonId is string
         && data.correctCount is number && data.correctCount >= 0
-        && data.totalCount is number && data.totalCount >= 0
-        && data.score is number
-        && data.completedAt is timestamp;
+        && data.totalItems is number && data.totalItems >= 0
+        && data.accuracyPercent is number
+        && data.completedAt is timestamp
+        && data.sessionType is string
+        && data.xpEarned is number && data.xpEarned >= 0;
     }
 
     function isValidDailyQuest(dateStr) {

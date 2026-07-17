@@ -7,6 +7,7 @@ import '../../data/lesson_definitions.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/lesson_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/firestore_service.dart';
 import '../../services/tts_service.dart';
 import 'widgets/results_widgets.dart';
 
@@ -55,6 +56,22 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
         ref.read(lessonActionsProvider(uid)).markLessonComplete(widget.lessonId),
         ref.read(userActionsProvider(uid)).addXp(_xpEarned),
       ]);
+    } catch (_) {}
+    try {
+      final lesson = kLessons.firstWhere((l) => l.id == widget.lessonId);
+      final signAccuracy =
+          await ref.read(firestoreServiceProvider).savePracticeResult(
+                uid: uid,
+                lessonId: widget.lessonId,
+                correctCount: widget.correctCount,
+                totalCount: widget.totalCount,
+                missedSigns: widget.missedSigns,
+                xpEarned: _xpEarned,
+                lessonSigns: lesson.signs,
+              );
+      await ref
+          .read(firestoreServiceProvider)
+          .updateSignAccuracy(uid: uid, newAccuracy: signAccuracy);
     } catch (_) {}
     if (mounted) {
       ref

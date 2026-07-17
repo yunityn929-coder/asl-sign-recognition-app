@@ -189,6 +189,63 @@ class FirestoreService {
     }
   }
 
+  Future<Map<String, double>> savePracticeResult({
+    required String uid,
+    required String lessonId,
+    required int correctCount,
+    required int totalCount,
+    required List<String> missedSigns,
+    required int xpEarned,
+    required List<String> lessonSigns,
+    String sessionType = 'learn',
+  }) async {
+    final signAccuracy = <String, double>{
+      for (final sign in lessonSigns)
+        sign: missedSigns.contains(sign) ? 0.0 : 1.0,
+    };
+    final accuracyPercent =
+        totalCount == 0 ? 0.0 : correctCount / totalCount * 100;
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('practiceResults')
+          .add({
+        'lessonId': lessonId,
+        'sessionType': sessionType,
+        'difficulty': 'n/a',
+        'completedAt': FieldValue.serverTimestamp(),
+        'durationSeconds': 0,
+        'totalItems': totalCount,
+        'correctCount': correctCount,
+        'accuracyPercent': accuracyPercent,
+        'xpEarned': xpEarned,
+        'items': [],
+      });
+    } on FirebaseException catch (_) {}
+    return signAccuracy;
+  }
+
+  Future<void> updateSignAccuracy({
+    required String uid,
+    required Map<String, double> newAccuracy,
+  }) async {
+    try {
+      final snap = await _db.collection('users').doc(uid).get();
+      final raw = snap.data()?['signAccuracy'] as Map?;
+      final current = (raw ?? {})
+          .map((k, v) => MapEntry(k as String, (v as num).toDouble()));
+      final merged = Map<String, double>.from(current);
+      for (final entry in newAccuracy.entries) {
+        final existing = current[entry.key];
+        merged[entry.key] =
+            existing != null ? 0.7 * existing + 0.3 * entry.value : entry.value;
+      }
+      await updateUser(uid, {'signAccuracy': merged});
+    } on FirebaseException catch (_) {
+    } catch (_) {}
+  }
+
   String _today() => DateTime.now().toIso8601String().substring(0, 10);
 }
 

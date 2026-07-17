@@ -20,6 +20,7 @@ class UserModel {
   final int streakGoalDays;
   final String streakGoalStartDate;
   final bool streakGoalAchieved;
+  final Map<String, double> signAccuracy;
 
   const UserModel({
     required this.uid,
@@ -43,6 +44,7 @@ class UserModel {
     required this.streakGoalDays,
     required this.streakGoalStartDate,
     required this.streakGoalAchieved,
+    this.signAccuracy = const {},
   });
 
   UserModel copyWith({
@@ -65,6 +67,7 @@ class UserModel {
     int? streakGoalDays,
     String? streakGoalStartDate,
     bool? streakGoalAchieved,
+    Map<String, double>? signAccuracy,
   }) =>
       UserModel(
         uid: uid,
@@ -88,6 +91,7 @@ class UserModel {
         streakGoalDays: streakGoalDays ?? this.streakGoalDays,
         streakGoalStartDate: streakGoalStartDate ?? this.streakGoalStartDate,
         streakGoalAchieved: streakGoalAchieved ?? this.streakGoalAchieved,
+        signAccuracy: signAccuracy ?? this.signAccuracy,
       );
 
   factory UserModel.fromMap(String uid, Map<String, dynamic> map) => UserModel(
@@ -112,6 +116,8 @@ class UserModel {
         streakGoalDays: (map['streakGoalDays'] as num?)?.toInt() ?? 7,
         streakGoalStartDate: map['streakGoalStartDate'] as String? ?? '',
         streakGoalAchieved: map['streakGoalAchieved'] as bool? ?? false,
+        signAccuracy: (map['signAccuracy'] as Map? ?? {}).map(
+            (k, v) => MapEntry(k as String, (v as num).toDouble())),
       );
 
   Map<String, dynamic> toMap() => {
@@ -135,5 +141,6 @@ class UserModel {
         'streakGoalDays': streakGoalDays,
         'streakGoalStartDate': streakGoalStartDate,
         'streakGoalAchieved': streakGoalAchieved,
+        'signAccuracy': signAccuracy,
       };
 }
