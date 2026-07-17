@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/quiz_service.dart';
+
 class LearnModeBody extends StatelessWidget {
   final String sign;
   final VoidCallback onHearIt;
@@ -11,13 +13,15 @@ class LearnModeBody extends StatelessWidget {
     return digits.contains(sign) ? 'Number $sign' : 'Sign $sign';
   }
 
+  bool get _hasImage => kAvailableSigns.contains(sign);
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         Container(
           width: double.infinity,
-          height: 280,
+          height: _hasImage ? 420 : 280,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -32,6 +36,14 @@ class LearnModeBody extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (_hasImage) ...[
+                Image.asset(
+                  '$kSignImagePath$sign.png',
+                  height: 200,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 8),
+              ],
               Text(
                 sign,
                 style: const TextStyle(

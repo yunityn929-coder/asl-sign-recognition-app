@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/lesson_definitions.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/quiz_service.dart';
 import '../../providers/user_provider.dart';
 
 const List<String> _kLetters = [
@@ -175,18 +176,24 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 96,
-                height: 96,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundAccent,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(sign,
-                    style: const TextStyle(
-                        fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.primary)),
-              ),
+              kAvailableSigns.contains(sign)
+                  ? Image.asset(
+                      '$kSignImagePath$sign.png',
+                      height: 160,
+                      fit: BoxFit.contain,
+                    )
+                  : Container(
+                      width: 96,
+                      height: 96,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.backgroundAccent,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(sign,
+                          style: const TextStyle(
+                              fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    ),
               const SizedBox(height: 16),
               Text('Sign $sign',
                   style: const TextStyle(
@@ -255,6 +262,8 @@ class _SignCard extends StatelessWidget {
   final VoidCallback onTap;
   const _SignCard({required this.sign, required this.accuracy, required this.onTap});
 
+  bool get _hasImage => kAvailableSigns.contains(sign);
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -270,14 +279,29 @@ class _SignCard extends StatelessWidget {
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(sign,
-                      style: const TextStyle(
-                          fontSize: 40, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                  const SizedBox(height: 4),
-                  Text('Sign $sign',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                ],
+                children: _hasImage
+                    ? [
+                        Image.asset(
+                          '$kSignImagePath$sign.png',
+                          height: 70,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(sign,
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        const SizedBox(height: 2),
+                        Text('Sign $sign',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      ]
+                    : [
+                        Text(sign,
+                            style: const TextStyle(
+                                fontSize: 40, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        const SizedBox(height: 4),
+                        Text('Sign $sign',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      ],
               ),
             ),
             Positioned(top: 8, right: 8, child: _AccuracyBadge(accuracy: accuracy)),
