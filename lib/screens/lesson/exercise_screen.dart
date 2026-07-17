@@ -34,6 +34,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   String? _tappedOption;
   int _correctCount = 0;
   final Set<int> _correctIndices = {};
+  final Map<String, int> _learnAttempts = {};
   List<String> _quizOptions = const [];
   bool _buttonsDisabled = false;
 
@@ -141,6 +142,11 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         }
       });
     }
+
+    if (feedback.state == FeedbackState.correct) {
+      _learnAttempts[_currentSign] =
+          (_learnAttempts[_currentSign] ?? 0) + 1;
+    }
   }
 
   Future<void> _flipCamera() async {
@@ -163,6 +169,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       _cameraController!.startImageStream(_onCameraFrame).catchError((_) {});
     }
     _feedbackService.reset();
+    _learnAttempts[_currentSign] = 0;
     setState(() {
       _mode = _Mode.learn;
       _answerCorrect = null;
@@ -250,6 +257,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
           'correctCount': _correctCount,
           'totalCount': _def.signs.length,
           'missedSigns': missed,
+          'learnAttempts': _learnAttempts,
         },
       );
     }

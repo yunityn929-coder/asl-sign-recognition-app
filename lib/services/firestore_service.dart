@@ -197,12 +197,17 @@ class FirestoreService {
     required List<String> missedSigns,
     required int xpEarned,
     required List<String> lessonSigns,
+    Map<String, int> learnAttempts = const {},
     String sessionType = 'learn',
   }) async {
-    final signAccuracy = <String, double>{
-      for (final sign in lessonSigns)
-        sign: missedSigns.contains(sign) ? 0.0 : 1.0,
-    };
+    final signAccuracy = <String, double>{};
+    for (final sign in lessonSigns) {
+      final quizResult = missedSigns.contains(sign) ? 0.0 : 1.0;
+      final attempts = learnAttempts[sign] ?? 0;
+      // Cap at 5 sustained-correct frames in learn mode = full confidence.
+      final learnScore = (attempts / 5).clamp(0.0, 1.0).toDouble();
+      signAccuracy[sign] = 0.6 * quizResult + 0.4 * learnScore;
+    }
     final accuracyPercent =
         totalCount == 0 ? 0.0 : correctCount / totalCount * 100;
     try {

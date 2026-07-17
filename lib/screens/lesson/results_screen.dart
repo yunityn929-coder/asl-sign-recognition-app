@@ -16,6 +16,7 @@ class ResultsScreen extends ConsumerStatefulWidget {
   final int correctCount;
   final int totalCount;
   final List<String> missedSigns;
+  final Map<String, int> learnAttempts;
 
   const ResultsScreen({
     super.key,
@@ -23,6 +24,7 @@ class ResultsScreen extends ConsumerStatefulWidget {
     required this.correctCount,
     required this.totalCount,
     required this.missedSigns,
+    this.learnAttempts = const {},
   });
 
   @override
@@ -68,6 +70,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                 missedSigns: widget.missedSigns,
                 xpEarned: _xpEarned,
                 lessonSigns: lesson.signs,
+                learnAttempts: widget.learnAttempts,
               );
       await ref
           .read(firestoreServiceProvider)

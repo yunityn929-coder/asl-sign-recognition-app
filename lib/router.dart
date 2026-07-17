@@ -305,6 +305,9 @@ final GoRouter appRouter = GoRouter(
           totalCount: extra['totalCount'] as int? ?? 0,
           missedSigns:
               (extra['missedSigns'] as List?)?.cast<String>() ?? const [],
+          learnAttempts:
+              (extra['learnAttempts'] as Map?)?.cast<String, int>() ??
+                  const {},
         );
       },
     ),
