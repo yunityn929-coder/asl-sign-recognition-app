@@ -29,6 +29,7 @@ const String kRouteSigns                       = '/signs';
 const String kRouteProfile                     = '/profile';
 const String kRouteLessonExercise              = '/lesson/:lessonId/exercise';
 const String kRouteLessonResults               = '/lesson/:lessonId/results';
+const String kRouteQuiz                        = '/quiz';
 const String kRouteQuizSession                 = '/quiz/session';
 const String kRouteQuizResult                  = '/quiz/result';
 
@@ -63,5 +64,6 @@ const String kRouteNameSigns                       = 'signs';
 const String kRouteNameProfile                     = 'profile';
 const String kRouteNameLessonExercise              = 'lesson-exercise';
 const String kRouteNameLessonResults               = 'lesson-results';
+const String kRouteNameQuiz                        = 'quiz';
 const String kRouteNameQuizSession                 = 'quiz-session';
 const String kRouteNameQuizResult                  = 'quiz-result';

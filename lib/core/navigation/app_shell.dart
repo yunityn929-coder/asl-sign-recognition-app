@@ -21,7 +21,7 @@ class AppShell extends StatelessWidget {
   }
 
   int _tabIndex(String path) {
-    if (path.startsWith('/quest')) return 1;
+    if (path.startsWith('/quiz')) return 1;
     if (path.startsWith('/signs')) return 2;
     if (path.startsWith('/profile')) return 3;
     return 0;
@@ -30,7 +30,7 @@ class AppShell extends StatelessWidget {
   void _navigate(BuildContext context, int index) {
     switch (index) {
       case 0: context.go(kRouteHome);
-      case 1: context.go(kRouteQuest);
+      case 1: context.go(kRouteQuiz);
       case 2: context.go(kRouteSigns);
       case 3: context.go(kRouteProfile);
     }
@@ -44,10 +44,10 @@ class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar({required this.currentIndex, required this.onTabTapped});
 
   static const _items = [
-    _NavItem(icon: Icons.home_outlined, label: 'Home'),
-    _NavItem(icon: Icons.emoji_events_outlined, label: 'Quest'),
-    _NavItem(icon: Icons.sign_language_outlined, label: 'Signs'),
-    _NavItem(icon: Icons.person_outline, label: 'Profile'),
+    _NavItem(icon: Icons.home_rounded, label: 'Home'),
+    _NavItem(icon: Icons.quiz_rounded, label: 'Quiz'),
+    _NavItem(icon: Icons.sign_language_rounded, label: 'Signs'),
+    _NavItem(icon: Icons.person_rounded, label: 'Profile'),
   ];
 
   @override

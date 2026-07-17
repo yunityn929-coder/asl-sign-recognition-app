@@ -45,6 +45,7 @@ import 'screens/lesson/exercise_screen.dart';
 import 'screens/lesson/results_screen.dart';
 
 // Quiz flow
+import 'screens/quiz/quiz_screen.dart';
 import 'screens/quiz/quiz_session_screen.dart';
 import 'screens/quiz/quiz_result_screen.dart';
 
@@ -125,7 +126,7 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
-    // Shell — persistent bottom nav for Home / Quest / Signs / Profile
+    // Shell — persistent bottom nav for Home / Quiz / Signs / Profile
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child),
       routes: [
@@ -133,6 +134,11 @@ final GoRouter appRouter = GoRouter(
           path: kRouteHome,
           name: kRouteNameHome,
           builder: (context, state) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: kRouteQuiz,
+          name: kRouteNameQuiz,
+          builder: (context, state) => const QuizScreen(),
         ),
         GoRoute(
           path: kRouteQuest,

@@ -110,6 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             activeIndex: _activeUnit,
             sections: kSections,
           ),
+          _DailyQuestsCard(onTap: () => context.go(kRouteQuest)),
           Expanded(
             child: lessonsAsync.when(
               data: (lessons) => _buildBody(context, uid, lessons),
@@ -309,6 +310,42 @@ class _StreakBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DailyQuestsCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _DailyQuestsCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Material(
+        color: AppColors.backgroundAccent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.emoji_events_outlined, color: AppColors.primary, size: 22),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Daily Quests',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
