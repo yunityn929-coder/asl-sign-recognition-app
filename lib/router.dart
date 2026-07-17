@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/constants/route_constants.dart';
 import 'core/navigation/app_shell.dart';
+import 'data/quiz_definitions.dart';
 import 'models/checkout_data.dart';
 
 // Welcome
@@ -42,6 +43,10 @@ import 'screens/completion/learn_completion_screen.dart';
 // Lesson flow
 import 'screens/lesson/exercise_screen.dart';
 import 'screens/lesson/results_screen.dart';
+
+// Quiz flow
+import 'screens/quiz/quiz_session_screen.dart';
+import 'screens/quiz/quiz_result_screen.dart';
 
 // Social / extras
 import 'screens/settings/settings_screen.dart';
@@ -278,6 +283,33 @@ final GoRouter appRouter = GoRouter(
           learnAttempts:
               (extra['learnAttempts'] as Map?)?.cast<String, int>() ??
                   const {},
+        );
+      },
+    ),
+
+    // Quiz Session (root navigator so push/pop works outside the shell)
+    GoRoute(
+      path: kRouteQuizSession,
+      name: kRouteNameQuizSession,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final quizSet = state.extra as QuizSet;
+        return QuizSessionScreen(quizSet: quizSet);
+      },
+    ),
+
+    // Quiz Result (root navigator so push/pop works outside the shell)
+    GoRoute(
+      path: kRouteQuizResult,
+      name: kRouteNameQuizResult,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return QuizResultScreen(
+          score: extra['score'] as int? ?? 0,
+          total: extra['total'] as int? ?? 0,
+          quizSet: extra['quizSet'] as QuizSet?,
+          wrongSigns: (extra['wrongSigns'] as List?)?.cast<String>() ?? const [],
         );
       },
     ),
