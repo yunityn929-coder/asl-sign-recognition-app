@@ -41,6 +41,7 @@ class _StreakGoalScreenState extends ConsumerState<StreakGoalScreen> {
     final ctrl = ref.read(onboardingControllerProvider.notifier);
     ctrl.setStreakGoal(_selectedDays);
     try {
+      await ctrl.initLessons(widget.startLessonId);
       await ctrl.complete(widget.startLessonId);
     } catch (_) {}
     if (mounted) {

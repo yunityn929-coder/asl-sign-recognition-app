@@ -18,6 +18,20 @@ const _kLevels = [
   ('conversational', 'I can have a basic ASL conversation'),
 ];
 
+String _startLessonIdForLevel(String level) {
+  switch (level) {
+    case 'some':
+      return 's1l3';
+    case 'alphabet':
+      return 's2l1';
+    case 'conversational':
+      return 's3l1';
+    case 'none':
+    default:
+      return 's1l1';
+  }
+}
+
 // S-05 — Onboarding Q1: ASL Level
 class OnboardingLevelScreen extends ConsumerStatefulWidget {
   const OnboardingLevelScreen({super.key});
@@ -82,8 +96,12 @@ class _OnboardingLevelScreenState extends ConsumerState<OnboardingLevelScreen> {
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
               child: AppButton(
                 label: 'CONTINUE',
-                onPressed:
-                    state.aslLevel.isEmpty ? null : () => context.go(kRouteOnboardingGoal),
+                onPressed: state.aslLevel.isEmpty
+                    ? null
+                    : () {
+                        ctrl.setStartingPoint(_startLessonIdForLevel(state.aslLevel));
+                        context.go(kRouteOnboardingGoal);
+                      },
               ),
             ),
           ],

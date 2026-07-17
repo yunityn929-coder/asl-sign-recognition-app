@@ -16,9 +16,6 @@ import 'screens/onboarding/onboarding_level_screen.dart';
 import 'screens/onboarding/onboarding_goal_screen.dart';
 import 'screens/onboarding/onboarding_notifications_screen.dart';
 import 'screens/onboarding/onboarding_achievement_screen.dart';
-import 'screens/onboarding/onboarding_start_screen.dart';
-import 'screens/onboarding/placement_test_screen.dart';
-import 'screens/onboarding/placement_result_screen.dart';
 import 'screens/onboarding/streak_goal_screen.dart';
 
 // Shell tabs
@@ -111,33 +108,6 @@ final GoRouter appRouter = GoRouter(
       path: kRouteOnboardingAchievement,
       name: kRouteNameOnboardingAchievement,
       builder: (context, state) => const OnboardingAchievementScreen(),
-    ),
-
-    // S-09 — Onboarding Q4: Starting Point
-    GoRoute(
-      path: kRouteOnboardingStart,
-      name: kRouteNameOnboardingStart,
-      builder: (context, state) => const OnboardingStartScreen(),
-    ),
-
-    // S-10 — Placement Test
-    GoRoute(
-      path: kRouteOnboardingPlacement,
-      name: kRouteNameOnboardingPlacement,
-      builder: (context, state) => const PlacementTestScreen(),
-    ),
-
-    // S-11 — Placement Result
-    GoRoute(
-      path: kRouteOnboardingPlacementResult,
-      name: kRouteNameOnboardingPlacementResult,
-      builder: (context, state) {
-        final data = state.extra as Map<String, dynamic>? ?? {};
-        return PlacementResultScreen(
-          startLessonId: data['startLessonId'] as String? ?? 's1l1',
-          correctCount: data['correctCount'] as int? ?? 0,
-        );
-      },
     ),
 
     // S-12 — Streak Goal Selection

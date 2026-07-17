@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../controllers/onboarding_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../services/tts_service.dart';
@@ -77,7 +78,10 @@ class _OnboardingAchievementScreenState extends ConsumerState<OnboardingAchievem
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: AppButton(
                 label: 'CONTINUE',
-                onPressed: () => context.go(kRouteOnboardingStart),
+                onPressed: () {
+                  final startLessonId = ref.read(onboardingControllerProvider).startingPoint;
+                  context.go(kRouteOnboardingStreakGoal, extra: startLessonId);
+                },
               ),
             ),
           ],
