@@ -10,7 +10,9 @@ import '../../controllers/recognition_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/lesson_definitions.dart';
 import '../../models/recognition_result.dart';
+import '../../services/feedback_service.dart';
 import '../../services/tts_service.dart';
+import 'widgets/feedback_widget.dart';
 import 'widgets/learn_mode_body.dart';
 import 'widgets/quiz_mode_body.dart';
 
@@ -41,8 +43,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   bool _cameraInitialized = false;
 
   // Recognition
-  String? _detectedLetter;
-  double _detectedConfidence = 0;
+  final FeedbackService _feedbackService = FeedbackService();
+  FeedbackResult _feedbackResult = FeedbackResult.initial;
   bool _autoAdvancing = false;
   StreamSubscription<RecognitionResult>? _resultSub;
 
@@ -118,20 +120,19 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   // results stream the same way.
   void _onRecognitionResult(RecognitionResult result) {
     if (!mounted || _mode != _Mode.learn) return;
-    final letter = result.handDetected ? result.label : null;
-    final confidence = result.confidence;
+
+    final feedback = _feedbackService.evaluate(
+      topLabel: result.topLabel,
+      topConfidence: result.topConfidence,
+      secondLabel: result.secondLabel,
+      targetLetter: _currentSign,
+    );
 
     setState(() {
-      _detectedLetter = letter;
-      _detectedConfidence = confidence;
+      _feedbackResult = feedback;
     });
 
-    final isCorrect = letter != null &&
-        letter.isNotEmpty &&
-        letter == _currentSign &&
-        confidence >= 0.75;
-
-    if (isCorrect && !_autoAdvancing) {
+    if (feedback.state == FeedbackState.correct && !_autoAdvancing) {
       _autoAdvancing = true;
       Future.delayed(const Duration(milliseconds: 1000), () {
         if (mounted) {
@@ -161,14 +162,14 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     if (_cameraInitialized && _cameraController != null) {
       _cameraController!.startImageStream(_onCameraFrame).catchError((_) {});
     }
+    _feedbackService.reset();
     setState(() {
       _mode = _Mode.learn;
       _answerCorrect = null;
       _tappedOption = null;
       _buttonsDisabled = false;
       _autoAdvancing = false;
-      _detectedLetter = null;
-      _detectedConfidence = 0;
+      _feedbackResult = FeedbackResult.initial;
     });
     ref.read(ttsServiceProvider).speak(_currentSign);
   }
@@ -181,8 +182,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       _answerCorrect = null;
       _tappedOption = null;
       _buttonsDisabled = false;
-      _detectedLetter = null;
-      _detectedConfidence = 0;
+      _feedbackResult = FeedbackResult.initial;
     });
   }
 
@@ -364,7 +364,10 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         fit: StackFit.expand,
         children: [
           _buildCameraPreview(),
-          _buildDetectionOverlay(),
+          FeedbackWidget(
+            state: _feedbackResult.state,
+            message: _feedbackResult.message,
+          ),
           _buildFlipButton(),
           _buildGotItButton(),
         ],
@@ -392,64 +395,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
               ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
               : Matrix4.identity(),
           child: CameraPreview(_cameraController!),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetectionOverlay() {
-    final letter = _detectedLetter;
-    final confidence = _detectedConfidence;
-    final isCorrect = letter != null &&
-        letter.isNotEmpty &&
-        letter == _currentSign &&
-        confidence >= 0.75;
-
-    return Positioned(
-      top: 16,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: (letter == null || letter.isEmpty)
-              ? const SizedBox.shrink(key: ValueKey('empty'))
-              : Container(
-                  key: ValueKey('$letter-${(confidence * 100).toInt()}'),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isCorrect
-                        ? const Color(0xFFB0E0A8)
-                        : const Color(0xCC000000),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        letter,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: isCorrect
-                              ? const Color(0xFF1A6B3A)
-                              : Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${(confidence * 100).toInt()}%',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isCorrect
-                              ? const Color(0xFF1A6B3A)
-                              : const Color(0xFFCCCCCC),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
         ),
       ),
     );

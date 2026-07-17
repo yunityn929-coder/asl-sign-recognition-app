@@ -134,6 +134,11 @@ class RecognitionControllerImpl implements RecognitionController {
         confidence: 0,
         handDetected: false,
         landmarks: [],
+        topLabel: '',
+        topConfidence: 0,
+        secondLabel: '',
+        secondConfidence: 0,
+        isConfident: false,
       ));
       await _cameraController!.startImageStream(_onFrame);
     } catch (e) {
@@ -174,7 +179,16 @@ class RecognitionControllerImpl implements RecognitionController {
 
       if (raw == null || raw.isEmpty) {
         _emit(const RecognitionResult(
-            label: '', confidence: 0, handDetected: false, landmarks: []));
+          label: '',
+          confidence: 0,
+          handDetected: false,
+          landmarks: [],
+          topLabel: '',
+          topConfidence: 0,
+          secondLabel: '',
+          secondConfidence: 0,
+          isConfident: false,
+        ));
         return;
       }
 
@@ -218,7 +232,16 @@ class RecognitionControllerImpl implements RecognitionController {
 
       if (raw == null || raw.isEmpty) {
         _emit(const RecognitionResult(
-            label: '', confidence: 0, handDetected: false, landmarks: []));
+          label: '',
+          confidence: 0,
+          handDetected: false,
+          landmarks: [],
+          topLabel: '',
+          topConfidence: 0,
+          secondLabel: '',
+          secondConfidence: 0,
+          isConfident: false,
+        ));
         return;
       }
 
@@ -274,23 +297,39 @@ class RecognitionControllerImpl implements RecognitionController {
     print('[DIAG] Raw output:   ${output[0]}');
 
     final probs = output[0];
-    int maxIdx = 0;
+
+    // Top-2 argmax in one pass.
+    int topIdx = 0;
+    int secondIdx = -1;
     for (var i = 1; i < probs.length; i++) {
-      if (probs[i] > probs[maxIdx]) maxIdx = i;
+      if (probs[i] > probs[topIdx]) {
+        secondIdx = topIdx;
+        topIdx = i;
+      } else if (secondIdx == -1 || probs[i] > probs[secondIdx]) {
+        secondIdx = i;
+      }
     }
-    final confidence = probs[maxIdx];
-    final label = confidence >= kRecognitionConfidenceThreshold
-        ? kSignLabels[maxIdx]
-        : '';
+
+    final topConfidence = probs[topIdx];
+    final topLabel = kSignLabels[topIdx];
+    final secondConfidence = secondIdx == -1 ? 0.0 : probs[secondIdx];
+    final secondLabel = secondIdx == -1 ? '' : kSignLabels[secondIdx];
+    final isConfident = topConfidence >= kRecognitionConfidenceThreshold;
+    final label = isConfident ? topLabel : '';
 
     debugPrint(
-        '[Recognition] label=$label conf=${confidence.toStringAsFixed(3)}');
+        '[Recognition] label=$label conf=${topConfidence.toStringAsFixed(3)}');
 
     return RecognitionResult(
       label: label,
-      confidence: confidence,
+      confidence: topConfidence,
       handDetected: true,
       landmarks: normalised,
+      topLabel: topLabel,
+      topConfidence: topConfidence,
+      secondLabel: secondLabel,
+      secondConfidence: secondConfidence,
+      isConfident: isConfident,
     );
   }
 
