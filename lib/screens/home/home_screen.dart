@@ -144,7 +144,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           activeUnitNotifier: _activeUnit,
           onUnitPositionsComputed: (ys) => _unitTopYs = ys,
           onLessonTap: (lessonId) {
-            context.push('/lesson/$lessonId/exercise');
+            context.push('/lesson/$lessonId/mode');
           },
         ),
         Positioned(
