@@ -211,12 +211,12 @@ const kXpQuestBonus     = 30;    // per completed quest
 
 ### Sign Label Map (TFLite class index → label)
 ```
-0→A,  1→B,  2→C,  3→D,  4→E,  5→F,  6→G,
-7→H,  8→I,  9→J, 10→K, 11→L, 12→M, 13→N,
-14→O, 15→P, 16→Q, 17→R, 18→S, 19→T, 20→U,
-21→V, 22→W, 23→X, 24→Y, 25→Z
+ 0→0,  1→1,  2→2,  3→3,  4→4,  5→5,  6→6,  7→7,  8→8,  9→9,
+10→A, 11→B, 12→C, 13→D, 14→E, 15→F, 16→G, 17→H, 18→I, 19→J,
+20→K, 21→L, 22→M, 23→N, 24→O, 25→P, 26→Q, 27→R, 28→S, 29→T,
+30→U, 31→V, 32→W, 33→X, 34→Y, 35→Z
 ```
-Also in `assets/models/label_map.txt`, one label per line.
+Defined as `kSignLabels` in `lib/data/sign_label_map.dart` — no separate label file is bundled with the app.
 
 ### Finger-State Target Map
 Finger order: `[thumb, index, middle, ring, pinky]`

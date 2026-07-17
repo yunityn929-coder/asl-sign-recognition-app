@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +11,8 @@ import '../../models/recognition_result.dart';
 
 /// Temporary screen for testing the RecognitionController pipeline.
 /// Shows camera preview and logs predictions to console.
-/// Remove / replace when integrating into LearnScreen / PracticeSessionScreen.
+/// Remove once PracticeSessionScreen is wired up (see its TODO) — the Learn/Quiz
+/// flow already consumes RecognitionController in lesson/exercise_screen.dart.
 class RecognitionTestScreen extends ConsumerStatefulWidget {
   const RecognitionTestScreen({super.key});
 
@@ -27,6 +29,7 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
   double _lastConf = 0;
   bool _handDetected = false;
   String? _errorText;
+  CameraLensDirection _lensDirection = CameraLensDirection.back;
 
   @override
   void initState() {
@@ -72,6 +75,16 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
     );
   }
 
+  Future<void> _toggleCamera() async {
+    setState(() {
+      _lensDirection = _lensDirection == CameraLensDirection.back
+          ? CameraLensDirection.front
+          : CameraLensDirection.back;
+      _cameraReady = false;
+    });
+    await _recognition!.switchCamera(_lensDirection);
+  }
+
   @override
   void dispose() {
     _sub?.cancel();
@@ -84,7 +97,6 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
-        fit: StackFit.expand,
         children: [
           if (_errorText != null)
             Center(
@@ -98,10 +110,41 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
               ),
             )
           else if (_cameraReady)
-            CameraPreview(_recognition!.cameraController!)
+            Center(
+              child: AspectRatio(
+                aspectRatio: _recognition!.cameraController!.value.aspectRatio,
+                child: _lensDirection == CameraLensDirection.front
+                    ? Transform(
+                        alignment: Alignment.center,
+                        transform: Matrix4.rotationY(math.pi),
+                        child: CameraPreview(_recognition!.cameraController!),
+                      )
+                    : CameraPreview(_recognition!.cameraController!),
+              ),
+            )
           else
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
+            ),
+          if (_errorText == null)
+            Positioned(
+              top: 48,
+              right: 12,
+              child: GestureDetector(
+                onTap: _cameraReady ? _toggleCamera : null,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0x99000000),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: const Icon(
+                    Icons.flip_camera_android,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
             ),
           Positioned(
             bottom: 48,

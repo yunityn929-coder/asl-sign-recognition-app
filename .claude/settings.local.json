@@ -70,7 +70,27 @@
       "PowerShell(flutter analyze *)",
       "PowerShell($adb = \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; & $adb -s AE6RUT4A24000929 shell screencap -p /sdcard/home_screen.png; & $adb -s AE6RUT4A24000929 pull /sdcard/home_screen.png \"C:\\\\Users\\\\Yuni\\\\Desktop\\\\home_screen.png\" 2>&1)",
       "PowerShell($adb = \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; & $adb -s AE6RUT4A24000929 shell screencap -p /sdcard/home_screen.png; & $adb -s AE6RUT4A24000929 pull /sdcard/home_screen.png \"C:\\\\Users\\\\Yuni\\\\home_screen.png\" 2>&1)",
-      "PowerShell(Start-Sleep -Seconds 3; $adb = \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; & $adb -s AE6RUT4A24000929 shell screencap -p /sdcard/home_screen2.png; & $adb -s AE6RUT4A24000929 pull /sdcard/home_screen2.png \"C:\\\\Users\\\\Yuni\\\\home_screen2.png\" 2>&1)"
+      "PowerShell(Start-Sleep -Seconds 3; $adb = \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; & $adb -s AE6RUT4A24000929 shell screencap -p /sdcard/home_screen2.png; & $adb -s AE6RUT4A24000929 pull /sdcard/home_screen2.png \"C:\\\\Users\\\\Yuni\\\\home_screen2.png\" 2>&1)",
+      "Bash(Remove-Item \"C:\\\\HIASL_BSE_FYP_2026\\\\asl-sign-recognition-app\\\\lib\\\\screens\\\\home\\\\widgets\\\\section_card.dart\" -Force)",
+      "Bash(Remove-Item \"C:\\\\HIASL_BSE_FYP_2026\\\\asl-sign-recognition-app\\\\lib\\\\screens\\\\home\\\\widgets\\\\lesson_card.dart\" -Force)",
+      "Bash(Write-Output \"deleted\")",
+      "Bash(New-Item -ItemType Directory -Force \"C:\\\\HIASL_BSE_FYP_2026\\\\asl-sign-recognition-app\\\\lib\\\\core\\\\navigation\")",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell getprop ro.build.version.sdk)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell getprop ro.build.version.release)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell getprop ro.product.model)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell am start -n com.hiasl.app/.MainActivity)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell am force-stop com.hiasl.app)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 logcat -d)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 logcat -c)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell am start -W -n com.hiasl.app/.MainActivity)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 logcat -d -b all)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell pm list packages)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 uninstall com.hiasl.app)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell ls /data/system/dropbox/)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/build-tools/36.1.0/aapt2.exe dump *)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell ps -A)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell dumpsys package com.hiasl.app)",
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 logcat -d -b main)"
     ]
   }
 }

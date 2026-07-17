@@ -24,6 +24,11 @@ const String kRouteSessionQuest                = '/session/quest';
 const String kRouteSettings                    = '/settings';
 const String kRouteLeaderboard                 = '/leaderboard';
 const String kRouteSocialSignIn                = '/login/social';
+const String kRouteQuest                       = '/quest';
+const String kRouteSigns                       = '/signs';
+const String kRouteProfile                     = '/profile';
+const String kRouteLessonExercise              = '/lesson/:lessonId/exercise';
+const String kRouteLessonResults               = '/lesson/:lessonId/results';
 
 // Named route identifiers — used in GoRouter name: and context.goNamed()
 const String kRouteNameSplash                      = 'splash';
@@ -51,3 +56,8 @@ const String kRouteNameSessionQuest                = 'session-quest';
 const String kRouteNameSettings                    = 'settings';
 const String kRouteNameLeaderboard                 = 'leaderboard';
 const String kRouteNameSocialSignIn                = 'social-sign-in';
+const String kRouteNameQuest                       = 'quest';
+const String kRouteNameSigns                       = 'signs';
+const String kRouteNameProfile                     = 'profile';
+const String kRouteNameLessonExercise              = 'lesson-exercise';
+const String kRouteNameLessonResults               = 'lesson-results';

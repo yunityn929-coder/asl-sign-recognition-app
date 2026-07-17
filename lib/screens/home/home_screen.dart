@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,10 +12,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/lesson_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/firestore_service.dart';
-import '../../services/tts_service.dart';
-import 'widgets/lesson_card.dart';
-import 'widgets/quest_strip.dart';
-import 'widgets/section_card.dart';
+import 'widgets/path_body.dart';
+import 'widgets/unit_banner.dart';
 
 // S-13 — Home
 class HomeScreen extends ConsumerStatefulWidget {
@@ -25,65 +24,95 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final Set<int> _expanded = {1};
-  bool _lessonsFallbackTriggered = false;
+  bool _fallbackTriggered = false;
+  late final ScrollController _scroll;
+  final _activeUnit = ValueNotifier<int>(0);
+  List<double>? _unitTopYs;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll = ScrollController();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    _activeUnit.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final ys = _unitTopYs;
+    if (ys == null || !_scroll.hasClients) return;
+    final offset = _scroll.offset;
+    final threshold = offset + MediaQuery.of(context).size.height * 0.005;
+    var idx = 0;
+    for (var i = 1; i < ys.length; i++) {
+      if (ys[i] <= threshold) {
+        idx = i;
+      } else {
+        break;
+      }
+    }
+    if (idx != _activeUnit.value) _activeUnit.value = idx;
+  }
 
   @override
   Widget build(BuildContext context) {
     return ref.watch(authStateProvider).when(
-          data: (user) {
-            if (user == null) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
-            }
-            return _HomeScaffold(
-              uid: user.uid,
-              expanded: _expanded,
-              onToggle: (n) => setState(() =>
-                  _expanded.contains(n) ? _expanded.remove(n) : _expanded.add(n)),
-              fallbackTriggered: _lessonsFallbackTriggered,
-              onFallbackTriggered: () => _lessonsFallbackTriggered = true,
-            );
-          },
-          loading: () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
-          error: (_, __) => const Scaffold(
-            body: Center(child: Text('Something went wrong.')),
-          ),
-        );
+      data: (user) {
+        if (user == null) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Sign-in failed. Check your connection.'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () async {
+                      try {
+                        await FirebaseAuth.instance.signInAnonymously();
+                      } catch (_) {}
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return _buildScaffold(context, user.uid);
+      },
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const Scaffold(
+        body: Center(child: Text('Something went wrong.')),
+      ),
+    );
   }
-}
 
-class _HomeScaffold extends ConsumerWidget {
-  final String uid;
-  final Set<int> expanded;
-  final void Function(int) onToggle;
-  final bool fallbackTriggered;
-  final VoidCallback onFallbackTriggered;
-
-  const _HomeScaffold({
-    required this.uid,
-    required this.expanded,
-    required this.onToggle,
-    required this.fallbackTriggered,
-    required this.onFallbackTriggered,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(userProvider(uid));
+  Widget _buildScaffold(BuildContext context, String uid) {
+    final userAsync    = ref.watch(userProvider(uid));
     final lessonsAsync = ref.watch(lessonProvider(uid));
-    final user = userAsync.asData?.value;
+    final user         = userAsync.asData?.value;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
+      backgroundColor: Colors.white,
       appBar: _buildAppBar(context, user),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const QuestStrip(),
+          StickyUnitBanner(
+            activeIndex: _activeUnit,
+            sections: kSections,
+          ),
           Expanded(
             child: lessonsAsync.when(
-              data: (lessons) => _buildLessons(context, ref, lessons),
+              data: (lessons) => _buildBody(context, uid, lessons),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (_, __) => const Center(
                 child: Text(
@@ -98,8 +127,37 @@ class _HomeScaffold extends ConsumerWidget {
     );
   }
 
+  Widget _buildBody(BuildContext context, String uid, List<LessonModel> lessons) {
+    if (lessons.isEmpty && !_fallbackTriggered) {
+      _fallbackTriggered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(firestoreServiceProvider).initLessons(uid, 's1l1').catchError((_) {});
+      });
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Stack(
+      children: [
+        PathBody(
+          lessons: lessons,
+          scrollController: _scroll,
+          activeUnitNotifier: _activeUnit,
+          onUnitPositionsComputed: (ys) => _unitTopYs = ys,
+          onLessonTap: (lessonId) {
+            context.push('/lesson/$lessonId/exercise');
+          },
+        ),
+        Positioned(
+          right: 16,
+          bottom: 76,
+          child: _ScrollToTopFab(controller: _scroll),
+        ),
+      ],
+    );
+  }
+
   PreferredSizeWidget _buildAppBar(BuildContext context, UserModel? user) {
-    final xp = user?.totalXp ?? 0;
+    final xp     = user?.totalXp ?? 0;
     final streak = user?.currentStreak ?? 0;
 
     return AppBar(
@@ -128,60 +186,67 @@ class _HomeScaffold extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Widget _buildLessons(BuildContext context, WidgetRef ref, List<LessonModel> lessons) {
-    if (lessons.isEmpty && !fallbackTriggered) {
-      onFallbackTriggered();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(firestoreServiceProvider).initLessons(uid, 's1l1').catchError((_) {});
-      });
-      return const Center(child: CircularProgressIndicator());
-    }
+class _ScrollToTopFab extends StatefulWidget {
+  final ScrollController controller;
+  const _ScrollToTopFab({required this.controller});
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-      itemCount: kSections.length,
-      itemBuilder: (context, idx) {
-        final section = kSections[idx];
-        final defs = kLessons.where((l) => l.section == section.number).toList();
-        final sectionLessons = lessons.where((l) => l.sectionNumber == section.number).toList();
-        final completedCount = sectionLessons.where((l) => l.status == 'completed').length;
-        final isExpanded = expanded.contains(section.number);
+  @override
+  State<_ScrollToTopFab> createState() => _ScrollToTopFabState();
+}
 
-        return SectionCard(
-          section: section,
-          completedCount: completedCount,
-          total: defs.length,
-          isExpanded: isExpanded,
-          onToggle: () => onToggle(section.number),
-          children: defs.map((def) {
-            final model = sectionLessons.firstWhere(
-              (l) => l.lessonId == def.id,
-              orElse: () => LessonModel(
-                lessonId: def.id,
-                sectionNumber: def.section,
-                status: 'locked',
-                practiceCount: 0,
-                bestAccuracy: 0,
-                totalXpEarned: 0,
-              ),
-            );
-            return LessonCard(
-              definition: def,
-              lesson: model,
-              onTap: model.status == 'locked'
-                  ? null
-                  : () {
-                      ref.read(ttsServiceProvider).speak(def.title);
-                      context.goNamed(
-                        kRouteNameModeSelect,
-                        pathParameters: {'lessonId': def.id},
-                      );
-                    },
-            );
-          }).toList(),
-        );
-      },
+class _ScrollToTopFabState extends State<_ScrollToTopFab> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final show = widget.controller.hasClients && widget.controller.offset > 200;
+    if (show != _visible) setState(() => _visible = show);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _visible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: IgnorePointer(
+        ignoring: !_visible,
+        child: GestureDetector(
+          onTap: () => widget.controller.animateTo(
+            0,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOut,
+          ),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.secondary,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.20),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
+          ),
+        ),
+      ),
     );
   }
 }

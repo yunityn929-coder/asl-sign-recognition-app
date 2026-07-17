@@ -16,7 +16,7 @@
 | Package | Purpose | Notes |
 |---|---|---|
 | `camera` | Live camera feed | Use for CameraPreview widget |
-| `tflite_flutter` | Run `.tflite` model on-device | Input tensor [1,42]; load from assets |
+| `tflite_flutter` | Run `.tflite` model on-device | Input tensor [1,63]; load from assets |
 
 ### 3D Rendering
 | Package | Purpose | Notes |
@@ -61,17 +61,16 @@
 
 | Property | Value |
 |---|---|
-| Model file | `assets/models/keypoint_classifier.tflite` |
-| Label file | `assets/models/keypoint_classifier_label.csv` |
-| Input shape | `[1, 42]` — 21 landmarks x (x,y) only, z dropped |
-| Output classes | 26 — A-Z alphabet only |
-| Label order | A=0, B=1, C=2 ... Z=25 |
-| Confidence threshold | 0.85 — below this show low-detection hint |
-| Training samples | 142,082 landmark vectors |
-| Dataset | grassknoted ASL Alphabet via Kaggle |
-| Weakest classes | M (4,391 samples), N (3,392 samples) |
-
-Numbers (0-9): OUT OF SCOPE — no suitable landmark dataset. Future work.
+| Model file | `assets/models/mlp_model.tflite` |
+| Label source | `kSignLabels` in `lib/data/sign_label_map.dart` (no label file bundled — reproduces `label_encoder.pkl`'s class order by hand) |
+| Input shape | `[1, 63]` — 21 landmarks x (x,y,z) |
+| Output classes | 36 — 0-9 then A-Z |
+| Label order | 0=0, 1=1 ... 9=9, 10=A, 11=B ... 35=Z (sklearn `LabelEncoder` alphabetical sort — digits precede uppercase letters) |
+| Confidence threshold | 0.85 (`kRecognitionConfidenceThreshold`) — below this show low-detection hint |
+| Training samples | 19,812 cleaned landmark vectors (capped at 600/class; low-sample classes kept as-is), 3,963 held out for validation |
+| Dataset | ASL-HG (Mendeley, `data.mendeley.com/datasets/j4y5w2c8w9/1`) — 36,000 images, 1,000/class, 10 volunteers |
+| Validation accuracy | 100.00% (all 36 classes, epoch 150) — expect lower real-world webcam accuracy due to lighting/angle variation |
+| Source model | Converted from Keras `mlp_model.h5` (`asl-gesture-recognition-model/static/model/`) via `tf.lite.TFLiteConverter` |
 
 ---
 
@@ -80,8 +79,7 @@ Numbers (0-9): OUT OF SCOPE — no suitable landmark dataset. Future work.
 ```
 assets/
 ├── models/
-│   ├── keypoint_classifier.tflite
-│   ├── keypoint_classifier_label.csv   # one label per line, A-Z
+│   ├── mlp_model.tflite                # labels: kSignLabels in lib/data/sign_label_map.dart
 │   └── 3d/
 │       ├── sign_A.glb ... sign_Z.glb
 ├── audio/
@@ -124,13 +122,16 @@ No email/password auth. No login screen. Anonymous-first.
 ## Gesture Recognition Pipeline
 
 ### Input
-- MediaPipe Hands: 21 landmarks x 2 (x,y only — z dropped) = 42 floats
-- Normalise relative to wrist (landmark index 0)
-- Input tensor: `[1, 42]`
-- Based on kinivi/hand-gesture-recognition-mediapipe, retrained on ASL data
+- MediaPipe Hands: 21 landmarks x 3 (x,y,z) = 63 floats
+- Normalise: subtract wrist (landmark index 0), then divide by the Euclidean
+  norm of the (already-centred) landmark 9 — matches training-time
+  normalisation in `asl-gesture-recognition-model/static/preprocessing.py`
+- Input tensor: `[1, 63]`
+- MLP trained in `asl-gesture-recognition-model/`, converted from
+  `mlp_model.h5` to `mlp_model.tflite` via `tf.lite.TFLiteConverter`
 
 ### Output
-- Softmax over 26 classes (A-Z)
+- Softmax over 36 classes (0-9 then A-Z)
 - Confidence < 0.85 → emit as uncertain → show hint (FR-17)
 
 ### Session Control

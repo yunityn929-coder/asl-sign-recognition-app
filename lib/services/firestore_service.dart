@@ -128,6 +128,67 @@ class FirestoreService {
     return map;
   }
 
+  Future<void> markLessonComplete(String uid, String lessonId) async {
+    final batch = _db.batch();
+    final lessonsRef = _db.collection('users').doc(uid).collection('lessons');
+    batch.set(lessonsRef.doc(lessonId),
+        {'status': 'completed', 'completedAt': FieldValue.serverTimestamp()},
+        SetOptions(merge: true));
+    final idx = kLessons.indexWhere((l) => l.id == lessonId);
+    if (idx >= 0 && idx < kLessons.length - 1) {
+      batch.set(lessonsRef.doc(kLessons[idx + 1].id), {'status': 'available'},
+          SetOptions(merge: true));
+    }
+    final signCount = idx >= 0 ? kLessons[idx].signs.length : 0;
+    if (signCount > 0) {
+      batch.update(_db.collection('users').doc(uid),
+          {'signsLearned': FieldValue.increment(signCount)});
+    }
+    try {
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Failed to complete lesson');
+    }
+  }
+
+  Future<void> addXp(String uid, int amount) async {
+    try {
+      await _db.collection('users').doc(uid).update(
+          {'totalXp': FieldValue.increment(amount)});
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Failed to add XP');
+    }
+    await updateStreakIfNeeded(uid);
+  }
+
+  Future<void> updateStreakIfNeeded(String uid) async {
+    final today = _today();
+    final yesterday = DateTime.now()
+        .subtract(const Duration(days: 1))
+        .toIso8601String()
+        .substring(0, 10);
+    try {
+      await _db.runTransaction((txn) async {
+        final ref = _db.collection('users').doc(uid);
+        final snap = await txn.get(ref);
+        if (!snap.exists) return;
+        final data = snap.data()!;
+        final lastDate = data['lastStreakDate'] as String? ?? '';
+        if (lastDate == today) return;
+        final cur = (data['currentStreak'] as num?)?.toInt() ?? 0;
+        final longest = (data['longestStreak'] as num?)?.toInt() ?? 0;
+        final newStreak = lastDate == yesterday ? cur + 1 : 1;
+        txn.update(ref, {
+          'currentStreak': newStreak,
+          'longestStreak': newStreak > longest ? newStreak : longest,
+          'lastStreakDate': today,
+        });
+      });
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Failed to update streak');
+    }
+  }
+
   String _today() => DateTime.now().toIso8601String().substring(0, 10);
 }
 

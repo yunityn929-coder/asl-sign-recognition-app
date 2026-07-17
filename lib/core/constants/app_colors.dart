@@ -18,4 +18,12 @@ class AppColors {
   static const warning           = Color(0xFFFFB347);
   static const xpGold            = Color(0xFFFFD700);
   static const onboardingBg      = Color(0xFFFFFFFF);
+
+  // Milestone Path UI tokens
+  static const nodeGold         = Color(0xFFFFD166);
+  static const nodeGoldShadow   = Color(0xFFC89E3A);
+  static const bannerGold       = Color(0xFFFFD166);
+  static const chipWhite        = Color(0xFFFFFFFF);
+  static const hardShadow       = Color(0xFF111111);
+  static const labelBlack       = Color(0xFF111111);
 }

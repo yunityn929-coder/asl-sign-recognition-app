@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/constants/route_constants.dart';
+import 'core/navigation/app_shell.dart';
 import 'models/checkout_data.dart';
 
 // Welcome
@@ -20,8 +21,13 @@ import 'screens/onboarding/placement_test_screen.dart';
 import 'screens/onboarding/placement_result_screen.dart';
 import 'screens/onboarding/streak_goal_screen.dart';
 
-// Core screens
+// Shell tabs
 import 'screens/home/home_screen.dart';
+import 'screens/quest/quest_screen.dart';
+import 'screens/signs/signs_screen.dart';
+import 'screens/profile/profile_screen.dart';
+
+// Core screens
 import 'screens/streak/streak_screen.dart';
 import 'screens/mode_select/mode_select_screen.dart';
 import 'screens/learn/learn_screen.dart';
@@ -36,12 +42,19 @@ import 'screens/checkout/quest_update_screen.dart';
 // Post-session
 import 'screens/completion/learn_completion_screen.dart';
 
+// Lesson flow
+import 'screens/lesson/exercise_screen.dart';
+import 'screens/lesson/results_screen.dart';
+
 // Social / extras
 import 'screens/settings/settings_screen.dart';
 import 'screens/leaderboard/leaderboard_screen.dart';
 import 'screens/social/social_sign_in_screen.dart';
 
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final GoRouter appRouter = GoRouter(
+  navigatorKey: _rootNavigatorKey,
   initialLocation: kRouteSplash,
   routes: [
     // S-01 — Splash
@@ -114,7 +127,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const PlacementTestScreen(),
     ),
 
-    // S-11 — Placement Result (extra: Map<String, dynamic> with startLessonId + correctCount)
+    // S-11 — Placement Result
     GoRoute(
       path: kRouteOnboardingPlacementResult,
       name: kRouteNameOnboardingPlacementResult,
@@ -127,7 +140,7 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
-    // S-12 — Streak Goal Selection (extra: String startLessonId)
+    // S-12 — Streak Goal Selection
     GoRoute(
       path: kRouteOnboardingStreakGoal,
       name: kRouteNameOnboardingStreakGoal,
@@ -137,11 +150,31 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
-    // S-13 — Home
-    GoRoute(
-      path: kRouteHome,
-      name: kRouteNameHome,
-      builder: (context, state) => const HomeScreen(),
+    // Shell — persistent bottom nav for Home / Quest / Signs / Profile
+    ShellRoute(
+      builder: (context, state, child) => AppShell(child: child),
+      routes: [
+        GoRoute(
+          path: kRouteHome,
+          name: kRouteNameHome,
+          builder: (context, state) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: kRouteQuest,
+          name: kRouteNameQuest,
+          builder: (context, state) => const QuestScreen(),
+        ),
+        GoRoute(
+          path: kRouteSigns,
+          name: kRouteNameSigns,
+          builder: (context, state) => const SignsScreen(),
+        ),
+        GoRoute(
+          path: kRouteProfile,
+          name: kRouteNameProfile,
+          builder: (context, state) => const ProfileScreen(),
+        ),
+      ],
     ),
 
     // S-14 — Streak Page
@@ -245,6 +278,35 @@ final GoRouter appRouter = GoRouter(
       path: kRouteSocialSignIn,
       name: kRouteNameSocialSignIn,
       builder: (context, state) => const SocialSignInScreen(),
+    ),
+
+    // S-15 — Lesson Exercise (root navigator so push/pop works outside the shell)
+    GoRoute(
+      path: kRouteLessonExercise,
+      name: kRouteNameLessonExercise,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final lessonId = state.pathParameters['lessonId']!;
+        return ExerciseScreen(lessonId: lessonId);
+      },
+    ),
+
+    // S-16 — Lesson Results (root navigator so push/pop works outside the shell)
+    GoRoute(
+      path: kRouteLessonResults,
+      name: kRouteNameLessonResults,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final lessonId = state.pathParameters['lessonId']!;
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return ResultsScreen(
+          lessonId: lessonId,
+          correctCount: extra['correctCount'] as int? ?? 0,
+          totalCount: extra['totalCount'] as int? ?? 0,
+          missedSigns:
+              (extra['missedSigns'] as List?)?.cast<String>() ?? const [],
+        );
+      },
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

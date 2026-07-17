@@ -31,6 +31,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // mediapipe:tasks-vision has no x86_64 binary; arm64-v8a covers all modern devices
+        // and Pixel emulators. Remove this filter only if you add an x86_64 mediapipe build.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
     
     buildTypes {

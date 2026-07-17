@@ -33,7 +33,7 @@ class HandLandmarkDetector(context: Context) {
     }
 
     /**
-     * Process a YUV_420_888 camera frame and return 42 doubles (x,y for each of 21
+     * Process a YUV_420_888 camera frame and return 63 doubles (x,y,z for each of 21
      * landmarks), or null when no hand is detected.
      */
     fun processFrame(
@@ -50,9 +50,10 @@ class HandLandmarkDetector(context: Context) {
         val mpImage = BitmapImageBuilder(bitmap).build()
         val result = handLandmarker.detect(mpImage)
         if (result.landmarks().isEmpty()) return null
-        // Take only the first detected hand; x and y are already normalised [0,1].
+        // Take only the first detected hand; x,y are normalised [0,1], z is
+        // depth relative to the wrist (roughly same scale as x).
         return result.landmarks()[0].flatMap { lm ->
-            listOf(lm.x().toDouble(), lm.y().toDouble())
+            listOf(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble())
         }
     }
 

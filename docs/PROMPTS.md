@@ -244,8 +244,8 @@ DATA_SCHEMA.md kSignFingerStates and kSignLabels.
 
 - RecognitionController:
   Camera feed → MediaPipe Hands (platform channel) → 21 landmarks → 63 floats
-  Normalise all values relative to wrist (landmark index 0)
-  Feed [1,63] tensor into asl_classifier.tflite via tflite_flutter
+  Normalise: subtract wrist (landmark index 0), divide by norm of landmark 9
+  Feed [1,63] tensor into mlp_model.tflite via tflite_flutter
   Emit Stream<RecognitionResult> — see APP_FLOW.md for RecognitionResult fields
   Confidence < 0.85 → emit with handDetected:true but label empty (triggers FR-17 hint)
   startSession() → activate camera
