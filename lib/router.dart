@@ -308,7 +308,7 @@ final GoRouter appRouter = GoRouter(
         return QuizResultScreen(
           score: extra['score'] as int? ?? 0,
           total: extra['total'] as int? ?? 0,
-          quizSet: extra['quizSet'] as QuizSet?,
+          quizSet: extra['quizSet'] as QuizSet,
           wrongSigns: (extra['wrongSigns'] as List?)?.cast<String>() ?? const [],
         );
       },

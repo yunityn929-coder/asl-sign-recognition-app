@@ -38,6 +38,7 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
   int? _selectedOptionIndex;
   bool _answered = false;
   int _score = 0;
+  int _correctCount = 0;
   int _timeLeft = 10;
   Timer? _timer;
 
@@ -81,6 +82,7 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
       _selectedOptionIndex = index;
       if (index == correctIndex) {
         _score += 10;
+        _correctCount++;
       } else {
         _wrongSigns.add(question.correctSign);
       }
@@ -102,7 +104,7 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
       context.pushReplacement(
         kRouteQuizResult,
         extra: {
-          'score': _score,
+          'score': _correctCount,
           'total': _questions.length,
           'quizSet': widget.quizSet,
           'wrongSigns': _wrongSigns,
