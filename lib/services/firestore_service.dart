@@ -1,13 +1,21 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/constants/xp_constants.dart';
 import '../core/errors/app_exception.dart';
 import '../data/lesson_definitions.dart';
+import '../data/quest_pool.dart';
+import '../models/daily_quest_model.dart';
 import '../models/lesson_model.dart';
 import '../models/user_model.dart';
 
+const _kDailyQuestTypes = ['complete_lessons', 'earn_xp', 'practice_sessions'];
+
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final Random _random = Random();
 
   Future<void> createUser(String uid) async {
     final ref = _db.collection('users').doc(uid);
@@ -252,6 +260,119 @@ class FirestoreService {
   }
 
   String _today() => DateTime.now().toIso8601String().substring(0, 10);
+
+  CollectionReference<Map<String, dynamic>> _questsRef(String uid) =>
+      _db.collection('users').doc(uid).collection('dailyQuests');
+
+  Map<String, dynamic> _normaliseDailyQuest(Map<String, dynamic> raw) {
+    final map = Map<String, dynamic>.from(raw);
+    if (map['generatedAt'] is Timestamp) {
+      map['generatedAt'] =
+          (map['generatedAt'] as Timestamp).toDate().toIso8601String().substring(0, 10);
+    } else if (map['generatedAt'] == null) {
+      map['generatedAt'] = _today();
+    }
+    return map;
+  }
+
+  Future<DailyQuestModel?> getDailyQuests(String uid) async {
+    final today = _today();
+    try {
+      final ref = _questsRef(uid).doc(today);
+      final snap = await ref.get();
+      if (snap.exists) {
+        return DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!));
+      }
+      return _generateDailyQuests(uid, today);
+    } on FirebaseException catch (_) {
+      return null;
+    }
+  }
+
+  Future<DailyQuestModel?> _generateDailyQuests(String uid, String dateStr) async {
+    final eligible = kQuestPool.where((d) => _kDailyQuestTypes.contains(d.type)).toList()
+      ..shuffle(_random);
+    final picks = eligible.take(3).toList();
+
+    final quests = [
+      for (var i = 0; i < picks.length; i++)
+        QuestModel(
+          id: 'quest_$i',
+          type: picks[i].type,
+          description: picks[i].description,
+          target: picks[i].target,
+          progress: 0,
+          completed: false,
+          xpReward: kXpQuestBonus,
+        ),
+    ];
+
+    final daily = DailyQuestModel(
+      date: dateStr,
+      generatedAt: dateStr,
+      quests: quests,
+      totalQuestsCompleted: 0,
+      bonusXpAwarded: 0,
+    );
+
+    try {
+      await _questsRef(uid).doc(dateStr).set({
+        ...daily.toMap(),
+        'generatedAt': FieldValue.serverTimestamp(),
+      });
+      return daily;
+    } on FirebaseException catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> updateQuestProgress(String uid, String questType, int amount) async {
+    final ref = _questsRef(uid).doc(_today());
+    var shouldAwardBonus = false;
+    try {
+      await _db.runTransaction((txn) async {
+        final snap = await txn.get(ref);
+        if (!snap.exists) return;
+        final daily = DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!));
+
+        final updatedQuests = daily.quests.map((q) {
+          if (q.type != questType || q.completed) return q;
+          final newProgress = q.progress + amount;
+          return q.copyWith(
+            progress: newProgress,
+            completed: newProgress >= q.target,
+          );
+        }).toList();
+
+        final totalCompleted = updatedQuests.where((q) => q.completed).length;
+        final allCompleted = totalCompleted == updatedQuests.length;
+        final alreadyAwarded = daily.bonusXpAwarded > 0;
+        final bonusXp = allCompleted && !alreadyAwarded
+            ? kXpQuestBonus * updatedQuests.length
+            : daily.bonusXpAwarded;
+
+        if (allCompleted && !alreadyAwarded) shouldAwardBonus = true;
+
+        txn.update(ref, {
+          'quests': updatedQuests.map((q) => q.toMap()).toList(),
+          'totalQuestsCompleted': totalCompleted,
+          'bonusXpAwarded': bonusXp,
+        });
+      });
+    } on FirebaseException catch (_) {
+      return;
+    }
+    if (shouldAwardBonus) {
+      try {
+        await addXp(uid, kXpQuestBonus * 3);
+      } on FirebaseException catch (_) {}
+    }
+  }
+
+  Stream<DailyQuestModel?> watchDailyQuests(String uid) {
+    return _questsRef(uid).doc(_today()).snapshots().map((snap) =>
+        snap.exists ? DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!)) : null);
+  }
 }
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) => FirestoreService());

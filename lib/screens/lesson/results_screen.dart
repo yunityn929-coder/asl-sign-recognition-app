@@ -76,6 +76,14 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
           .read(firestoreServiceProvider)
           .updateSignAccuracy(uid: uid, newAccuracy: signAccuracy);
     } catch (_) {}
+    try {
+      final quests = ref.read(firestoreServiceProvider);
+      await Future.wait([
+        quests.updateQuestProgress(uid, 'complete_lessons', 1),
+        quests.updateQuestProgress(uid, 'earn_xp', _xpEarned),
+        quests.updateQuestProgress(uid, 'practice_sessions', 1),
+      ]);
+    } catch (_) {}
     if (mounted) {
       ref
           .read(ttsServiceProvider)
