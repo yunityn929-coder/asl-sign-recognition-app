@@ -6,6 +6,7 @@ import '../core/errors/app_exception.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   User? get currentUser => _auth.currentUser;
   bool get isAnonymous => _auth.currentUser?.isAnonymous ?? true;
@@ -18,6 +19,13 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       throw AuthException(e.message ?? 'Anonymous sign-in failed');
     }
+  }
+
+  Future<void> signOut() async {
+    try {
+      await _googleSignIn.disconnect();
+    } catch (_) {}
+    await _auth.signOut();
   }
 
   // Returns the signed-in User, or null if the user cancelled the picker.
