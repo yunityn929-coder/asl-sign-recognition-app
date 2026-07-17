@@ -13,6 +13,9 @@ class UserActions {
   final String _uid;
 
   Future<void> addXp(int amount) => _service.addXp(_uid, amount);
+
+  Future<void> updateSettings(Map<String, dynamic> fields) =>
+      _service.updateUser(_uid, fields);
 }
 
 final userActionsProvider = Provider.family<UserActions, String>(
