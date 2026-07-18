@@ -1,3 +1,31 @@
+# IMPLEMENTATION STATUS NOTE (2026-07-18)
+> This SRS describes the original planned requirements.
+> See docs/BUILD_STATUS.md for what is actually built.
+> Key deviations from this document:
+> - Auth: email/password removed entirely — anonymous +
+>   Google Sign-In only (see final amendment below)
+> - 3D hand models (FR-05/FR-06): replaced with static
+>   PNG images in assets/models/3d/. flutter_3d_controller
+>   removed from project.
+> - Placement test (FR placement section): removed from
+>   onboarding flow. ASL level answer now auto-maps to
+>   startLessonId directly.
+> - Sound effects (FR-33–FR-37): audioplayers in pubspec
+>   but not wired — sound effects not implemented.
+> - Push notifications (FR-57/FR-58): package present but
+>   not implemented beyond permission request.
+> - Difficulty-tiered XP: flat kXpLearnCorrect (10) used
+>   in practice session — kXpPracticeEasy/Medium/Hard
+>   defined but unused.
+> - Quiz tab: not in original SRS — added as new feature.
+>   See docs/APP_FLOW.md for Quiz screen specs.
+> - Bottom nav: Home/Quiz/Signs/Profile
+>   (not Home/Quest/Signs/Profile as originally planned)
+> - J and Z: static PNG in MLP model, not LSTM.
+>   Documented limitation, future work.
+
+---
+
 # SRS.md — Software Requirements Specification
 # HiASL: Beginner ASL Learning App
 
@@ -98,6 +126,9 @@ SECTION 4 — Mixed Review & Mastery
 | FR-05 | Each sign has a 3D hand model in Learn mode | Correct `.glb` loads for active sign |
 | FR-06 | User can rotate and zoom 3D model | Drag rotates; pinch zooms; zoom clamped |
 
+> ❌ NOT IMPLEMENTED AS SPECIFIED (FR-05, FR-06) — replaced with static PNG
+> images (assets/models/3d/{SIGN}.png, all 36 signs).
+
 ### Gesture Recognition
 | ID | Requirement | Acceptance Criteria |
 |---|---|---|
@@ -125,6 +156,9 @@ SECTION 4 — Mixed Review & Mastery
 | FR-35 | Session checkout → completion fanfare | Celebratory sound on checkout screen entry |
 | FR-36 | XP awarded → XP gain sound | Coin/sparkle sound plays alongside XP animation |
 | FR-37 | Sound effects toggle in Settings | Default ON; persisted to Firestore |
+
+> ❌ NOT IMPLEMENTED (FR-33–FR-37) — audioplayers package in pubspec.yaml
+> but zero imports in lib/. Sound assets exist in assets/audio/ but are never played.
 
 ### Practice Mode
 | ID | Requirement | Acceptance Criteria |
@@ -215,6 +249,10 @@ SECTION 4 — Mixed Review & Mastery
 6. All items done → navigate to Checkout (S-12)
 
 ## Placement Test — Exact Behaviour
+> ❌ REMOVED FROM FLOW — placement test screens are orphaned
+> (unrouted). Level selection now auto-maps to startLessonId.
+> See onboarding_level_screen.dart for mapping logic.
+
 1. 10 random signs from entry-level section for Q1 answer
 2. Runs as Practice session: Hard difficulty, no skip button, no TTS prompt (test conditions)
 3. Score ≥ 8/10 → advance one section; < 8/10 → Q1 start point
@@ -238,6 +276,9 @@ SECTION 4 — Mixed Review & Mastery
 - Social features, leaderboards
 - In-app purchases
 - User-created lessons
+
+> NOTE: Quiz tab (Kahoot-style) was added in development despite not being
+> in original scope. See docs/APP_FLOW.md Quiz Tab section for full spec.
 
 ---
 ## Amendment — Quick Authentication (appended)

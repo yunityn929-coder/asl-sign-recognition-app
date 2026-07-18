@@ -45,8 +45,17 @@ users/
   // Settings
   ttsEnabled: bool,             // default true
   soundEnabled: bool,           // default true
+
+  // Sign Progress
+  signAccuracy: Map<String, double>, // per-sign accuracy, weighted avg (0.0-1.0), keyed by sign label
+                                      // — see updateSignAccuracy() in firestore_service.dart
 }
 ```
+
+> NOTE: `photoUrl` does not exist on `UserModel` — not documented because not implemented.
+> NOTE: `markLessonComplete()` also writes `signsLearned: FieldValue.increment(signCount)`
+> to the user doc, but `UserModel` has no `signsLearned` field — it's written but never
+> read back into the app.
 
 ---
 
@@ -100,6 +109,10 @@ users/
 }
 ```
 
+> NOTE: `items` array is always written as `[]` currently — per-sign timing (`timeTakenMs`)
+> is not tracked. `durationSeconds` is also hardcoded to `0` (not measured). Per-sign
+> accuracy is tracked via `signAccuracy` on the user doc instead (see `updateSignAccuracy()`).
+
 ---
 
 ## users/{uid}/dailyQuests/{dateStr} — Daily Quests
@@ -144,6 +157,33 @@ const kQuestPool = [
   { type: 'correct_streak',     target: 10, description: 'Get 10 signs correct in a row' },
 ];
 ```
+
+> NOTE: `correct_streak` exists in `kQuestPool` (`lib/data/quest_pool.dart`) but is excluded
+> from `_kDailyQuestTypes` in `firestore_service.dart` — it is filtered out at generation
+> time, so users can never actually receive this quest. Only `complete_lessons`, `earn_xp`,
+> and `practice_sessions` are ever generated and updated via `updateQuestProgress()`.
+
+### Local Quiz Data (NOT in Firestore)
+
+**QuizSet** (lib/data/quiz_definitions.dart)
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String | section_1/section_2/section_3/section_4/quick |
+| title | String | Display name |
+| description | String | Short subtitle |
+| signs | List<String> | Signs used in this quiz |
+| sectionNumber | int | 0 = quick quiz |
+
+**QuizQuestion** (lib/models/quiz_question.dart)
+| Field | Type | Notes |
+|-------|------|-------|
+| correctSign | String | The correct answer |
+| options | List<String> | 4 options including correct |
+| type | QuestionType | imageToLetter/letterToImage/letterToLetter |
+| timeSeconds | int | Always 10 |
+
+Quiz best scores stored in SharedPreferences:
+key: `quiz_best_{quizSetId}` → int (correct count out of 10)
 
 ---
 
@@ -272,6 +312,11 @@ Always: if currentStreak > longestStreak → longestStreak = currentStreak
 If currentStreak % 7 == 0 → award kXpStreakBonus
 ```
 
+> NOTE: `streakGoalAchieved` is never set to `true` by any code path.
+> `updateStreakIfNeeded()` updates `currentStreak`/`longestStreak`/`lastStreakDate` only —
+> `kXpStreakBonus` (100 XP/7-day milestone) is defined in `xp_constants.dart` but is never
+> referenced anywhere else; no bonus XP is actually awarded for streak milestones.
+
 ---
 
 ## Firestore Security Rules
@@ -287,6 +332,11 @@ service cloud.firestore {
 ```
 
 ---
+
+> SUMMARY: The authoritative auth model is the final amendment (No-Login-First). Anonymous
+> sign-in on launch, Google Sign-In available via Leaderboard gate or Profile screen upgrade
+> prompt. Email/password auth was removed entirely.
+
 ## Amendment — Quick Auth Fields (appended)
 
 ### users/{uid} — Additional fields

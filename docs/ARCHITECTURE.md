@@ -41,6 +41,21 @@ class AppColors {
 }
 ```
 
+```dart
+// Milestone Path UI tokens (also in app_colors.dart, not yet documented above)
+static const textOnDarkMuted = Color(0xB3FFFFFF); // muted text on dark backgrounds
+static const nodeGold        = Color(0xFFFFD166); // milestone path node gold
+static const nodeGoldShadow  = Color(0xFFC89E3A); // node shadow
+static const bannerGold      = Color(0xFFFFD166); // section banner gold
+static const chipWhite       = Color(0xFFFFFFFF); // chip background
+static const hardShadow      = Color(0xFF111111); // strong shadow color
+static const labelBlack      = Color(0xFF111111); // dark label color
+```
+
+> NOTE: `backgroundPrimary` and `onboardingBg` are both `0xFFFFFFFF` (white) in the actual
+> `app_colors.dart` — not the lavender/dark-navy described above. That soft-pastel/dark-navy
+> design language documented here was never carried into the color tokens.
+
 ### Typography
 ```dart
 // Always use these — never inline TextStyle
@@ -139,8 +154,9 @@ lib/
 │   ├── auth_service.dart            # Firebase Auth wrapper
 │   ├── firestore_service.dart       # ALL Firestore reads/writes — only file that imports cloud_firestore
 │   ├── tts_service.dart             # flutter_tts wrapper
-│   ├── sound_service.dart           # audioplayers wrapper
-│   └── notification_service.dart    # flutter_local_notifications wrapper
+│   ├── notification_service.dart    # flutter_local_notifications wrapper
+│   ├── quiz_service.dart            # question generation (kAvailableSigns, kSignImagePath)
+│   └── feedback_service.dart        # gesture feedback debouncing (5-frame window, 4/5 consensus)
 │
 ├── providers/                       # Riverpod providers — state only, thin logic
 │   ├── auth_provider.dart
@@ -152,62 +168,88 @@ lib/
 │   └── settings_provider.dart
 │
 ├── controllers/                     # Session-scoped business logic — ephemeral
-│   ├── learn_session_controller.dart
-│   ├── practice_session_controller.dart
 │   ├── onboarding_controller.dart
 │   ├── recognition_controller.dart
-│   └── placement_test_controller.dart
+│   └── placement_test_controller.dart   # ORPHANED — exists but unused, referenced nowhere
+│                                         # outside its own file
+# NOTE: learn_session_controller.dart and practice_session_controller.dart were planned
+# here but never implemented — see the Controllers section note below.
 │
 ├── screens/                         # One folder per screen
 │   ├── splash/
 │   │   └── splash_screen.dart
-│   ├── auth/
-│   │   ├── login_screen.dart
-│   │   └── register_screen.dart
+│   ├── welcome/
+│   │   ├── welcome_brand_screen.dart
+│   │   ├── welcome_intro_screen.dart
+│   │   └── welcome_preview_screen.dart
 │   ├── onboarding/
-│   │   ├── onboarding_level_screen.dart       # S-04
-│   │   ├── onboarding_goal_screen.dart        # S-05
-│   │   ├── onboarding_notifications_screen.dart # S-06
-│   │   ├── onboarding_start_screen.dart       # S-07
-│   │   └── placement_test_screen.dart         # S-08
+│   │   ├── onboarding_level_screen.dart
+│   │   ├── onboarding_goal_screen.dart
+│   │   ├── onboarding_notifications_screen.dart
+│   │   ├── onboarding_achievement_screen.dart
+│   │   ├── streak_goal_screen.dart
+│   │   ├── onboarding_start_screen.dart       # ORPHANED — unrouted
+│   │   ├── placement_test_screen.dart         # ORPHANED — unrouted
+│   │   └── placement_result_screen.dart       # ORPHANED — unrouted
 │   ├── home/
-│   │   ├── home_screen.dart                   # S-09
+│   │   ├── home_screen.dart
 │   │   └── widgets/
-│   │       ├── section_card.dart
-│   │       ├── lesson_card.dart
-│   │       └── quest_strip.dart
-│   ├── streak/
-│   │   └── streak_screen.dart                 # S-10
+│   │       ├── unit_banner.dart
+│   │       ├── path_body.dart
+│   │       └── lesson_node.dart
 │   ├── mode_select/
-│   │   └── mode_select_screen.dart            # S-11
+│   │   └── mode_select_screen.dart
 │   ├── learn/
-│   │   ├── learn_screen.dart                  # S-12
+│   │   └── learn_screen.dart                  # ORPHANED — exercise_screen used instead
+│   ├── lesson/
+│   │   ├── exercise_screen.dart
+│   │   ├── results_screen.dart
 │   │   └── widgets/
-│   │       ├── hand_model_viewer.dart
-│   │       ├── camera_preview_widget.dart
-│   │       └── finger_guidance_overlay.dart
+│   │       ├── learn_mode_body.dart
+│   │       ├── quiz_mode_body.dart
+│   │       ├── feedback_widget.dart
+│   │       └── results_widgets.dart
 │   ├── practice/
-│   │   ├── practice_setup_screen.dart         # S-13
-│   │   ├── practice_session_screen.dart       # S-14
-│   │   └── widgets/
-│   │       ├── countdown_timer_bar.dart
-│   │       └── sign_prompt_card.dart
+│   │   ├── practice_setup_screen.dart
+│   │   └── practice_session_screen.dart
 │   ├── checkout/
-│   │   ├── checkout_screen.dart               # S-15
-│   │   └── widgets/
-│   │       ├── xp_counter_animation.dart
-│   │       └── quest_progress_row.dart
+│   │   ├── checkout_screen.dart
+│   │   ├── streak_born_screen.dart
+│   │   └── quest_update_screen.dart
 │   ├── completion/
-│   │   └── learn_completion_screen.dart       # S-16
-│   └── settings/
-│       └── settings_screen.dart               # S-17
+│   │   └── learn_completion_screen.dart       # ORPHANED — results_screen used instead
+│   ├── quiz/
+│   │   ├── quiz_screen.dart
+│   │   ├── quiz_session_screen.dart
+│   │   └── quiz_result_screen.dart
+│   ├── signs/
+│   │   └── signs_screen.dart
+│   ├── streak/
+│   │   └── streak_screen.dart
+│   ├── quest/
+│   │   └── quest_screen.dart
+│   ├── profile/
+│   │   └── profile_screen.dart
+│   ├── settings/
+│   │   └── settings_screen.dart
+│   ├── leaderboard/
+│   │   └── leaderboard_screen.dart
+│   ├── social/
+│   │   └── social_sign_in_screen.dart         # Google Sign-In (S-25)
+│   └── recognition_test/
+│       └── recognition_test_screen.dart       # dev/debug screen — not registered in router.dart
 │
 └── widgets/                         # Shared reusable widgets — used by 2+ screens
     ├── app_button.dart
-    ├── inline_error_text.dart
-    ├── progress_step_indicator.dart
-    └── loading_overlay.dart
+    ├── mascot_image.dart
+    ├── speech_bubble.dart
+    └── progress_step_indicator.dart
 ```
+
+> NOTE: screens/auth/ (login_screen.dart, register_screen.dart) never existed — planned
+> in an earlier doc revision, superseded by the anonymous-first auth model before being built.
+> NOTE: services/sound_service.dart does not exist. `audioplayers` is declared in
+> pubspec.yaml but is not used anywhere in lib/ — sound effects are not implemented.
 
 ---
 
@@ -323,6 +365,21 @@ class FirestoreService {
 final firestoreServiceProvider = Provider<FirestoreService>((ref) => FirestoreService());
 ```
 
+**QuizService** (lib/services/quiz_service.dart)
+- generateQuestions(signs, count, availableImages)
+- Returns List<QuizQuestion> with mixed types
+- kAvailableSigns: Set of signs with PNG assets (all 36)
+- kSignImagePath: 'assets/models/3d/'
+
+**FeedbackService** (lib/services/feedback_service.dart)
+- evaluate(topLabel, topConfidence, secondLabel, targetLetter)
+- Returns FeedbackResult(FeedbackState, message)
+- 5-frame rolling window, 4/5 consensus required
+- States: noHand/correctHeld/correct/wrongClear/wrongUnclear
+- Thresholds: 0.60 (low), 0.85 (high/correct)
+- Target-letter changes are handled internally in evaluate() (buffer auto-resets);
+  reset() itself is only for leaving the screen / disposing
+
 ---
 
 ## Providers
@@ -413,6 +470,10 @@ class LearnSessionController extends StateNotifier<LearnSessionState> {
   }
 }
 ```
+
+> NOTE: `PracticeSessionController` was planned but never created. Practice session logic
+> lives inline in `_PracticeSessionScreenState` (`practice_session_screen.dart`). This is a
+> deviation from the "screens are thin" rule — acceptable for FYP scope.
 
 ---
 

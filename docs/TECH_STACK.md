@@ -18,10 +18,10 @@
 | `camera` | Live camera feed | Use for CameraPreview widget |
 | `tflite_flutter` | Run `.tflite` model on-device | Input tensor [1,63]; load from assets |
 
-### 3D Rendering
-| Package | Purpose | Notes |
-|---|---|---|
-| `flutter_3d_controller` | Display `.glb` models with rotate/zoom | One `.glb` per sign in assets/models/3d/ |
+### Sign Demonstrations
+Static PNG images — not 3D models.
+Path: `assets/models/3d/{SIGN}.png` (A-Z + 0-9, all 36 signs).
+`flutter_3d_controller` was removed — no `.glb` files remain in the project.
 
 ### Firebase
 | Package | Purpose |
@@ -53,7 +53,11 @@
 |---|---|
 | `go_router` | Named routes + navigation (25 routes) |
 | `flutter_riverpod` | State management |
-| `shared_preferences` | Lightweight local cache |
+| `shared_preferences` | Lightweight local cache (also stores quiz best scores) |
+
+**Route count:** 30 `GoRoute` entries in `router.dart`.
+Plus 3 orphaned route constants (declared but never registered as a `GoRoute`):
+`kRouteOnboardingStart`, `kRouteOnboardingPlacement`, `kRouteOnboardingPlacementResult`.
 
 ---
 
@@ -81,7 +85,7 @@ assets/
 ├── models/
 │   ├── mlp_model.tflite                # labels: kSignLabels in lib/data/sign_label_map.dart
 │   └── 3d/
-│       ├── sign_A.glb ... sign_Z.glb
+│       ├── A.png ... Z.png, 0.png ... 9.png   # 36 PNG hand sign images
 ├── audio/
 │   ├── success.mp3
 │   ├── error.mp3
@@ -96,6 +100,11 @@ assets/
     ├── mascot_commit.png     # S-12
     └── flame.png
 ```
+
+`assets/models/3d/` — PNG hand sign images (A-Z + 0-9), all 36 signs available.
+Referenced via `kSignImagePath` in `lib/services/quiz_service.dart`.
+Used in: `learn_mode_body.dart`, `signs_screen.dart`, `quiz_session_screen.dart`,
+`practice_session_screen.dart`.
 
 ---
 
@@ -188,3 +197,6 @@ void onNextSign(String label) {
 - No just_audio — use audioplayers
 - No email/password auth
 - No SQLite — Firestore only
+- No `flutter_3d_controller` — removed, use PNG assets instead
+- No `mp.solutions.hands` — old MediaPipe API, use Tasks API (HandLandmarker) instead
+- No `FirebaseFirestore.instance` directly — always use `firestoreServiceProvider`

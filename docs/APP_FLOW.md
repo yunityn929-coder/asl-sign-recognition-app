@@ -3,8 +3,8 @@
 
 ## Screen Inventory
 
-| ID | Name | Route |
-|---|---|---|
+| ID | Name | Route | Notes |
+|---|---|---|---|
 | S-01 | Splash | `/` |
 | S-02 | Welcome — Brand | `/welcome/brand` |
 | S-03 | Welcome — Mascot Intro | `/welcome/intro` |
@@ -13,27 +13,39 @@
 | S-06 | Onboarding Q2: Daily Goal | `/onboarding/goal` |
 | S-07 | Onboarding Q3: Notifications | `/onboarding/notifications` |
 | S-08 | Onboarding Q4: Achievement Preview | `/onboarding/achievement` |
-| S-09 | Onboarding Q5: Starting Point | `/onboarding/start` |
-| S-10 | Placement Test | `/onboarding/placement` |
-| S-11 | Placement Result | `/onboarding/placement-result` |
+| S-09 | Onboarding Q5: Starting Point | `/onboarding/start` | ORPHANED (removed from flow) |
+| S-10 | Placement Test | `/onboarding/placement` | ORPHANED (removed from flow) |
+| S-11 | Placement Result | `/onboarding/placement-result` | ORPHANED (removed from flow) |
 | S-12 | Streak Goal Selection | `/onboarding/streak-goal` |
 | S-13 | Home (Section + Lesson List) | `/home` |
 | S-14 | Streak Page | `/streak` |
 | S-15 | Mode Select | `/lesson/:lessonId/mode` |
-| S-16 | Learn Session | `/lesson/:lessonId/learn` |
+| S-16 | Learn Session | `/lesson/:lessonId/learn` | ORPHANED (exercise_screen used) |
 | S-17 | Practice Setup | `/lesson/:lessonId/practice/setup` |
 | S-18 | Practice Session | `/lesson/:lessonId/practice/session` |
 | S-19 | Session Checkout | `/session/checkout` |
-| S-20 | Learn Completion | `/lesson/:lessonId/complete` |
+| S-20 | Learn Completion | `/lesson/:lessonId/complete` | ORPHANED (results_screen used) |
 | S-21 | Post-Checkout Streak Born | `/session/streak` |
 | S-22 | Daily Quest Update | `/session/quest` |
 | S-23 | Settings | `/settings` |
 | S-24 | Leaderboard (login-gated) | `/leaderboard` |
 | S-25 | Google Sign-In (social unlock) | `/login/social` |
+| S-26 | Quiz Home | `/quiz` | |
+| S-27 | Quiz Session | `/quiz/session` | |
+| S-28 | Quiz Result | `/quiz/result` | |
+
+**Bottom Nav:** Home | Quiz | Signs | Profile
+(Quest is accessible via the Daily Quests card on Home, not a tab)
 
 ---
 
 ## Navigation Flow
+
+> NOTE (2026-07-18): Two separate post-lesson flows exist:
+> - Learn mode ends: Exercise → Results → Home
+>   (does NOT go through Checkout flow)
+> - Practice mode ends: Practice Session → Checkout →
+>   (Streak Born if streak extended) → Quest Update → Home
 
 ```
 FIRST LAUNCH:
@@ -47,12 +59,14 @@ WELCOME FLOW (first launch only, shown in sequence):
   → [S-06 Q2: Daily Goal]
   → [S-07 Q3: Notifications]
   → [S-08 Achievement Preview]
-  → [S-09 Q4: Starting Point]
-    ├── "Start from scratch" → initLessons() → [S-12 Streak Goal]
-    └── "Find my level" → [S-10 Placement Test]
-          → [S-11 Placement Result]
-          → [S-12 Streak Goal]
-          → [S-13 Home]
+  → [S-12 Streak Goal]
+        (ASL level answer auto-maps to startLessonId:
+         none → s1l1, some → s1l3,
+         alphabet → s2l1, conversational → s3l1)
+  → [S-13 Home]
+
+NOTE: S-09 Starting Point, S-10 Placement Test, and S-11
+Placement Result are ORPHANED — not reachable from this flow.
 
 RETURNING USER:
 [S-01 Splash] → onboardingComplete == true → [S-13 Home]
@@ -304,6 +318,30 @@ Inspired by Duolingo image 19.
   - Update Firestore: `isAnonymous: false`, set email + displayName
   - On success: navigate back to where user came from
 - "Not now" → back
+
+### Quiz Tab (New — Added 2026-07-18)
+
+**Quiz Home (/quiz)**
+- Section quizzes (4 sections, locked by lesson progress)
+- Quick Quiz (10 random signs, always available)
+- Best scores tracked via SharedPreferences
+- Navigates to /quiz/session with QuizSet as extra
+
+**Quiz Session (/quiz/session)**
+- Receives QuizSet via route extra
+- 10 questions, 10 seconds each
+- Mixed types: imageToLetter / letterToImage / letterToLetter
+- PNG hand sign images from assets/models/3d/
+- App-themed option buttons (4 colors)
+- Score tracking, XP per correct answer
+- Navigates to /quiz/result via pushReplacement
+
+**Quiz Result (/quiz/result)**
+- Shows score, accuracy, XP earned
+- Saves XP to Firestore via userActionsProvider
+- Saves best score to SharedPreferences
+- Shows weak signs (wrong answers) with practice button
+- Play Again or Back to Quizzes
 
 ---
 

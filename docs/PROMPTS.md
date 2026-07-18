@@ -6,6 +6,49 @@ Build features in order — later features depend on earlier ones.
 
 ---
 
+# CURRENT SESSION STARTERS (2026-07-18)
+> The feature prompts below are historical build logs.
+> The app is now substantially built. Use these prompts
+> to start new Claude sessions instead.
+
+## To start any new session working on the app:
+Read docs/BUILD_STATUS.md and docs/APP_FLOW.md before
+starting. The app is substantially complete — do not
+rebuild what already exists. Check BUILD_STATUS.md for
+what is pending before suggesting new work.
+
+## To fix a bug:
+Read docs/BUILD_STATUS.md first. Then read the specific
+file mentioned in the bug report. Do NOT modify any
+other files. Show diff before applying. Run flutter
+analyze after — must show same 12 pre-existing lints,
+zero new errors.
+
+## To add a new screen:
+Read docs/ARCHITECTURE.md folder structure section first.
+Follow existing patterns — ConsumerWidget or
+ConsumerStatefulWidget, watch authStateProvider for uid,
+watch userProvider(uid) for user data. Use AppColors
+throughout. Handle loading/null states. Show diff before
+applying. flutter analyze must show zero new errors.
+
+## To update Firestore:
+Read docs/DATA_SCHEMA.md first. All Firestore calls go
+through firestoreServiceProvider only — never use
+FirebaseFirestore.instance directly. Wrap all writes in
+try/catch — never crash on network errors. Show diff
+before applying.
+
+## To work on gesture recognition:
+Read docs/TECH_STACK.md Gesture Recognition Pipeline
+section first. Critical: normalization must subtract
+wrist (landmark 0) then divide by norm(landmark 9).
+MediaPipe uses Tasks API (HandLandmarker), NOT the old
+mp.solutions.hands API. TFLite input: [1,63],
+output: [1,36]. Label order: 0-9 then A-Z.
+
+---
+
 ## BASE CONTEXT (paste this at the start of EVERY session)
 ```
 I'm building HiASL — a Flutter/Dart Android ASL learning app.
@@ -34,7 +77,10 @@ Design: Bondee-inspired soft pastel UI. All colours and styles from AppColors in
 
 ---
 
-## FEATURE PROMPTS (build in this order)
+## FEATURE PROMPTS (HISTORICAL — app already built)
+> These prompts were used to build the app originally.
+> They are kept for reference only.
+> For current work, use the SESSION STARTERS above.
 
 ### 1. Project Setup
 ```
