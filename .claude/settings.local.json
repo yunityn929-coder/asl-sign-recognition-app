@@ -90,7 +90,17 @@
       "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/build-tools/36.1.0/aapt2.exe dump *)",
       "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell ps -A)",
       "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 shell dumpsys package com.hiasl.app)",
-      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 logcat -d -b main)"
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s emulator-5554 logcat -d -b main)",
+      "Read(//c/hiasl_bse_fyp_2026/asl-gesture-recognition-model/**)",
+      "Bash(python3 -m pip install --quiet scikit-learn)",
+      "Bash(python3 *)",
+      "Bash(tee \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--hiasl-bse-fyp-2026-asl-sign-recognition-app\\\\9669474e-1d93-41b4-a252-a4883d5afae4\\\\scratchpad\\\\analyze_full.txt\")",
+      "Bash(tee \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--hiasl-bse-fyp-2026-asl-sign-recognition-app\\\\9669474e-1d93-41b4-a252-a4883d5afae4\\\\scratchpad\\\\build_apk_debug.txt\")",
+      "Read(//c/HiASL_BSE_FYP_2026/asl-sign-recognition-app/**)",
+      "Bash(PYTHONUTF8=1 python docs/analysis/analyze_recognition_log.py \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\\\\hiasl_recotest_yuni_daylight_1784385225588.csv\")",
+      "Bash(PYTHONUTF8=1 python docs/analysis/analyze_recognition_log.py \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\\\\hiasl_recotest_yuni_daylight_1784377188801.csv\")",
+      "PowerShell(certutil *)",
+      "PowerShell(& \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" pull /storage/emulated/0/Android/data/com.hiasl.app/files/hiasl_recotest_session1_1784392535849.csv \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\")"
     ]
   }
 }

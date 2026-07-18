@@ -37,11 +37,13 @@ class MainActivity : FlutterActivity() {
                             val yRowStride = call.argument<Int>("yRowStride")!!
                             val uvRowStride = call.argument<Int>("uvRowStride")!!
                             val uvPixelStride = call.argument<Int>("uvPixelStride")!!
+                            val rotationDegrees = call.argument<Int>("rotationDegrees") ?: 0
 
                             val landmarks = detector!!.processFrame(
                                 yBytes, uBytes, vBytes,
                                 width, height,
                                 yRowStride, uvRowStride, uvPixelStride,
+                                rotationDegrees,
                             )
                             result.success(landmarks)
                         } catch (e: Throwable) {

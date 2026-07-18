@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -140,6 +141,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ],
             ),
+            if (kDebugMode) ...[
+              const SizedBox(height: 24),
+              const _SectionLabel('Debug'),
+              const SizedBox(height: 8),
+              _Card(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.bug_report_outlined,
+                        color: AppColors.primary),
+                    title: const Text('Recognition Test'),
+                    subtitle: const Text(
+                        'Physical-device gesture recognition diagnostics'),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: AppColors.textSecondary),
+                    onTap: () => context.push(kRouteDebugRecognitionTest),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 24),
             Center(
               child: TextButton(

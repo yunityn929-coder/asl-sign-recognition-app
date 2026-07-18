@@ -54,11 +54,15 @@ import 'screens/settings/settings_screen.dart';
 import 'screens/leaderboard/leaderboard_screen.dart';
 import 'screens/social/social_sign_in_screen.dart';
 
+// Debug / diagnostics (not part of learner-facing flow)
+import 'screens/debug/recognition_test_screen.dart';
+
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: kRouteSplash,
+  //initialLocation: kRouteDebugRecognitionTest,
   routes: [
     // S-01 — Splash
     GoRoute(
@@ -318,6 +322,15 @@ final GoRouter appRouter = GoRouter(
           wrongSigns: (extra['wrongSigns'] as List?)?.cast<String>() ?? const [],
         );
       },
+    ),
+
+    // Debug — physical-device recognition testing (kDebugMode-gated entry
+    // point in Settings; see docs/GESTURE_TESTING_PROTOCOL.md)
+    GoRoute(
+      path: kRouteDebugRecognitionTest,
+      name: kRouteNameDebugRecognitionTest,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const RecognitionTestScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

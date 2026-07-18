@@ -37,7 +37,8 @@ class PracticeSessionScreen extends ConsumerStatefulWidget {
 class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   CameraController? _cameraController;
   bool _cameraInitialized = false;
-  CameraLensDirection _lensDirection = CameraLensDirection.front;
+  static const CameraLensDirection _lensDirection = CameraLensDirection.front;
+  int _rotationDegrees = 0;
   StreamSubscription<RecognitionResult>? _resultSub;
   late List<String> _signs;
   int _currentIndex = 0;
@@ -87,6 +88,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
         (c) => c.lensDirection == _lensDirection,
         orElse: () => cameras.first,
       );
+      _rotationDegrees = selected.sensorOrientation % 360;
       final controller = CameraController(
         selected,
         ResolutionPreset.medium,
@@ -106,22 +108,9 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     }
   }
 
-  Future<void> _flipCamera() async {
-    setState(() => _cameraInitialized = false);
-    _lensDirection = _lensDirection == CameraLensDirection.front
-        ? CameraLensDirection.back
-        : CameraLensDirection.front;
-    try {
-      await _cameraController?.stopImageStream();
-    } catch (_) {}
-    await _cameraController?.dispose();
-    _cameraController = null;
-    await _initCamera();
-  }
-
   void _onCameraFrame(CameraImage image) {
     if (!mounted) return;
-    ref.read(recognitionControllerProvider).processFrame(image);
+    ref.read(recognitionControllerProvider).processFrame(image, _rotationDegrees);
   }
 
   void _onRecognitionResult(RecognitionResult result) {
@@ -319,7 +308,6 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
         children: [
           _buildCameraPreview(),
           FeedbackWidget(state: _feedbackResult.state, message: _feedbackResult.message),
-          _buildFlipButton(),
         ],
       ),
     );
@@ -341,25 +329,6 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
         child: _lensDirection == CameraLensDirection.front
             ? Transform.flip(flipX: true, child: CameraPreview(_cameraController!))
             : CameraPreview(_cameraController!),
-      ),
-    );
-  }
-
-  Widget _buildFlipButton() {
-    return Positioned(
-      bottom: 20,
-      right: 20,
-      child: GestureDetector(
-        onTap: _flipCamera,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: const BoxDecoration(
-            color: Color(0x99000000),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.flip_camera_android_rounded, size: 22, color: Colors.white),
-        ),
       ),
     );
   }

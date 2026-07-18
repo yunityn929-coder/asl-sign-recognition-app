@@ -14,6 +14,13 @@ class RecognitionResult {
   final double secondConfidence;
   final bool isConfident; // topConfidence >= kRecognitionConfidenceThreshold
 
+  // Round-trip time in ms for the processFrame() call that produced this
+  // result (MethodChannel → MediaPipe landmark detection → normalise →
+  // TFLite inference). -1 if not measured. Added for physical-device
+  // performance testing (see lib/screens/debug/recognition_test_screen.dart);
+  // not used by production screens.
+  final int latencyMs;
+
   const RecognitionResult({
     required this.label,
     required this.confidence,
@@ -24,5 +31,21 @@ class RecognitionResult {
     required this.secondLabel,
     required this.secondConfidence,
     required this.isConfident,
+    this.latencyMs = -1,
   });
+
+  RecognitionResult copyWith({int? latencyMs}) {
+    return RecognitionResult(
+      label: label,
+      confidence: confidence,
+      handDetected: handDetected,
+      landmarks: landmarks,
+      topLabel: topLabel,
+      topConfidence: topConfidence,
+      secondLabel: secondLabel,
+      secondConfidence: secondConfidence,
+      isConfident: isConfident,
+      latencyMs: latencyMs ?? this.latencyMs,
+    );
+  }
 }

@@ -59,7 +59,7 @@ abstract class RecognitionController {
   void startSession();
   void stopSession();
   Future<void> switchCamera(CameraLensDirection direction);
-  Future<void> processFrame(CameraImage image);
+  Future<void> processFrame(CameraImage image, [int rotationDegrees = 0]);
 }
 
 // ---------------------------------------------------------------------------
@@ -161,9 +161,10 @@ class RecognitionControllerImpl implements RecognitionController {
   }
 
   @override
-  Future<void> processFrame(CameraImage image) async {
+  Future<void> processFrame(CameraImage image, [int rotationDegrees = 0]) async {
     if (_processing) return;
     _processing = true;
+    final stopwatch = Stopwatch()..start();
     try {
       await _ensureModelLoaded();
       final raw = await _channel.invokeMethod<List<dynamic>>('processFrame', {
@@ -175,19 +176,21 @@ class RecognitionControllerImpl implements RecognitionController {
         'yRowStride': image.planes[0].bytesPerRow,
         'uvRowStride': image.planes[1].bytesPerRow,
         'uvPixelStride': image.planes[1].bytesPerPixel ?? 1,
+        'rotationDegrees': rotationDegrees,
       });
 
       if (raw == null || raw.isEmpty) {
-        _emit(const RecognitionResult(
+        _emit(RecognitionResult(
           label: '',
           confidence: 0,
           handDetected: false,
-          landmarks: [],
+          landmarks: const [],
           topLabel: '',
           topConfidence: 0,
           secondLabel: '',
           secondConfidence: 0,
           isConfident: false,
+          latencyMs: stopwatch.elapsedMilliseconds,
         ));
         return;
       }
@@ -195,7 +198,7 @@ class RecognitionControllerImpl implements RecognitionController {
       final landmarks = raw.cast<double>();
       final normalised = _normalise(landmarks);
       final result = _infer(normalised);
-      _emit(result);
+      _emit(result.copyWith(latencyMs: stopwatch.elapsedMilliseconds));
     } catch (e) {
       debugPrint('[Recognition] processFrame error: $e');
       if (!_streamController.isClosed) {
@@ -216,6 +219,7 @@ class RecognitionControllerImpl implements RecognitionController {
 
   Future<void> _processFrame(CameraImage image) async {
     _processing = true;
+    final stopwatch = Stopwatch()..start();
     try {
       final raw = await _channel.invokeMethod<List<dynamic>>('processFrame', {
         'yBytes': image.planes[0].bytes,
@@ -231,16 +235,17 @@ class RecognitionControllerImpl implements RecognitionController {
       if (!_active) return;
 
       if (raw == null || raw.isEmpty) {
-        _emit(const RecognitionResult(
+        _emit(RecognitionResult(
           label: '',
           confidence: 0,
           handDetected: false,
-          landmarks: [],
+          landmarks: const [],
           topLabel: '',
           topConfidence: 0,
           secondLabel: '',
           secondConfidence: 0,
           isConfident: false,
+          latencyMs: stopwatch.elapsedMilliseconds,
         ));
         return;
       }
@@ -248,7 +253,7 @@ class RecognitionControllerImpl implements RecognitionController {
       final landmarks = raw.cast<double>();
       final normalised = _normalise(landmarks);
       final result = _infer(normalised);
-      _emit(result);
+      _emit(result.copyWith(latencyMs: stopwatch.elapsedMilliseconds));
     } catch (e) {
       debugPrint('[Recognition] frame error: $e');
       if (!_streamController.isClosed) {

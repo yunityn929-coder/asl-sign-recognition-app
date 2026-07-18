@@ -40,8 +40,9 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
 
   // Camera
   CameraController? _cameraController;
-  CameraLensDirection _lensDirection = CameraLensDirection.front;
+  static const CameraLensDirection _lensDirection = CameraLensDirection.front;
   bool _cameraInitialized = false;
+  int _rotationDegrees = 0;
 
   // Recognition
   final FeedbackService _feedbackService = FeedbackService();
@@ -88,6 +89,9 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         (c) => c.lensDirection == _lensDirection,
         orElse: () => cameras.first,
       );
+      // Sensor mount angle vs. natural (portrait) orientation.
+      // Assumes device held upright; does not track live device rotation.
+      _rotationDegrees = selected.sensorOrientation % 360;
       final controller = CameraController(
         selected,
         ResolutionPreset.medium,
@@ -111,7 +115,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
 
   void _onCameraFrame(CameraImage image) {
     if (!mounted) return;
-    ref.read(recognitionControllerProvider).processFrame(image);
+    ref.read(recognitionControllerProvider).processFrame(image, _rotationDegrees);
   }
 
   // INTEGRATION POINT (reference impl): this is where a recognized sign
@@ -147,19 +151,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       _learnAttempts[_currentSign] =
           (_learnAttempts[_currentSign] ?? 0) + 1;
     }
-  }
-
-  Future<void> _flipCamera() async {
-    setState(() => _cameraInitialized = false);
-    _lensDirection = _lensDirection == CameraLensDirection.front
-        ? CameraLensDirection.back
-        : CameraLensDirection.front;
-    try {
-      await _cameraController?.stopImageStream();
-    } catch (_) {}
-    await _cameraController?.dispose();
-    _cameraController = null;
-    await _initCamera();
   }
 
   String get _currentSign => _def.signs[_currentIndex];
@@ -376,7 +367,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
             state: _feedbackResult.state,
             message: _feedbackResult.message,
           ),
-          _buildFlipButton(),
           _buildGotItButton(),
         ],
       ),
@@ -403,29 +393,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
               ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
               : Matrix4.identity(),
           child: CameraPreview(_cameraController!),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFlipButton() {
-    return Positioned(
-      bottom: 20,
-      right: 20,
-      child: GestureDetector(
-        onTap: _flipCamera,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: const BoxDecoration(
-            color: Color(0x99000000),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.flip_camera_android_rounded,
-            size: 22,
-            color: Colors.white,
-          ),
         ),
       ),
     );

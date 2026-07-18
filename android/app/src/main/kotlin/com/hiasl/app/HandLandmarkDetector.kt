@@ -8,6 +8,7 @@ import android.graphics.Rect
 import android.graphics.YuvImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker.HandLandmarkerOptions
 import com.google.mediapipe.framework.image.BitmapImageBuilder
@@ -45,10 +46,14 @@ class HandLandmarkDetector(context: Context) {
         yRowStride: Int,
         uvRowStride: Int,
         uvPixelStride: Int,
+        rotationDegrees: Int,
     ): List<Double>? {
         val bitmap = yuv420ToBitmap(yBytes, uBytes, vBytes, width, height, yRowStride, uvRowStride, uvPixelStride)
         val mpImage = BitmapImageBuilder(bitmap).build()
-        val result = handLandmarker.detect(mpImage)
+        val imageProcessingOptions = ImageProcessingOptions.builder()
+            .setRotationDegrees(rotationDegrees)
+            .build()
+        val result = handLandmarker.detect(mpImage, imageProcessingOptions)
         if (result.landmarks().isEmpty()) return null
         // Take only the first detected hand; x,y are normalised [0,1], z is
         // depth relative to the wrist (roughly same scale as x).
@@ -92,7 +97,7 @@ class HandLandmarkDetector(context: Context) {
 
         val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
         val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(Rect(0, 0, width, height), 85, out)
+        yuvImage.compressToJpeg(Rect(0, 0, width, height), 80, out)
         val jpeg = out.toByteArray()
         return BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
     }
