@@ -100,7 +100,13 @@
       "Bash(PYTHONUTF8=1 python docs/analysis/analyze_recognition_log.py \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\\\\hiasl_recotest_yuni_daylight_1784385225588.csv\")",
       "Bash(PYTHONUTF8=1 python docs/analysis/analyze_recognition_log.py \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\\\\hiasl_recotest_yuni_daylight_1784377188801.csv\")",
       "PowerShell(certutil *)",
-      "PowerShell(& \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" pull /storage/emulated/0/Android/data/com.hiasl.app/files/hiasl_recotest_session1_1784392535849.csv \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\")"
+      "PowerShell(& \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" pull /storage/emulated/0/Android/data/com.hiasl.app/files/hiasl_recotest_session1_1784392535849.csv \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\")",
+      "Bash(adb pull *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" pull \"/storage/emulated/0/Android/data/com.hiasl.app/files/hiasl_recotest_session1_1784438491010.csv\" \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\")",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" pull \"/storage/emulated/0/Android/data/com.hiasl.app/files/hiasl_recotest_session1_1784439501781.csv\" \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\")",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell ls -la /storage/emulated/0/Android/data/com.hiasl.app/files/)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" pull \"/storage/emulated/0/Android/data/com.hiasl.app/files/hiasl_recotest_session2_1784439501781.csv\" \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\")"
     ]
   }
 }

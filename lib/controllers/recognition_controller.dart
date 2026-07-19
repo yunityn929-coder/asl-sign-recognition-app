@@ -21,8 +21,8 @@
 //    Output: List<double> of length 63.
 //
 // 4. INFERENCE (_infer)
-//    Input tensor:  shape [1, 63] — one sample of 63 floats.
-//    Model:         assets/models/mlp_model.tflite
+//    Input tensor:  shape [1, 80] — one sample of 63 raw + 17 engineered floats.
+//    Model:         assets/models/mlp_model_v2.tflite
 //                   Converted from the Keras MLP trained in
 //                   asl-gesture-recognition-model/static/model/mlp_model.h5
 //                   via tf.lite.TFLiteConverter. The accompanying
@@ -60,6 +60,70 @@ abstract class RecognitionController {
   void stopSession();
   Future<void> switchCamera(CameraLensDirection direction);
   Future<void> processFrame(CameraImage image, [int rotationDegrees = 0]);
+}
+
+// ---------------------------------------------------------------------------
+// Engineered features (mlp_model_v2) — mirrors
+// asl-gesture-recognition-model/static/landmark_features.py's
+// compute_engineered_features(): 10 finger-curl angles + 5 fingertip-to-palm
+// distances + 2 thumb-to-fingertip distances, appended after the raw 63.
+// ---------------------------------------------------------------------------
+
+const List<List<int>> _kFingerJoints = [
+  [1, 2, 3, 4], // thumb
+  [5, 6, 7, 8], // index
+  [9, 10, 11, 12], // middle
+  [13, 14, 15, 16], // ring
+  [17, 18, 19, 20], // pinky
+];
+const List<int> _kPalmMcps = [5, 9, 13, 17];
+const List<int> _kFingertips = [4, 8, 12, 16, 20];
+
+double _angleBetween(List<double> v1, List<double> v2) {
+  final dot = v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+  final n1 = sqrt(v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2]);
+  final n2 = sqrt(v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2]);
+  final cosTheta = (dot / (n1 * n2 + 1e-8)).clamp(-1.0, 1.0);
+  return acos(cosTheta);
+}
+
+List<double> _vec(List<double> n, int to, int from) => [
+      n[to * 3] - n[from * 3],
+      n[to * 3 + 1] - n[from * 3 + 1],
+      n[to * 3 + 2] - n[from * 3 + 2],
+    ];
+
+double _dist(List<double> n, int a, int b) {
+  final v = _vec(n, a, b);
+  return sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+}
+
+List<double> _computeEngineeredFeatures(List<double> n) {
+  double pcx = 0, pcy = 0, pcz = 0;
+  for (final m in _kPalmMcps) {
+    pcx += n[m * 3];
+    pcy += n[m * 3 + 1];
+    pcz += n[m * 3 + 2];
+  }
+  pcx /= _kPalmMcps.length;
+  pcy /= _kPalmMcps.length;
+  pcz /= _kPalmMcps.length;
+
+  final curlFeats = <double>[];
+  for (final joints in _kFingerJoints) {
+    final vA = _vec(n, joints[1], joints[0]);
+    final vB = _vec(n, joints[2], joints[1]);
+    final vC = _vec(n, joints[3], joints[2]);
+    curlFeats.add(_angleBetween(vA, vB));
+    curlFeats.add(_angleBetween(vB, vC));
+  }
+
+  final tipDists = _kFingertips.map((t) {
+    final dx = n[t * 3] - pcx, dy = n[t * 3 + 1] - pcy, dz = n[t * 3 + 2] - pcz;
+    return sqrt(dx * dx + dy * dy + dz * dz);
+  }).toList();
+
+  return [...curlFeats, ...tipDists, _dist(n, 4, 8), _dist(n, 4, 12)];
 }
 
 // ---------------------------------------------------------------------------
@@ -103,7 +167,7 @@ class RecognitionControllerImpl implements RecognitionController {
   Future<void> _ensureModelLoaded() async {
     if (_interpreter == null) {
       _interpreter =
-          await Interpreter.fromAsset('assets/models/mlp_model.tflite');
+          await Interpreter.fromAsset('assets/models/mlp_model_v2.tflite');
       print('[DIAG] Input shape:  ${_interpreter!.getInputTensor(0).shape}');
       print('[DIAG] Output shape: ${_interpreter!.getOutputTensor(0).shape}');
     }
@@ -167,7 +231,7 @@ class RecognitionControllerImpl implements RecognitionController {
     final stopwatch = Stopwatch()..start();
     try {
       await _ensureModelLoaded();
-      final raw = await _channel.invokeMethod<List<dynamic>>('processFrame', {
+      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('processFrame', {
         'yBytes': image.planes[0].bytes,
         'uBytes': image.planes[1].bytes,
         'vBytes': image.planes[2].bytes,
@@ -179,7 +243,7 @@ class RecognitionControllerImpl implements RecognitionController {
         'rotationDegrees': rotationDegrees,
       });
 
-      if (raw == null || raw.isEmpty) {
+      if (raw == null) {
         _emit(RecognitionResult(
           label: '',
           confidence: 0,
@@ -195,8 +259,14 @@ class RecognitionControllerImpl implements RecognitionController {
         return;
       }
 
-      final landmarks = raw.cast<double>();
-      final normalised = _normalise(landmarks);
+      final landmarksRaw = (raw['landmarks'] as List).cast<double>();
+      final handedness = raw['handedness'] as String?;
+      final normalised = _normalise(landmarksRaw);
+      if (handedness == 'Left') {
+        for (var i = 0; i < normalised.length; i += 3) {
+          normalised[i] = -normalised[i];
+        }
+      }
       final result = _infer(normalised);
       _emit(result.copyWith(latencyMs: stopwatch.elapsedMilliseconds));
     } catch (e) {
@@ -289,7 +359,9 @@ class RecognitionControllerImpl implements RecognitionController {
   }
 
   RecognitionResult _infer(List<double> normalised) {
-    final input = [normalised]; // [1, 63]
+    final engineered = _computeEngineeredFeatures(normalised);
+    final combined = [...normalised, ...engineered];
+    final input = [combined]; // [1, 80]
     final output = [List<double>.filled(36, 0.0)]; // [1, 36]
 
     // DIAG — model input

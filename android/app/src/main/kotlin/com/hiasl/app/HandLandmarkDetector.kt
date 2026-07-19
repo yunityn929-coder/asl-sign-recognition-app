@@ -34,8 +34,9 @@ class HandLandmarkDetector(context: Context) {
     }
 
     /**
-     * Process a YUV_420_888 camera frame and return 63 doubles (x,y,z for each of 21
-     * landmarks), or null when no hand is detected.
+     * Process a YUV_420_888 camera frame and return a map with "landmarks" (63 doubles:
+     * x,y,z for each of 21 landmarks) and "handedness" (category name or null), or null
+     * when no hand is detected.
      */
     fun processFrame(
         yBytes: ByteArray,
@@ -47,7 +48,7 @@ class HandLandmarkDetector(context: Context) {
         uvRowStride: Int,
         uvPixelStride: Int,
         rotationDegrees: Int,
-    ): List<Double>? {
+    ): Map<String, Any?>? {
         val bitmap = yuv420ToBitmap(yBytes, uBytes, vBytes, width, height, yRowStride, uvRowStride, uvPixelStride)
         val mpImage = BitmapImageBuilder(bitmap).build()
         val imageProcessingOptions = ImageProcessingOptions.builder()
@@ -57,9 +58,16 @@ class HandLandmarkDetector(context: Context) {
         if (result.landmarks().isEmpty()) return null
         // Take only the first detected hand; x,y are normalised [0,1], z is
         // depth relative to the wrist (roughly same scale as x).
-        return result.landmarks()[0].flatMap { lm ->
+        val landmarksList = result.landmarks()[0].flatMap { lm ->
             listOf(lm.x().toDouble(), lm.y().toDouble(), lm.z().toDouble())
         }
+        val handedness = if (result.handednesses().isNotEmpty() &&
+                             result.handednesses()[0].isNotEmpty()) {
+            result.handednesses()[0][0].categoryName()
+        } else {
+            null
+        }
+        return mapOf("landmarks" to landmarksList, "handedness" to handedness)
     }
 
     fun close() = handLandmarker.close()
