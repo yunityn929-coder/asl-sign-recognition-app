@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../data/lesson_definitions.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/quiz_service.dart';
 import '../../providers/user_provider.dart';
@@ -13,18 +11,6 @@ const List<String> _kLetters = [
   'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
 ];
 const List<String> _kNumbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-final Map<String, String> _signToLessonId = _buildSignLessonMap();
-
-Map<String, String> _buildSignLessonMap() {
-  final map = <String, String>{};
-  for (final lesson in kLessons) {
-    for (final sign in lesson.signs) {
-      map.putIfAbsent(sign, () => lesson.id);
-    }
-  }
-  return map;
-}
 
 enum _SignFilter { all, letters, numbers }
 
@@ -163,7 +149,6 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
   }
 
   void _showSignDetails(BuildContext context, String sign) {
-    final lessonId = _signToLessonId[sign];
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -198,26 +183,6 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
               Text('Sign $sign',
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: lessonId == null
-                      ? null
-                      : () {
-                          Navigator.pop(ctx);
-                          context.push('/lesson/$lessonId/mode');
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: const Text('Practice this sign',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
-              ),
             ],
           ),
         );
@@ -287,18 +252,10 @@ class _SignCard extends StatelessWidget {
                           fit: BoxFit.contain,
                         ),
                         const SizedBox(height: 4),
-                        Text(sign,
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                        const SizedBox(height: 2),
                         Text('Sign $sign',
                             style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       ]
                     : [
-                        Text(sign,
-                            style: const TextStyle(
-                                fontSize: 40, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                        const SizedBox(height: 4),
                         Text('Sign $sign',
                             style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       ],
@@ -319,7 +276,7 @@ class _AccuracyBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (accuracy == null) {
-      return _badge('New', AppColors.textSecondary.withValues(alpha: 0.15), AppColors.textSecondary);
+      return const SizedBox.shrink();
     }
     final percent = (accuracy! * 100).round();
     if (accuracy! >= 0.7) {

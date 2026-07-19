@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
+import '../../data/lesson_definitions.dart';
 import '../../models/checkout_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
@@ -65,7 +66,7 @@ class CheckoutScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          child: const Text('Continue →',
+          child: const Text('Continue',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         ),
       ),
@@ -89,31 +90,39 @@ class _ResultHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sessionLabel = checkoutData.sessionType == 'practice' ? 'Practice' : 'Learn';
-    final badgeText = checkoutData.difficulty == 'n/a'
-        ? sessionLabel
-        : '$sessionLabel · ${_capitalize(checkoutData.difficulty)}';
+    final lessonDef = kLessons.firstWhere(
+      (l) => l.id == checkoutData.lessonId,
+      orElse: () => const LessonDefinition(id: '', section: 0, title: '', signs: []),
+    );
+    final lessonTitle = lessonDef.title.isNotEmpty ? lessonDef.title : checkoutData.lessonId;
 
     return Column(
       children: [
         Text(_emoji, style: const TextStyle(fontSize: 72)),
         const SizedBox(height: 12),
         const Text(
-          'Session Complete!',
+          'Practice Complete!',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.primarySoft,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            badgeText,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
-          ),
+        const SizedBox(height: 8),
+        Text(
+          lessonTitle,
+          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
+        if (checkoutData.difficulty != 'n/a') ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _capitalize(checkoutData.difficulty),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -125,76 +134,50 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final correctCount = checkoutData.correctCount;
+    final incorrectCount = checkoutData.totalCount - checkoutData.correctCount;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primarySoft),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _StatRow(
-            icon: Icons.track_changes,
-            label: 'Accuracy',
-            value: '${checkoutData.accuracyPercent.round()}%',
-          ),
-          const Divider(color: AppColors.primarySoft),
-          _StatRow(
-            icon: Icons.bolt,
-            iconColor: AppColors.xpGold,
-            label: 'XP Earned',
-            value: '+${checkoutData.xpEarned}',
-            valueColor: AppColors.xpGold,
-          ),
-          const Divider(color: AppColors.primarySoft),
-          _StatRow(
-            icon: Icons.timer_outlined,
-            label: 'Duration',
-            value: '${checkoutData.durationSeconds}s',
-          ),
+          _StatItem(value: '$correctCount', label: 'Correct', valueColor: AppColors.success),
+          _StatItem(value: '$incorrectCount', label: 'Incorrect', valueColor: AppColors.error),
+          _StatItem(value: '+${checkoutData.xpEarned}', label: 'XP', valueColor: AppColors.xpGold),
         ],
       ),
     );
   }
 }
 
-class _StatRow extends StatelessWidget {
-  final IconData icon;
-  final Color? iconColor;
-  final String label;
+class _StatItem extends StatelessWidget {
   final String value;
-  final Color? valueColor;
-
-  const _StatRow({
-    required this.icon,
-    this.iconColor,
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
+  final String label;
+  final Color valueColor;
+  const _StatItem({required this.value, required this.label, required this.valueColor});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: iconColor ?? AppColors.textSecondary),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: valueColor ?? AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: valueColor)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+      ],
     );
   }
 }

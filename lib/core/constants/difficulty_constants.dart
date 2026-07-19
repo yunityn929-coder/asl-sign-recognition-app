@@ -1,5 +1,5 @@
 const Map<String, int> kDifficultySeconds = {
-  'easy': 10,
-  'medium': 7,
-  'hard': 5,
+  'easy': 30,
+  'medium': 20,
+  'hard': 10,
 };

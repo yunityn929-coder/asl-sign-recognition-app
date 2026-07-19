@@ -110,7 +110,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             activeIndex: _activeUnit,
             sections: kSections,
           ),
-          _DailyQuestsCard(onTap: () => context.go(kRouteQuest)),
           Expanded(
             child: lessonsAsync.when(
               data: (lessons) => _buildBody(context, uid, lessons),
@@ -149,8 +148,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
         ),
         Positioned(
+          top: 16,
+          left: 20,
+          child: _QuestButton(onTap: () => context.push(kRouteQuest)),
+        ),
+        Positioned(
           right: 16,
-          bottom: 76,
+          bottom: 16,
           child: _ScrollToTopFab(controller: _scroll),
         ),
       ],
@@ -315,35 +319,41 @@ class _StreakBadge extends StatelessWidget {
   }
 }
 
-class _DailyQuestsCard extends StatelessWidget {
+class _QuestButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _DailyQuestsCard({required this.onTap});
+  const _QuestButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        color: AppColors.bannerGold,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.bannerGold.withValues(alpha: 0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Material(
-        color: AppColors.backgroundAccent,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Icon(Icons.emoji_events_outlined, color: AppColors.primary, size: 22),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Daily Quests',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
-              ],
-            ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.redeem_rounded, color: Colors.white, size: 28),
+              SizedBox(height: 2),
+              Text(
+                'Quests',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ],
           ),
         ),
       ),

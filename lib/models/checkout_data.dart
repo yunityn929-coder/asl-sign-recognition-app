@@ -6,6 +6,8 @@ class CheckoutData {
   final String lessonId;
   final bool streakExtended;
   final String difficulty; // "easy" | "medium" | "hard" | "n/a"
+  final int correctCount;
+  final int totalCount;
 
   const CheckoutData({
     required this.xpEarned,
@@ -15,5 +17,7 @@ class CheckoutData {
     required this.lessonId,
     required this.streakExtended,
     this.difficulty = 'n/a',
+    required this.correctCount,
+    required this.totalCount,
   });
 }

@@ -33,6 +33,7 @@ const String kRouteQuiz                        = '/quiz';
 const String kRouteQuizSession                 = '/quiz/session';
 const String kRouteQuizResult                  = '/quiz/result';
 const String kRouteDebugRecognitionTest        = '/debug/recognition-test';
+const String kRouteCalibration                 = '/settings/calibration';
 
 // Named route identifiers — used in GoRouter name: and context.goNamed()
 const String kRouteNameSplash                      = 'splash';
@@ -69,3 +70,4 @@ const String kRouteNameQuiz                        = 'quiz';
 const String kRouteNameQuizSession                 = 'quiz-session';
 const String kRouteNameQuizResult                  = 'quiz-result';
 const String kRouteNameDebugRecognitionTest        = 'debug-recognition-test';
+const String kRouteNameCalibration                 = 'calibration';

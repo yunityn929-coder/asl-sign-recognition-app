@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/constants/app_colors.dart';
+import '../../core/constants/route_constants.dart';
 import '../../core/constants/xp_constants.dart';
 import '../../data/lesson_definitions.dart';
 import '../../providers/auth_provider.dart';
@@ -34,13 +36,8 @@ class ResultsScreen extends ConsumerStatefulWidget {
 class _ResultsScreenState extends ConsumerState<ResultsScreen> {
   bool _initialized = false;
 
-  int get _xpEarned => widget.correctCount * kXpLearnCorrect;
-
-  String? get _nextLessonId {
-    final idx = kLessons.indexWhere((l) => l.id == widget.lessonId);
-    if (idx >= 0 && idx < kLessons.length - 1) return kLessons[idx + 1].id;
-    return null;
-  }
+  int get _xpEarned =>
+      kXpLessonCompletion + (widget.correctCount * kXpLearnCorrect);
 
   @override
   void initState() {
@@ -58,6 +55,16 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
         ref.read(lessonActionsProvider(uid)).markLessonComplete(widget.lessonId),
         ref.read(userActionsProvider(uid)).addXp(_xpEarned),
       ]);
+    } catch (_) {}
+    try {
+      await ref
+          .read(firestoreServiceProvider)
+          .unlockPractice(uid, widget.lessonId);
+    } catch (_) {}
+    try {
+      await ref
+          .read(firestoreServiceProvider)
+          .saveSignProgress(uid, widget.lessonId, 0);
     } catch (_) {}
     try {
       final lesson = kLessons.firstWhere((l) => l.id == widget.lessonId);
@@ -120,48 +127,93 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
         ResultHeader(
             correctCount: widget.correctCount, totalCount: widget.totalCount),
         const SizedBox(height: 32),
-        ResultScoreCard(
-          correctCount: widget.correctCount,
-          totalCount: widget.totalCount,
-          xpEarned: _xpEarned,
-        ),
-        const SizedBox(height: 24),
-        Center(
-          child: Text(
-            '✦ +$_xpEarned XP added to your account',
-            style: const TextStyle(fontSize: 14, color: Color(0xFF888888)),
-          ),
-        ),
-        if (widget.missedSigns.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          ResultMissedSignsRow(missedSigns: widget.missedSigns),
-        ],
-        const SizedBox(height: 24),
+        _buildStatsRow(),
+        const SizedBox(height: 32),
       ],
     );
   }
 
+  Widget _buildStatsRow() {
+    final skippedCount = widget.totalCount - widget.correctCount;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _StatItem(
+            value: '${widget.correctCount}',
+            label: 'Correct',
+            valueColor: AppColors.success,
+          ),
+          _StatItem(
+            value: '$skippedCount',
+            label: 'Skipped',
+            valueColor: AppColors.warning,
+          ),
+          _StatItem(
+            value: '+$_xpEarned',
+            label: 'XP',
+            valueColor: AppColors.xpGold,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildButtons(BuildContext context) {
-    final nextId = _nextLessonId;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24, 0, 24, MediaQuery.of(context).padding.bottom + 32),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(
         children: [
-          _PrimaryButton(
-            label: nextId != null ? 'Next Lesson →' : 'Back to Home',
-            onTap: () {
-              if (nextId != null) {
-                context.pushReplacement('/lesson/$nextId/exercise');
-              } else {
-                context.go('/home');
-              }
-            },
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () => context.go(kRouteHome),
+              child: const Text(
+                'Continue',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
-          _SecondaryButton(
-            onTap: () => context
-                .pushReplacement('/lesson/${widget.lessonId}/exercise'),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.primary),
+                foregroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () => context
+                  .pushReplacement('/lesson/${widget.lessonId}/exercise'),
+              child: const Text('Practise again', style: TextStyle(fontSize: 16)),
+            ),
           ),
         ],
       ),
@@ -169,56 +221,28 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
   }
 }
 
-class _PrimaryButton extends StatelessWidget {
+class _StatItem extends StatelessWidget {
+  final String value;
   final String label;
-  final VoidCallback onTap;
-  const _PrimaryButton({required this.label, required this.onTap});
+  final Color valueColor;
+  const _StatItem({
+    required this.value,
+    required this.label,
+    required this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFD166),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0xFFC9962A), offset: Offset(0, 4), blurRadius: 0),
-          ],
-        ),
-        child: Center(
-          child: Text(label,
-              style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF111111))),
-        ),
-      ),
-    );
-  }
-}
-
-class _SecondaryButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _SecondaryButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: Text('Practise again',
-              style: TextStyle(fontSize: 15, color: Color(0xFF666666))),
-        ),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value,
+            style: TextStyle(
+                fontSize: 28, fontWeight: FontWeight.w800, color: valueColor)),
+        const SizedBox(height: 4),
+        Text(label,
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+      ],
     );
   }
 }

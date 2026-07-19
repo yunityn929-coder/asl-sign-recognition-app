@@ -108,6 +108,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _updateSetting(uid, {'soundEnabled': value});
                   },
                 ),
+                const Divider(indent: 56, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.tune_outlined,
+                      color: AppColors.primary),
+                  title: const Text('Calibrate my signs'),
+                  subtitle: const Text(
+                      'Improve recognition accuracy for your hand'),
+                  trailing: const Icon(Icons.chevron_right,
+                      color: AppColors.textSecondary),
+                  onTap: () => context.push(kRouteCalibration),
+                ),
               ],
             ),
             const SizedBox(height: 24),

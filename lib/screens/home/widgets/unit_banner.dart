@@ -19,8 +19,6 @@ const List<Color> _kBannerShadows = [
   Color(0xFF6B4FCC), // Unit 5 — dark lavender
 ];
 
-const _kSectionEmojis = ['🤟', '✍️', '🔢', '🏆'];
-
 // Sticky banner that updates content as the user scrolls.
 class StickyUnitBanner extends StatefulWidget {
   final ValueNotifier<int> activeIndex;
@@ -108,38 +106,33 @@ class _BannerContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final emoji = _kSectionEmojis[(section.number - 1).clamp(0, _kSectionEmojis.length - 1)];
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'UNIT ${section.number}',
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0x88000000),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              Text(
-                section.title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.labelBlack,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'UNIT ${section.number}',
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0x88000000),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+            ),
           ),
-        ),
-        Text(emoji, style: const TextStyle(fontSize: 22)),
-      ],
+          Text(
+            section.title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppColors.labelBlack,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

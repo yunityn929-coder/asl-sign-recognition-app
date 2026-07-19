@@ -74,7 +74,7 @@ class QuizModeBody extends StatelessWidget {
           child: TextButton(
             onPressed: buttonsDisabled ? null : onSkip,
             child: const Text(
-              'Skip →',
+              'Skip',
               style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
             ),
           ),

@@ -21,9 +21,9 @@ class FeedbackWidget extends StatelessWidget {
     final isCorrect = state == FeedbackState.correct;
 
     return Positioned(
-      bottom: 84,
-      left: 20,
-      right: 20,
+      top: 16,
+      left: 0,
+      right: 0,
       child: Center(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),

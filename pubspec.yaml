@@ -36,7 +36,6 @@ dependencies:
   # Navigation & State
   go_router: ^14.0.0
   flutter_riverpod: ^2.5.1
-  shared_preferences: ^2.2.3
 
   # Testing / diagnostics (debug-only screen, not user-facing)
   path_provider: ^2.1.0
@@ -54,3 +53,4 @@ flutter:
     - assets/models/3d/
     - assets/audio/
     - assets/images/
+    - assets/images/hand_sign/

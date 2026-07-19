@@ -27,15 +27,10 @@ const List<String> _kSection3Signs = [
   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
 ];
 
-const List<String> _kAllSigns = [
-  ..._kSection1Signs,
-  ..._kSection3Signs,
-];
-
 const List<QuizSet> kQuizSets = [
   QuizSet(
     id: 'section_1',
-    title: 'Foundations',
+    title: 'Alphabet',
     description: 'Letters A–Z',
     signs: _kSection1Signs,
     sectionNumber: 1,
@@ -53,19 +48,5 @@ const List<QuizSet> kQuizSets = [
     description: 'Digits 0–9',
     signs: _kSection3Signs,
     sectionNumber: 3,
-  ),
-  QuizSet(
-    id: 'section_4',
-    title: 'Mixed Review',
-    description: 'All signs mixed',
-    signs: _kAllSigns,
-    sectionNumber: 4,
-  ),
-  QuizSet(
-    id: 'quick',
-    title: 'Quick Quiz',
-    description: 'Random 10 signs',
-    signs: _kAllSigns,
-    sectionNumber: 0,
   ),
 ];

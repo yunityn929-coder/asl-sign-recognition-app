@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/difficulty_constants.dart';
 import '../../core/constants/route_constants.dart';
-import '../../data/lesson_definitions.dart';
 
 // S-17 — Practice Setup
 class PracticeSetupScreen extends ConsumerStatefulWidget {
@@ -19,11 +18,6 @@ class PracticeSetupScreen extends ConsumerStatefulWidget {
 class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
   String _difficulty = 'easy';
 
-  LessonDefinition get _def => kLessons.firstWhere(
-        (l) => l.id == widget.lessonId,
-        orElse: () => const LessonDefinition(id: '', section: 0, title: '', signs: []),
-      );
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -36,8 +30,6 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
-                  _LessonInfoCard(title: _def.title, signCount: _def.signs.length),
-                  const SizedBox(height: 24),
                   _DifficultyCard(
                     label: 'Easy',
                     subtitle: '${kDifficultySeconds['easy']}s per sign',
@@ -109,36 +101,6 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: const Text('Start Practice', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-      ),
-    );
-  }
-}
-
-class _LessonInfoCard extends StatelessWidget {
-  final String title;
-  final int signCount;
-  const _LessonInfoCard({required this.title, required this.signCount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primarySoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-          const SizedBox(height: 8),
-          Text('$signCount signs',
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-        ],
       ),
     );
   }

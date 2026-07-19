@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:camera/camera.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,7 +17,6 @@ import '../../models/recognition_result.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/feedback_service.dart';
 import '../../services/firestore_service.dart';
-import '../../services/quiz_service.dart';
 import '../../services/tts_service.dart';
 import '../lesson/widgets/feedback_widget.dart';
 
@@ -37,7 +37,7 @@ class PracticeSessionScreen extends ConsumerStatefulWidget {
 class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   CameraController? _cameraController;
   bool _cameraInitialized = false;
-  static const CameraLensDirection _lensDirection = CameraLensDirection.front;
+  final CameraLensDirection _lensDirection = CameraLensDirection.front;
   int _rotationDegrees = 0;
   StreamSubscription<RecognitionResult>? _resultSub;
   late List<String> _signs;
@@ -50,6 +50,9 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   bool _autoAdvancing = false;
   late DateTime _sessionStart;
   final Set<int> _correctIndices = {};
+  bool _speakerOn = true;
+  bool _showCorrect = false;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -78,6 +81,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     _countdownTimer?.cancel();
     _cameraController?.stopImageStream().catchError((_) {});
     _cameraController?.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -127,10 +131,20 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       _autoAdvancing = true;
       _correctCount++;
       _correctIndices.add(_currentIndex);
-      Future.delayed(const Duration(milliseconds: 800), () {
+      _playCorrectSound();
+      setState(() => _showCorrect = true);
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) setState(() => _showCorrect = false);
         if (_autoAdvancing) _advance();
       });
     }
+  }
+
+  Future<void> _playCorrectSound() async {
+    if (!_speakerOn) return;
+    try {
+      await _audioPlayer.play(AssetSource('audio/success.mp3'));
+    } catch (_) {}
   }
 
   void _startCountdown() {
@@ -152,6 +166,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   void _advance() {
     _countdownTimer?.cancel();
     if (!mounted) return;
+    setState(() => _showCorrect = false);
     if (_currentIndex + 1 < _signs.length) {
       setState(() {
         _currentIndex++;
@@ -161,10 +176,41 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       });
       _feedbackService.reset();
       _startCountdown();
-      ref.read(ttsServiceProvider).speak(_signs[_currentIndex]);
+      if (_speakerOn) {
+        ref.read(ttsServiceProvider).speak(_signName(_signs[_currentIndex]));
+      }
     } else {
       _finishSession();
     }
+  }
+
+  String _signName(String sign) {
+    const digits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+    return digits.contains(sign) ? 'Number $sign' : 'Sign $sign';
+  }
+
+  void _onExitTap() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Exit Practice?'),
+        content: const Text('Your progress in this session will not be saved.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Keep Going'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.pop();
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _finishSession() async {
@@ -182,6 +228,8 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       lessonId: widget.lessonId,
       streakExtended: false,
       difficulty: widget.difficulty,
+      correctCount: _correctCount,
+      totalCount: _signs.length,
     );
 
     try {
@@ -219,48 +267,25 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     if (_signs.isEmpty) {
       return const Scaffold(body: SizedBox.shrink());
     }
-    final sign = _signs[_currentIndex];
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            const SizedBox(height: 12),
-            _buildSignCard(sign),
-            const SizedBox(height: 12),
-            Expanded(child: _buildCameraSection()),
-            _buildTimerBar(),
-            _buildSkipButton(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      child: Row(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onExitTap();
+      },
+      child: Stack(
         children: [
-          Text(
-            '${_currentIndex + 1} / ${_signs.length}',
-            style: const TextStyle(
-                color: AppColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
-          ),
-          const Spacer(),
-          Text(
-            '✓ $_correctCount',
-            style: const TextStyle(
-                color: AppColors.success, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(width: 16),
-          Text(
-            '${_timeLeft}s',
-            style: TextStyle(
-              color: _timeLeft <= 3 ? AppColors.error : AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+          Scaffold(
+            backgroundColor: Colors.white,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  _buildTopBar(),
+                  const SizedBox(height: 12),
+                  _buildSignCard(),
+                  const SizedBox(height: 16),
+                  Expanded(child: _buildCameraSection()),
+                ],
+              ),
             ),
           ),
         ],
@@ -268,10 +293,53 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     );
   }
 
-  Widget _buildSignCard(String sign) {
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: _onExitTap,
+            child: const Icon(Icons.arrow_back_ios_rounded,
+                color: AppColors.textPrimary, size: 20),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (_currentIndex + 1) / _signs.length,
+                backgroundColor: AppColors.primarySoft,
+                valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                minHeight: 8,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${_currentIndex + 1} / ${_signs.length}',
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => setState(() => _speakerOn = !_speakerOn),
+            child: Icon(
+              _speakerOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              color: _speakerOn ? AppColors.primary : AppColors.textSecondary,
+              size: 22,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignCard() {
+    final sign = _signs[_currentIndex];
     return Container(
+      width: double.infinity,
+      height: 280,
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -279,19 +347,59 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
           BoxShadow(color: Color(0x15000000), blurRadius: 12, offset: Offset(0, 4)),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          if (kAvailableSigns.contains(sign)) ...[
-            Image.asset('$kSignImagePath$sign.png', height: 160),
-            const SizedBox(height: 8),
-          ],
-          Text(sign,
-              style: const TextStyle(
-                  fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.primary)),
-          const SizedBox(height: 4),
-          Text('Sign $sign',
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  sign,
+                  style: const TextStyle(
+                    fontSize: 96,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111111),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _signName(sign),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF333333),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: _advance,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.xpGold,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Skip This',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: _CircularTimer(
+              timeLeft: _timeLeft,
+              totalTime: kDifficultySeconds[widget.difficulty] ?? 10,
+            ),
+          ),
         ],
       ),
     );
@@ -306,8 +414,85 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _buildCameraPreview(),
-          FeedbackWidget(state: _feedbackResult.state, message: _feedbackResult.message),
+            _buildCameraPreview(),
+            if (_showCorrect)
+              Positioned.fill(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 300),
+                  builder: (context, value, child) {
+                    return Opacity(opacity: value, child: child);
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.5, end: 1.0),
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.elasticOut,
+                          builder: (context, scale, child) {
+                            return Transform.scale(scale: scale, child: child);
+                          },
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: AppColors.success,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.success.withValues(alpha: 0.4),
+                                  blurRadius: 20,
+                                  spreadRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: const Text(
+                            'Correct!',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Visibility(
+              visible: !_showCorrect,
+              child: FeedbackWidget(
+                state: _feedbackResult.state,
+                message: _feedbackResult.message,
+              ),
+            ),
         ],
       ),
     );
@@ -315,9 +500,9 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
 
   Widget _buildCameraPreview() {
     if (!_cameraInitialized || _cameraController == null) {
-      return Container(
-        color: Colors.grey.shade300,
-        child: const Center(child: CircularProgressIndicator()),
+      return const ColoredBox(
+        color: Color(0xFF1A1A1A),
+        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
     final previewSize = _cameraController!.value.previewSize!;
@@ -332,39 +517,52 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       ),
     );
   }
+}
 
-  Widget _buildTimerBar() {
-    final total = kDifficultySeconds[widget.difficulty] ?? 10;
-    final color = _timeLeft > total * 0.5
-        ? AppColors.success
-        : _timeLeft > total * 0.25
-            ? AppColors.warning
-            : AppColors.error;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: LinearProgressIndicator(
-          value: _timeLeft / total,
-          color: color,
-          backgroundColor: AppColors.primarySoft,
-          minHeight: 8,
-        ),
-      ),
-    );
-  }
+class _CircularTimer extends StatelessWidget {
+  final int timeLeft;
+  final int totalTime;
 
-  Widget _buildSkipButton() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Center(
-        child: TextButton(
-          onPressed: _advance,
-          child: const Text(
-            'Skip →',
-            style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+  const _CircularTimer({required this.timeLeft, required this.totalTime});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = 1.0 - (timeLeft / totalTime).clamp(0.0, 1.0);
+
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const SizedBox(
+            width: 44,
+            height: 44,
+            child: CircularProgressIndicator(
+              value: 1.0,
+              strokeWidth: 4,
+              valueColor: AlwaysStoppedAnimation(AppColors.primarySoft),
+            ),
           ),
-        ),
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 4,
+              valueColor: AlwaysStoppedAnimation(
+                  timeLeft <= 3 ? AppColors.error : AppColors.primary),
+            ),
+          ),
+          Text(
+            '$timeLeft',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: timeLeft <= 3 ? AppColors.error : AppColors.textPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }

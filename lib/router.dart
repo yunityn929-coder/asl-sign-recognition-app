@@ -57,6 +57,9 @@ import 'screens/social/social_sign_in_screen.dart';
 // Debug / diagnostics (not part of learner-facing flow)
 import 'screens/debug/recognition_test_screen.dart';
 
+// Calibration (optional per-user tuning, reached from Settings)
+import 'screens/calibration/calibration_screen.dart';
+
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final GoRouter appRouter = GoRouter(
@@ -331,6 +334,15 @@ final GoRouter appRouter = GoRouter(
       name: kRouteNameDebugRecognitionTest,
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const RecognitionTestScreen(),
+    ),
+
+    // Calibration — optional per-user sign calibration (entry point in
+    // Settings: "Calibrate my signs").
+    GoRoute(
+      path: kRouteCalibration,
+      name: kRouteNameCalibration,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const CalibrationScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

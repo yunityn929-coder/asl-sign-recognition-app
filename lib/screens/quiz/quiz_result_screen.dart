@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../data/quiz_definitions.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/firestore_service.dart';
 
 class QuizResultScreen extends ConsumerStatefulWidget {
   final int score;
@@ -57,11 +57,12 @@ class _QuizResultScreenState extends ConsumerState<QuizResultScreen> {
     if (uid == null) return;
     try {
       await ref.read(userActionsProvider(uid)).addXp(_xpEarned);
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'quiz_best_${widget.quizSet.id}';
-      final existing = prefs.getInt(key) ?? 0;
+      final existing =
+          ref.read(userProvider(uid)).value?.quizBestScores[widget.quizSet.id] ?? 0;
       if (widget.score > existing) {
-        await prefs.setInt(key, widget.score);
+        await ref
+            .read(firestoreServiceProvider)
+            .saveQuizBestScore(uid, widget.quizSet.id, widget.score);
       }
     } catch (_) {}
   }

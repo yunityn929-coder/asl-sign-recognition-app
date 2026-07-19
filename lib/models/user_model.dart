@@ -21,6 +21,7 @@ class UserModel {
   final String streakGoalStartDate;
   final bool streakGoalAchieved;
   final Map<String, double> signAccuracy;
+  final Map<String, int> quizBestScores;
 
   const UserModel({
     required this.uid,
@@ -45,6 +46,7 @@ class UserModel {
     required this.streakGoalStartDate,
     required this.streakGoalAchieved,
     this.signAccuracy = const {},
+    this.quizBestScores = const {},
   });
 
   UserModel copyWith({
@@ -68,6 +70,7 @@ class UserModel {
     String? streakGoalStartDate,
     bool? streakGoalAchieved,
     Map<String, double>? signAccuracy,
+    Map<String, int>? quizBestScores,
   }) =>
       UserModel(
         uid: uid,
@@ -92,6 +95,7 @@ class UserModel {
         streakGoalStartDate: streakGoalStartDate ?? this.streakGoalStartDate,
         streakGoalAchieved: streakGoalAchieved ?? this.streakGoalAchieved,
         signAccuracy: signAccuracy ?? this.signAccuracy,
+        quizBestScores: quizBestScores ?? this.quizBestScores,
       );
 
   factory UserModel.fromMap(String uid, Map<String, dynamic> map) => UserModel(
@@ -118,6 +122,9 @@ class UserModel {
         streakGoalAchieved: map['streakGoalAchieved'] as bool? ?? false,
         signAccuracy: (map['signAccuracy'] as Map? ?? {}).map(
             (k, v) => MapEntry(k as String, (v as num).toDouble())),
+        quizBestScores: Map<String, int>.from(
+            (map['quizBestScores'] as Map? ?? {}).map(
+                (k, v) => MapEntry(k as String, (v as num).toInt()))),
       );
 
   Map<String, dynamic> toMap() => {
@@ -142,5 +149,6 @@ class UserModel {
         'streakGoalStartDate': streakGoalStartDate,
         'streakGoalAchieved': streakGoalAchieved,
         'signAccuracy': signAccuracy,
+        'quizBestScores': quizBestScores,
       };
 }

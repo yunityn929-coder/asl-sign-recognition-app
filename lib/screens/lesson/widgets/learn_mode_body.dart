@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../services/quiz_service.dart';
 
 class LearnModeBody extends StatelessWidget {
   final String sign;
-  final VoidCallback onHearIt;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final VoidCallback onHint;
 
-  const LearnModeBody({super.key, required this.sign, required this.onHearIt});
+  const LearnModeBody({
+    super.key,
+    required this.sign,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onHint,
+  });
 
   String get _signName {
     const digits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
@@ -21,7 +30,7 @@ class LearnModeBody extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          height: _hasImage ? 420 : 280,
+          height: 260,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -34,37 +43,48 @@ class LearnModeBody extends StatelessWidget {
             ],
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
+              const SizedBox(height: 16),
               if (_hasImage) ...[
                 Image.asset(
                   '$kSignImagePath$sign.png',
-                  height: 200,
+                  height: 160,
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 8),
               ],
-              Text(
-                sign,
-                style: const TextStyle(
-                  fontSize: 96,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF111111),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_rounded),
+                      color: onPrevious != null
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                      iconSize: 24,
+                      onPressed: onPrevious,
+                    ),
+                    Text(
+                      _signName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios_rounded),
+                      color: onNext != null
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                      iconSize: 24,
+                      onPressed: onNext,
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _signName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF333333),
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'ASL sign',
-                style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
               ),
             ],
           ),
@@ -73,18 +93,20 @@ class LearnModeBody extends StatelessWidget {
           top: 12,
           right: 12,
           child: GestureDetector(
-            onTap: onHearIt,
+            onTap: onHint,
             child: Container(
-              width: 36,
-              height: 36,
+              padding: const EdgeInsets.all(8),
               decoration: const BoxDecoration(
-                color: Color(0xFFF5F5F5),
+                color: Colors.white,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(blurRadius: 4, color: Colors.black12),
+                ],
               ),
               child: const Icon(
-                Icons.volume_up_rounded,
-                size: 18,
-                color: Color(0xFF5BC8AC),
+                Icons.lightbulb_outline_rounded,
+                color: AppColors.primary,
+                size: 22,
               ),
             ),
           ),

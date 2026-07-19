@@ -159,6 +159,46 @@ class FirestoreService {
     }
   }
 
+  Future<void> unlockPractice(String uid, String lessonId) async {
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('lessons')
+          .doc(lessonId)
+          .set({'practiceUnlocked': true}, SetOptions(merge: true));
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw const FirestorePermissionException('Permission denied.');
+      }
+      throw FirestoreException(e.message ?? 'Failed to unlock practice');
+    }
+  }
+
+  Future<void> saveSignProgress(String uid, String lessonId, int signIndex) async {
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('lessons')
+          .doc(lessonId)
+          .set({'lastSignIndex': signIndex}, SetOptions(merge: true));
+    } on FirebaseException catch (_) {}
+  }
+
+  Future<void> saveQuizBestScore(String uid, String quizSetId, int score) async {
+    try {
+      await _db.collection('users').doc(uid).update({
+        'quizBestScores.$quizSetId': score,
+      });
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw const FirestorePermissionException('Permission denied.');
+      }
+      // Silent fail — best score save is best-effort
+    }
+  }
+
   Future<void> addXp(String uid, int amount) async {
     try {
       await _db.collection('users').doc(uid).update(

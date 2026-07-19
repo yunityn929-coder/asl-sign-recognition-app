@@ -28,17 +28,6 @@ class ModeSelectScreen extends ConsumerWidget {
     return null;
   }
 
-  String _averageAccuracy(UserModel? user) {
-    if (user == null || _def.signs.isEmpty) return 'Not attempted';
-    final scores = [
-      for (final sign in _def.signs)
-        if (user.signAccuracy.containsKey(sign)) user.signAccuracy[sign]!,
-    ];
-    if (scores.isEmpty) return 'Not attempted';
-    final avg = scores.reduce((a, b) => a + b) / scores.length;
-    return '${(avg * 100).round()}%';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uid = ref.watch(authStateProvider).value?.uid;
@@ -59,16 +48,19 @@ class ModeSelectScreen extends ConsumerWidget {
 
     return lessonsAsync.when(
       data: (lessons) {
-        final completed = _findProgress(lessons)?.status == 'completed';
+        final progress = _findProgress(lessons);
+        final practiceUnlocked = progress?.practiceUnlocked ?? false;
+        final lastSignIndex = progress?.lastSignIndex ?? 0;
         final user = userAsync.value;
-        return _buildContent(context, user, completed);
+        return _buildContent(context, user, practiceUnlocked, lastSignIndex);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => const Center(child: Text('Failed to load lesson')),
     );
   }
 
-  Widget _buildContent(BuildContext context, UserModel? user, bool completed) {
+  Widget _buildContent(BuildContext context, UserModel? user,
+      bool practiceUnlocked, int lastSignIndex) {
     return Column(
       children: [
         _Header(title: _def.title),
@@ -76,11 +68,6 @@ class ModeSelectScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             children: [
-              _LessonInfoCard(
-                title: _def.title,
-                signCount: _def.signs.length,
-                accuracyLabel: _averageAccuracy(user),
-              ),
               const SizedBox(height: 24),
               _ModeCard(
                 icon: Icons.school_outlined,
@@ -89,21 +76,21 @@ class ModeSelectScreen extends ConsumerWidget {
                 title: 'Learn Mode',
                 description:
                     'Study each sign with demonstrations and camera practice',
-                badge: !completed ? 'Recommended' : null,
                 onTap: () => context.push('/lesson/$lessonId/exercise'),
               ),
               const SizedBox(height: 16),
               _ModeCard(
                 icon: Icons.fitness_center_outlined,
-                iconColor: completed ? AppColors.secondary : AppColors.textSecondary,
+                iconColor:
+                    practiceUnlocked ? AppColors.secondary : AppColors.textSecondary,
                 borderColor:
-                    completed ? AppColors.secondary : const Color(0xFFE0E0E0),
+                    practiceUnlocked ? AppColors.secondary : const Color(0xFFE0E0E0),
                 title: 'Practice Mode',
                 description:
                     'Test yourself against the clock with difficulty settings',
-                locked: !completed,
+                locked: !practiceUnlocked,
                 lockedMessage: 'Complete Learn Mode first',
-                onTap: completed
+                onTap: practiceUnlocked
                     ? () => context.push('/lesson/$lessonId/practice/setup')
                     : null,
               ),
@@ -147,53 +134,12 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _LessonInfoCard extends StatelessWidget {
-  final String title;
-  final int signCount;
-  final String accuracyLabel;
-  const _LessonInfoCard({
-    required this.title,
-    required this.signCount,
-    required this.accuracyLabel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primarySoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary)),
-          const SizedBox(height: 8),
-          Text('$signCount signs',
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-          const SizedBox(height: 4),
-          Text('Your best accuracy: $accuracyLabel',
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-        ],
-      ),
-    );
-  }
-}
-
 class _ModeCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final Color borderColor;
   final String title;
   final String description;
-  final String? badge;
   final bool locked;
   final String? lockedMessage;
   final VoidCallback? onTap;
@@ -204,7 +150,6 @@ class _ModeCard extends StatelessWidget {
     required this.borderColor,
     required this.title,
     required this.description,
-    this.badge,
     this.locked = false,
     this.lockedMessage,
     this.onTap,
@@ -239,20 +184,7 @@ class _ModeCard extends StatelessWidget {
                               : AppColors.textPrimary)),
                 ),
                 if (locked)
-                  const Icon(Icons.lock_outline, color: AppColors.textSecondary)
-                else if (badge != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.xpGold.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(badge!,
-                        style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
-                  ),
+                  const Icon(Icons.lock_outline, color: AppColors.textSecondary),
               ],
             ),
             const SizedBox(height: 10),

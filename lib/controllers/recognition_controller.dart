@@ -48,6 +48,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../data/sign_label_map.dart';
 import '../models/recognition_result.dart';
+import '../services/calibration_service.dart';
 
 // ---------------------------------------------------------------------------
 // Abstract interface (matches APP_FLOW.md spec)
@@ -96,6 +97,23 @@ List<double> _vec(List<double> n, int to, int from) => [
 double _dist(List<double> n, int a, int b) {
   final v = _vec(n, a, b);
   return sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+}
+
+// ---------------------------------------------------------------------------
+// Calibration blending — boosts a class's probability when the current
+// frame's landmarks closely match a user-captured calibration sample for
+// that class (see CalibrationService, CalibrationScreen).
+// ---------------------------------------------------------------------------
+
+const double kCalibrationWeight = 2.0;
+
+double _euclideanDistance(List<double> a, List<double> b) {
+  double sum = 0;
+  for (var i = 0; i < a.length; i++) {
+    final d = a[i] - b[i];
+    sum += d * d;
+  }
+  return sqrt(sum);
 }
 
 List<double> _computeEngineeredFeatures(List<double> n) {
@@ -373,7 +391,27 @@ class RecognitionControllerImpl implements RecognitionController {
     // DIAG — raw model output
     print('[DIAG] Raw output:   ${output[0]}');
 
-    final probs = output[0];
+    final probs = List<double>.from(output[0]);
+    if (CalibrationService.instance.hasAnyCalibration) {
+      double sumProbs = 0;
+      for (var i = 0; i < probs.length; i++) {
+        final calibSamples = CalibrationService.instance.samplesFor(kSignLabels[i]);
+        if (calibSamples.isNotEmpty) {
+          double bestSim = 0;
+          for (final sample in calibSamples) {
+            final sim = 1.0 / (1.0 + _euclideanDistance(normalised, sample));
+            if (sim > bestSim) bestSim = sim;
+          }
+          probs[i] = probs[i] * (1.0 + kCalibrationWeight * bestSim);
+        }
+        sumProbs += probs[i];
+      }
+      if (sumProbs > 0) {
+        for (var i = 0; i < probs.length; i++) {
+          probs[i] /= sumProbs;
+        }
+      }
+    }
 
     // Top-2 argmax in one pass.
     int topIdx = 0;

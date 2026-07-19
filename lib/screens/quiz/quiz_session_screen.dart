@@ -175,6 +175,7 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
   }
 
   Widget _buildQuestionCard(QuizQuestion question) {
+    final imagePath = quizImagePath(question.correctSign);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(24),
@@ -186,7 +187,13 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
         QuestionType.imageToLetter => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('$kSignImagePath${question.correctSign}.png', height: 200),
+              if (imagePath != null)
+                Image.asset(imagePath, height: 200)
+              else
+                Text(
+                  question.correctSign,
+                  style: const TextStyle(fontSize: 80, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
               const SizedBox(height: 16),
               const Text(
                 'What letter is this?',
@@ -271,8 +278,9 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
       }
     }
 
-    final showImage =
-        question.type == QuestionType.letterToImage && kAvailableSigns.contains(option);
+    final imagePath = question.type == QuestionType.letterToImage
+        ? quizImagePath(option)
+        : null;
 
     return GestureDetector(
       onTap: _answered ? null : () => _submitAnswer(index),
@@ -284,8 +292,8 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
           color: color,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: showImage
-            ? Image.asset('$kSignImagePath$option.png', height: 56)
+        child: imagePath != null
+            ? Image.asset(imagePath, height: 56)
             : Text(
                 option,
                 style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.bold),
