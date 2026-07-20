@@ -72,7 +72,11 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
         children: [
           const Text('Signs',
               style: TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w900,
+            fontSize: 22,
+            letterSpacing: -0.3,
+          )),
           const SizedBox(height: 12),
           TextField(
             onChanged: (v) => setState(() => _query = v),

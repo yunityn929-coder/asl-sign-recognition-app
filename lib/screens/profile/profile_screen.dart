@@ -11,20 +11,6 @@ import '../../providers/lesson_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/auth_service.dart';
 
-const List<String> _kMonthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-String _formatDate(String isoString) {
-  try {
-    final date = DateTime.parse(isoString);
-    return '${_kMonthNames[date.month - 1]} ${date.year}';
-  } catch (_) {
-    return '';
-  }
-}
-
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -121,36 +107,7 @@ class _ProfileContent extends ConsumerWidget {
             ),
           ),
           if (user != null && !user.isAnonymous) ...[
-            const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Account',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundCard,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.primarySoft),
-                ),
-                child: ListTile(
-                  leading:
-                      const Icon(Icons.check_circle, color: AppColors.success),
-                  title: Text(user.displayName),
-                  subtitle: Text(user.email),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 28),
             const _SignOutButton(),
           ],
           const SizedBox(height: 32),
@@ -297,12 +254,6 @@ class _IdCard extends StatelessWidget {
                 user.email,
                 style:
                     const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Member since ${_formatDate(user.createdAt)}',
-                style:
-                    const TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
             ],
           ),

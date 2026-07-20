@@ -84,10 +84,12 @@ class _QuestList extends StatelessWidget {
       children: [
         const Text(
           'Daily Quests',
-          style: TextStyle(
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w900,
               fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary),
+              letterSpacing: -0.3,
+            ),
         ),
         const SizedBox(height: 4),
         Text(

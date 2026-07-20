@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -78,6 +79,13 @@ class _SocialSignInScreenState extends ConsumerState<SocialSignInScreen> {
       }
     } on TimeoutException {
       setState(() => _error = 'Sign-in timed out. Please try again.');
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'credential-already-in-use') {
+        setState(() => _error =
+            'This Google account is already linked to another profile. Try Sign In instead.');
+      } else {
+        setState(() => _error = 'Something went wrong. Please try again.');
+      }
     } on AppException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {

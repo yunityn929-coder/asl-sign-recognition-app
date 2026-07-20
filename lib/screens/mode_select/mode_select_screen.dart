@@ -121,9 +121,10 @@ class _Header extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary,
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                letterSpacing: -0.3,
               ),
             ),
           ),

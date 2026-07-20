@@ -18,8 +18,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  int? _dailyGoalMinutes;
-  bool? _ttsEnabled;
   bool? _soundEnabled;
   bool _repairAttempted = false;
 
@@ -77,8 +75,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           }
           return const Center(child: CircularProgressIndicator());
         }
-        final dailyGoalMinutes = _dailyGoalMinutes ?? user.dailyGoalMinutes;
-        final ttsEnabled = _ttsEnabled ?? user.ttsEnabled;
         final soundEnabled = _soundEnabled ?? user.soundEnabled;
 
         return ListView(
@@ -88,48 +84,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 8),
             _Card(
               children: [
-                ListTile(
-                  title: const Text(
-                    'Daily Goal',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                  ),
-                  trailing: DropdownButton<int>(
-                    value: dailyGoalMinutes,
-                    underline: const SizedBox.shrink(),
-                    items: const [5, 10, 15, 20]
-                        .map((m) =>
-                            DropdownMenuItem(value: m, child: Text('$m')))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _dailyGoalMinutes = value);
-                      _updateSetting(uid, {'dailyGoalMinutes': value});
-                    },
-                  ),
-                ),
                 SwitchListTile(
                   title: const Text(
-                    'Text to Speech',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                  ),
-                  value: ttsEnabled,
-                  onChanged: (value) {
-                    setState(() => _ttsEnabled = value);
-                    _updateSetting(uid, {'ttsEnabled': value});
-                  },
-                ),
-                SwitchListTile(
-                  title: const Text(
-                    'Sound Effects',
+                    'Sound',
                     style: TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
                   ),
                   value: soundEnabled,
                   onChanged: (value) {
                     setState(() => _soundEnabled = value);
-                    _updateSetting(uid, {'soundEnabled': value});
+                    _updateSetting(uid, {'soundEnabled': value, 'ttsEnabled': value});
                   },
                 ),
                 ListTile(

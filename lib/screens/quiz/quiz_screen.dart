@@ -73,7 +73,12 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
         children: [
           Text(
             'Quiz',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w900,
+              fontSize: 22,
+              letterSpacing: -0.3,
+            ),
           ),
         ],
       ),
