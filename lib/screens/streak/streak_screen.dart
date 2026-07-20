@@ -200,14 +200,6 @@ class _DayCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Border? border;
-    if (isToday && isActive) {
-      border = Border.all(color: const Color(0xFFF38963), width: 2);
-    } else if (isToday) {
-      border = Border.all(color: const Color(0xFF1f2325), width: 2);
-    } else if (!isActive) {
-      border = Border.all(color: const Color(0xFFe6e6e6), width: 1.5);
-    }
 
     final circle = Container(
       width: 36,
@@ -216,7 +208,7 @@ class _DayCircle extends StatelessWidget {
       decoration: BoxDecoration(
         color: isActive ? const Color(0xFFFFA757) : Colors.transparent,
         shape: BoxShape.circle,
-        border: border,
+        border: Border.all(color: const Color(0xFFe6e6e6), width: 1.5),
       ),
       child: isActive
           ? const Icon(Icons.local_fire_department_rounded, size: 18, color: Colors.white)

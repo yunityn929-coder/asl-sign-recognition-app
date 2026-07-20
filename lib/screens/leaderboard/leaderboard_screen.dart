@@ -20,12 +20,13 @@ class LeaderboardScreen extends ConsumerWidget {
           data: (user) {
             final isAnonymous = user == null || user.isAnonymous;
             return isAnonymous
-                ? _SignInGate(onSignIn: () => context.push(kRouteSocialSignIn))
+                ? _SignInGate(
+                    onSignIn: () => context.push(kRouteSocialSignIn, extra: true))
                 : const _ComingSoon();
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) =>
-              _SignInGate(onSignIn: () => context.push(kRouteSocialSignIn)),
+          error: (_, __) => _SignInGate(
+              onSignIn: () => context.push(kRouteSocialSignIn, extra: true)),
         ),
       ),
     );

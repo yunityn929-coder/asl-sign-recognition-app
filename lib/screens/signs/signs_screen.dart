@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/quiz_service.dart';
 import '../../providers/user_provider.dart';
@@ -46,9 +47,7 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = ref.watch(authStateProvider).value?.uid;
-    final signAccuracy = uid == null
-        ? const <String, double>{}
-        : ref.watch(userProvider(uid)).value?.signAccuracy ?? const {};
+    final user = uid == null ? null : ref.watch(userProvider(uid)).value;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -58,7 +57,7 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
             _buildHeader(),
             _buildFilterTabs(),
             const SizedBox(height: 8),
-            Expanded(child: _buildGrid(signAccuracy)),
+            Expanded(child: _buildGrid(user)),
           ],
         ),
       ),
@@ -121,7 +120,7 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
     );
   }
 
-  Widget _buildGrid(Map<String, double> signAccuracy) {
+  Widget _buildGrid(UserModel? user) {
     final signs = _filteredSigns;
     if (signs.isEmpty) {
       return const Center(
@@ -139,9 +138,10 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
       itemCount: signs.length,
       itemBuilder: (context, i) {
         final sign = signs[i];
+        final accuracy = user?.signAccuracyPercent(sign) ?? -1.0;
         return _SignCard(
           sign: sign,
-          accuracy: signAccuracy[sign],
+          accuracy: accuracy,
           onTap: () => _showSignDetails(context, sign),
         );
       },
@@ -223,7 +223,7 @@ class _FilterChip extends StatelessWidget {
 
 class _SignCard extends StatelessWidget {
   final String sign;
-  final double? accuracy;
+  final double accuracy;
   final VoidCallback onTap;
   const _SignCard({required this.sign, required this.accuracy, required this.onTap});
 
@@ -270,16 +270,16 @@ class _SignCard extends StatelessWidget {
 }
 
 class _AccuracyBadge extends StatelessWidget {
-  final double? accuracy;
+  final double accuracy;
   const _AccuracyBadge({required this.accuracy});
 
   @override
   Widget build(BuildContext context) {
-    if (accuracy == null) {
+    if (accuracy < 0) {
       return const SizedBox.shrink();
     }
-    final percent = (accuracy! * 100).round();
-    if (accuracy! >= 0.7) {
+    final percent = (accuracy * 100).round();
+    if (accuracy >= 0.7) {
       return _badge('★ $percent%', AppColors.success.withValues(alpha: 0.15), AppColors.success);
     }
     return _badge('$percent%', AppColors.warning.withValues(alpha: 0.25), const Color(0xFF9A6100));

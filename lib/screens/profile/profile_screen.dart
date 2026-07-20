@@ -87,23 +87,11 @@ class _ProfileContent extends ConsumerWidget {
 
     final user = userAsync.asData?.value;
 
-    int signsLearned = lessonsAsync.maybeWhen(
-      data: (lessons) {
-        final completedLessons =
-            lessons.where((l) => l.status == 'completed').toList();
-        var total = 0;
-        for (final lesson in completedLessons) {
-          final def = kLessons.firstWhere(
-            (d) => d.id == lesson.lessonId,
-            orElse: () =>
-                const LessonDefinition(id: '', section: 0, title: '', signs: []),
-          );
-          total += def.signs.length;
-        }
-        return total;
-      },
+    final lessonsCompleted = lessonsAsync.maybeWhen(
+      data: (lessons) => lessons.where((l) => l.status == 'completed').length,
       orElse: () => 0,
     );
+    final totalLessons = kLessons.length;
 
     return SingleChildScrollView(
       child: Column(
@@ -126,7 +114,11 @@ class _ProfileContent extends ConsumerWidget {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _ProgressCard(user: user, signsLearned: signsLearned),
+            child: _ProgressCard(
+              user: user,
+              lessonsCompleted: lessonsCompleted,
+              totalLessons: totalLessons,
+            ),
           ),
           if (user != null && !user.isAnonymous) ...[
             const SizedBox(height: 24),
@@ -220,7 +212,7 @@ class _IdCard extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Sign in to save your progress',
+                  '...',
                   style: TextStyle(fontSize: 12, color: Color(0xFFBBBBBB)),
                 ),
               ],
@@ -240,7 +232,7 @@ class _IdCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => context.push(kRouteSocialSignIn),
+                onPressed: () => context.push(kRouteSocialSignIn, extra: true),
                 child: const Text('Create Profile'),
               ),
             ),
@@ -255,7 +247,7 @@ class _IdCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => context.push(kRouteSocialSignIn),
+                onPressed: () => context.push(kRouteSocialSignIn, extra: false),
                 child: const Text('Sign In'),
               ),
             ),
@@ -321,17 +313,23 @@ class _IdCard extends StatelessWidget {
 }
 
 class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.user, required this.signsLearned});
+  const _ProgressCard({
+    required this.user,
+    required this.lessonsCompleted,
+    required this.totalLessons,
+  });
+
   final UserModel? user;
-  final int signsLearned;
+  final int lessonsCompleted;
+  final int totalLessons;
 
   @override
   Widget build(BuildContext context) {
     final totalXp = user?.totalXp ?? 0;
-    final longestStreak = user?.longestStreak ?? 0;
+    final currentStreak = user?.currentStreak ?? 0;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
       decoration: BoxDecoration(
         color: AppColors.backgroundCard,
         borderRadius: BorderRadius.circular(16),
@@ -340,18 +338,28 @@ class _ProgressCard extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _ProgressStat(
-                emoji: '⚡', value: '$totalXp', label: 'XP'),
+            child: _StatItem(
+              icon: Icons.star_rounded,
+              iconColor: AppColors.xpGold,
+              value: '$totalXp',
+              label: 'Total XP',
+            ),
           ),
-          const _ProgressDivider(),
           Expanded(
-            child: _ProgressStat(
-                emoji: '🔥', value: '$longestStreak', label: 'Best Streak'),
+            child: _StatItem(
+              icon: Icons.local_fire_department_rounded,
+              iconColor: currentStreak > 0 ? Colors.orange : AppColors.textSecondary,
+              value: '$currentStreak',
+              label: 'Day Streak',
+            ),
           ),
-          const _ProgressDivider(),
           Expanded(
-            child: _ProgressStat(
-                emoji: '✋', value: '$signsLearned', label: 'Signs Learned'),
+            child: _StatItem(
+              icon: Icons.menu_book_rounded,
+              iconColor: AppColors.success,
+              value: '$lessonsCompleted/$totalLessons',
+              label: 'Lessons Done',
+            ),
           ),
         ],
       ),
@@ -359,18 +367,16 @@ class _ProgressCard extends StatelessWidget {
   }
 }
 
-class _ProgressDivider extends StatelessWidget {
-  const _ProgressDivider();
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  });
 
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: 1, height: 40, color: AppColors.primarySoft);
-}
-
-class _ProgressStat extends StatelessWidget {
-  const _ProgressStat(
-      {required this.emoji, required this.value, required this.label});
-  final String emoji;
+  final IconData icon;
+  final Color iconColor;
   final String value;
   final String label;
 
@@ -378,20 +384,18 @@ class _ProgressStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 22)),
-        const SizedBox(height: 4),
+        Icon(icon, color: iconColor, size: 22),
+        const SizedBox(height: 6),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
           ),
         ),
         const SizedBox(height: 2),
-        Text(label,
-            style:
-                const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
       ],
     );
   }

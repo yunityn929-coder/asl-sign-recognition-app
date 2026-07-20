@@ -21,7 +21,7 @@ class UserModel {
   final int streakGoalDays;
   final String streakGoalStartDate;
   final bool streakGoalAchieved;
-  final Map<String, double> signAccuracy;
+  final Map<String, Map<String, int>> signAccuracy;
   final Map<String, int> quizBestScores;
 
   const UserModel({
@@ -72,7 +72,7 @@ class UserModel {
     int? streakGoalDays,
     String? streakGoalStartDate,
     bool? streakGoalAchieved,
-    Map<String, double>? signAccuracy,
+    Map<String, Map<String, int>>? signAccuracy,
     Map<String, int>? quizBestScores,
   }) =>
       UserModel(
@@ -126,7 +126,10 @@ class UserModel {
         streakGoalStartDate: map['streakGoalStartDate'] as String? ?? '',
         streakGoalAchieved: map['streakGoalAchieved'] as bool? ?? false,
         signAccuracy: (map['signAccuracy'] as Map? ?? {}).map(
-            (k, v) => MapEntry(k as String, (v as num).toDouble())),
+            (k, v) => MapEntry(
+                k as String,
+                Map<String, int>.from((v as Map? ?? {}).map(
+                    (mk, mv) => MapEntry(mk as String, (mv as num).toInt()))))),
         quizBestScores: Map<String, int>.from(
             (map['quizBestScores'] as Map? ?? {}).map(
                 (k, v) => MapEntry(k as String, (v as num).toInt()))),
@@ -157,4 +160,14 @@ class UserModel {
         'signAccuracy': signAccuracy,
         'quizBestScores': quizBestScores,
       };
+
+  // Returns accuracy as 0.0-1.0 for a sign; -1.0 if no data (show "New").
+  double signAccuracyPercent(String sign) {
+    final data = signAccuracy[sign];
+    if (data == null) return -1.0;
+    final total = data['total'] ?? 0;
+    if (total == 0) return -1.0;
+    final correct = data['correct'] ?? 0;
+    return correct / total;
+  }
 }

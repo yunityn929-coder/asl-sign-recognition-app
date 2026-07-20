@@ -10,7 +10,7 @@ import 'unit_banner.dart';
 const double _nodeSpacing    = 120.0;
 const double _nodeRadius     = 22.0;
 const double _sectionGap     = 60.0;
-const double _contentTopPad  = 0.0;
+const double _contentTopPad  = 50.0;
 
 class PathBody extends StatefulWidget {
   final List<LessonModel> lessons;

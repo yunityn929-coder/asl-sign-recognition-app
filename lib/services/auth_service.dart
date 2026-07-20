@@ -65,6 +65,32 @@ class AuthService {
     }
   }
 
+  // Signs directly into the target Google account, swapping the active
+  // session rather than merging into the current anonymous user (contrast
+  // with linkWithGoogle()'s upgrade-in-place behaviour). Returns whether the
+  // account was genuinely new to Firebase so callers can decide whether a
+  // Firestore user doc needs bootstrapping.
+  Future<({User? user, bool isNewUser})> signInWithGoogle() async {
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) return (user: null, isNewUser: false); // user dismissed the picker
+
+    try {
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final result = await _auth.signInWithCredential(credential);
+      return (
+        user: result.user,
+        isNewUser: result.additionalUserInfo?.isNewUser ?? false,
+      );
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_friendly(e.code));
+    }
+  }
+
   static String _friendly(String code) {
     switch (code) {
       case 'account-exists-with-different-credential':

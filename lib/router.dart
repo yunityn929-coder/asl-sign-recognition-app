@@ -259,7 +259,8 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: kRouteSocialSignIn,
       name: kRouteNameSocialSignIn,
-      builder: (context, state) => const SocialSignInScreen(),
+      builder: (context, state) =>
+          SocialSignInScreen(isSignUp: state.extra as bool? ?? true),
     ),
 
     // S-15 — Lesson Exercise (root navigator so push/pop works outside the shell)

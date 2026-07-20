@@ -303,7 +303,7 @@ class FirestoreService {
     }
   }
 
-  Future<Map<String, double>> savePracticeResult({
+  Future<Map<String, Map<String, int>>> savePracticeResult({
     required String uid,
     required String lessonId,
     required int correctCount,
@@ -314,13 +314,13 @@ class FirestoreService {
     Map<String, int> learnAttempts = const {},
     String sessionType = 'learn',
   }) async {
-    final signAccuracy = <String, double>{};
+    final signAttempts = <String, Map<String, int>>{};
     for (final sign in lessonSigns) {
-      final quizResult = missedSigns.contains(sign) ? 0.0 : 1.0;
-      final attempts = learnAttempts[sign] ?? 0;
-      // Cap at 5 sustained-correct frames in learn mode = full confidence.
-      final learnScore = (attempts / 5).clamp(0.0, 1.0).toDouble();
-      signAccuracy[sign] = 0.6 * quizResult + 0.4 * learnScore;
+      final isCorrect = !missedSigns.contains(sign);
+      signAttempts[sign] = {
+        'correct': isCorrect ? 1 : 0,
+        'total': 1,
+      };
     }
     final accuracyPercent =
         totalCount == 0 ? 0.0 : correctCount / totalCount * 100;
@@ -342,23 +342,27 @@ class FirestoreService {
         'items': [],
       });
     } on FirebaseException catch (_) {}
-    return signAccuracy;
+    return signAttempts;
   }
 
   Future<void> updateSignAccuracy({
     required String uid,
-    required Map<String, double> newAccuracy,
+    required Map<String, Map<String, int>> newAccuracy,
   }) async {
     try {
       final snap = await _db.collection('users').doc(uid).get();
       final raw = snap.data()?['signAccuracy'] as Map?;
-      final current = (raw ?? {})
-          .map((k, v) => MapEntry(k as String, (v as num).toDouble()));
-      final merged = Map<String, double>.from(current);
+      final current = (raw ?? {}).map((k, v) => MapEntry(
+          k as String,
+          Map<String, int>.from((v as Map? ?? {})
+              .map((mk, mv) => MapEntry(mk as String, (mv as num).toInt())))));
+      final merged = Map<String, Map<String, int>>.from(current);
       for (final entry in newAccuracy.entries) {
-        final existing = current[entry.key];
-        merged[entry.key] =
-            existing != null ? 0.7 * existing + 0.3 * entry.value : entry.value;
+        final existing = current[entry.key] ?? {'correct': 0, 'total': 0};
+        merged[entry.key] = {
+          'correct': (existing['correct'] ?? 0) + (entry.value['correct'] ?? 0),
+          'total': (existing['total'] ?? 0) + (entry.value['total'] ?? 0),
+        };
       }
       await updateUser(uid, {'signAccuracy': merged});
     } on FirebaseException catch (_) {
