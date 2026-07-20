@@ -28,27 +28,36 @@ class LessonNode extends StatelessWidget {
       onTap: _isLocked ? null : onTap,
       child: SizedBox(
         width: 130,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            if (_isActive) const _ContinueTooltip(),
-            if (_isActive) const SizedBox(height: 8),
-            _NodeCoin(
-              isCompleted: _isCompleted,
-              isLocked: _isLocked,
-              index: index,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              definition.title,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF444444),
+            if (_isActive)
+              const Positioned(
+                top: -48,
+                left: 10,
+                child: Center(child: _ContinueTooltip()),
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _NodeCoin(
+                  isCompleted: _isCompleted,
+                  isLocked: _isLocked,
+                  index: index,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  definition.title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF444444),
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ],
         ),
@@ -82,15 +91,15 @@ class _NodeCoin extends StatelessWidget {
 
     return SizedBox(
       width: 96,
-      height: 48,
+      height: 52,
       child: Stack(
         children: [
           Positioned(
-            top: 8,
+            top: 6,
             left: 0,
             child: Container(
               width: 96,
-              height: 40,
+              height: 44,
               decoration: BoxDecoration(
                 color: sideColor,
                 borderRadius: ovalRadius,
@@ -143,7 +152,7 @@ class _NodeIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isCompleted) {
-      return const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFAB17), size: 26);
+      return const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 26);
     }
     if (isLocked) {
       return Icon(
@@ -152,7 +161,7 @@ class _NodeIcon extends StatelessWidget {
         size: 26,
       );
     }
-    return const Text('🤟', style: TextStyle(fontSize: 28));
+    return const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 26);
   }
 }
 
@@ -212,7 +221,7 @@ class _ContinueTooltipState extends State<_ContinueTooltip>
               ],
             ),
             child: const Text(
-              'Continue →',
+              'Continue',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

@@ -18,10 +18,13 @@ import '../../providers/user_provider.dart';
 import '../../services/calibration_service.dart';
 import '../../services/feedback_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/lesson_question_generator.dart';
 import '../../services/quiz_service.dart';
 import '../../services/tts_service.dart';
 import 'widgets/feedback_widget.dart';
 import 'widgets/learn_mode_body.dart';
+import 'widgets/name_entry_dialog.dart';
+import 'widgets/question_text_card.dart';
 
 class ExerciseScreen extends ConsumerStatefulWidget {
   final String lessonId;
@@ -33,8 +36,11 @@ class ExerciseScreen extends ConsumerStatefulWidget {
 
 class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   late final LessonDefinition _def;
+  late List<LessonQuestion> _questions;
   int _currentIndex = 0;
-  final Set<int> _correctIndices = {};
+  int _sequenceIndex = 0;
+  final Set<int> _correctQuestions = {};
+  final Set<String> _correctSigns = {};
   final Map<String, int> _learnAttempts = {};
   bool _showHint = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -64,6 +70,13 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     return ref.read(userProvider(uid)).value?.soundEnabled ?? true;
   }
 
+  String get _fallbackName {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return 'ASL';
+    final name = ref.read(userProvider(uid)).value?.displayName;
+    return (name == null || name.trim().isEmpty) ? 'ASL' : name;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -76,14 +89,16 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       orElse: () =>
           const LessonDefinition(id: '', section: 0, title: '', signs: []),
     );
-    _resumeFromLastSignIndex();
+    _questions = LessonQuestionGenerator.generate(_def, userName: _fallbackName);
+    _resumeFromLastQuestionIndex();
     _resultSub = ref
         .read(recognitionControllerProvider)
         .results
         .listen(_onRecognitionResult);
     _initCamera();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_def.signs.isNotEmpty) {
+      _maybePromptForName();
+      if (_questions.isNotEmpty) {
         _speakCurrentSign();
       }
     });
@@ -98,7 +113,24 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     super.dispose();
   }
 
-  void _resumeFromLastSignIndex() {
+  Future<void> _maybePromptForName() async {
+    if (_def.contentType != LessonContentType.nameEntry || !mounted) return;
+    final entered = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => NameEntryDialog(initialName: _fallbackName),
+    );
+    final name = (entered != null && entered.isNotEmpty) ? entered : _fallbackName;
+    if (!mounted) return;
+    setState(() {
+      _questions = LessonQuestionGenerator.generate(_def, userName: name);
+      _currentIndex = 0;
+      _sequenceIndex = 0;
+    });
+    _speakCurrentSign();
+  }
+
+  void _resumeFromLastQuestionIndex() {
     final uid = ref.read(authStateProvider).value?.uid;
     if (uid == null) return;
     try {
@@ -107,9 +139,9 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         (l) => l.lessonId == widget.lessonId,
         orElse: () => LessonModel.empty(),
       );
-      if (lesson != null && lesson.lastSignIndex > 0) {
+      if (lesson != null && lesson.lastSignIndex > 0 && _questions.isNotEmpty) {
         setState(() {
-          _currentIndex = lesson.lastSignIndex.clamp(0, _def.signs.length - 1);
+          _currentIndex = lesson.lastSignIndex.clamp(0, _questions.length - 1);
         });
       }
     } catch (_) {}
@@ -161,13 +193,14 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   void _onRecognitionResult(RecognitionResult result) {
     if (!mounted) return;
     if (_autoAdvancing) return;
+    if (_questions.isEmpty) return;
 
     final feedback = _feedbackService.evaluate(
       topLabel: result.topLabel,
       topConfidence: result.topConfidence,
       secondLabel: result.secondLabel,
       secondConfidence: result.secondConfidence,
-      targetLetter: _currentSign,
+      targetLetter: _currentTargetSign,
       isTooDark: result.isTooDark,
       isTooBright: result.isTooBright,
       handTooClose: result.handTooClose,
@@ -179,18 +212,30 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       _feedbackResult = feedback;
     });
 
-    if (feedback.state == FeedbackState.correct && !_autoAdvancing) {
-      _autoAdvancing = true;
-      _correctIndices.add(_currentIndex);
-      _learnAttempts[_currentSign] = (_learnAttempts[_currentSign] ?? 0) + 1;
+    if (feedback.state != FeedbackState.correct || _autoAdvancing) return;
+
+    final question = _questions[_currentIndex];
+    _correctSigns.add(_currentTargetSign);
+    _learnAttempts[_currentTargetSign] = (_learnAttempts[_currentTargetSign] ?? 0) + 1;
+
+    if (_sequenceIndex < question.signSequence.length - 1) {
+      // Mid-sequence sign — advance within the same question without the
+      // full correct-and-hold flow, so multi-sign words/numbers keep moving.
       _playCorrectSound();
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted) {
-          _autoAdvancing = false;
-          _advance();
-        }
-      });
+      setState(() => _sequenceIndex++);
+      _speakCurrentSign();
+      return;
     }
+
+    _autoAdvancing = true;
+    _correctQuestions.add(_currentIndex);
+    _playCorrectSound();
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        _autoAdvancing = false;
+        _advance();
+      }
+    });
   }
 
   Future<void> _playCorrectSound() async {
@@ -202,7 +247,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     }
   }
 
-  String get _currentSign => _def.signs[_currentIndex];
+  String get _currentTargetSign =>
+      _questions[_currentIndex].signSequence[_sequenceIndex];
 
   String _signName(String sign) {
     const digits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
@@ -211,7 +257,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
 
   void _speakCurrentSign() {
     if (_ttsEnabled) {
-      ref.read(ttsServiceProvider).speak(_signName(_currentSign));
+      ref.read(ttsServiceProvider).speak(_signName(_currentTargetSign));
     }
   }
 
@@ -219,6 +265,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     if (_currentIndex > 0) {
       setState(() {
         _currentIndex--;
+        _sequenceIndex = 0;
         _feedbackService.reset();
         _feedbackResult = FeedbackResult.initial;
         _autoAdvancing = false;
@@ -233,7 +280,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       _cameraController!.startImageStream(_onCameraFrame).catchError((_) {});
     }
     _feedbackService.reset();
-    _learnAttempts[_currentSign] = 0;
+    _learnAttempts[_currentTargetSign] = 0;
     setState(() {
       _autoAdvancing = false;
       _feedbackResult = FeedbackResult.initial;
@@ -242,8 +289,11 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   }
 
   void _advance() {
-    if (_currentIndex + 1 < _def.signs.length) {
-      setState(() => _currentIndex++);
+    if (_currentIndex + 1 < _questions.length) {
+      setState(() {
+        _currentIndex++;
+        _sequenceIndex = 0;
+      });
       _enterLearnMode();
       _saveProgress();
     } else {
@@ -256,11 +306,11 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     await _resultSub?.cancel();
     await _cameraController?.stopImageStream().catchError((_) {});
     final missed = [
-      for (int i = 0; i < _def.signs.length; i++)
-        if (!_correctIndices.contains(i)) _def.signs[i],
+      for (final sign in _def.signs)
+        if (!_correctSigns.contains(sign)) sign,
     ];
-    final correctCount = _correctIndices.length;
-    final totalCount = _def.signs.length;
+    final correctCount = _correctQuestions.length;
+    final totalCount = _questions.length;
     final xpEarned = kXpLessonCompletion + (correctCount * kXpLearnCorrect);
 
     final uid = ref.read(authStateProvider).value?.uid;
@@ -358,7 +408,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_def.signs.isEmpty) {
+    if (_questions.isEmpty) {
       return Scaffold(
         appBar: AppBar(backgroundColor: Colors.white, elevation: 0),
         body: const Center(child: Text('No signs to practice in this lesson.')),
@@ -403,7 +453,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         },
       ),
       title: LinearProgressIndicator(
-        value: _currentIndex / _def.signs.length,
+        value: _currentIndex / _questions.length,
         valueColor: const AlwaysStoppedAnimation(AppColors.primary),
         backgroundColor: const Color(0xFFF0F0F0),
         minHeight: 8,
@@ -416,7 +466,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '${_currentIndex + 1} / ${_def.signs.length}',
+                '${_currentIndex + 1} / ${_questions.length}',
                 style: const TextStyle(fontSize: 13, color: Color(0xFF888888)),
               ),
               const SizedBox(width: 8),
@@ -444,18 +494,27 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   }
 
   Widget _buildLearnBody() {
+    final question = _questions[_currentIndex];
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
           child: Column(
             children: [
-              LearnModeBody(
-                sign: _currentSign,
-                onPrevious: _currentIndex > 0 ? _goBack : null,
-                onNext: _autoAdvancing ? null : _advance,
-                onHint: () => setState(() => _showHint = true),
-              ),
+              question.displayText == null
+                  ? LearnModeBody(
+                      sign: _currentTargetSign,
+                      onPrevious: _currentIndex > 0 ? _goBack : null,
+                      onNext: _autoAdvancing ? null : _advance,
+                      onHint: () => setState(() => _showHint = true),
+                    )
+                  : QuestionTextCard(
+                      question: question,
+                      sequenceIndex: _sequenceIndex,
+                      onPrevious: _currentIndex > 0 ? _goBack : null,
+                      onNext: _autoAdvancing ? null : _advance,
+                      onHint: () => setState(() => _showHint = true),
+                    ),
               const SizedBox(height: 10),
               const Text(
                 'Try it yourself',
@@ -521,7 +580,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
             children: [
               Center(
                 child: Image.asset(
-                  quizImagePath(_currentSign) ?? '$kSignImagePath$_currentSign.png',
+                  quizImagePath(_currentTargetSign) ??
+                      '$kSignImagePath$_currentTargetSign.png',
                   height: 280,
                   fit: BoxFit.contain,
                 ),

@@ -79,7 +79,7 @@ class PlacementTestController extends StateNotifier<PlacementTestState> {
   // Maps correct count to the recommended start lesson.
   String startLessonId() {
     final score = state.correctCount;
-    if (score >= 8) return 's3l1';
+    if (score >= 8) return 's1l6';
     if (score >= 5) return 's2l1';
     return 's1l1';
   }

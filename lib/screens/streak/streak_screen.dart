@@ -78,7 +78,7 @@ class StreakScreen extends ConsumerWidget {
               onPressed: () => context.go(
                   justEarned && !skipQuestScreen ? kRouteQuest : kRouteHome),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: const Color(0xFFF7C860),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -161,7 +161,7 @@ class _WeeklyCalendarCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.backgroundCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primarySoft),
+        border: Border.all(color: const Color(0xFFe6e6e6), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,11 +202,11 @@ class _DayCircle extends StatelessWidget {
   Widget build(BuildContext context) {
     Border? border;
     if (isToday && isActive) {
-      border = Border.all(color: AppColors.xpGold, width: 2);
+      border = Border.all(color: const Color(0xFFF38963), width: 2);
     } else if (isToday) {
-      border = Border.all(color: AppColors.primary, width: 2);
+      border = Border.all(color: const Color(0xFF1f2325), width: 2);
     } else if (!isActive) {
-      border = Border.all(color: AppColors.primarySoft, width: 1.5);
+      border = Border.all(color: const Color(0xFFe6e6e6), width: 1.5);
     }
 
     final circle = Container(
@@ -214,7 +214,7 @@ class _DayCircle extends StatelessWidget {
       height: 36,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: isActive ? AppColors.primary : Colors.transparent,
+        color: isActive ? const Color(0xFFFFA757) : Colors.transparent,
         shape: BoxShape.circle,
         border: border,
       ),

@@ -24,7 +24,7 @@ String _startLessonIdForLevel(String level) {
     case 'alphabet':
       return 's2l1';
     case 'conversational':
-      return 's3l1';
+      return 's1l6';
     case 'none':
     default:
       return 's1l1';

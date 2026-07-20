@@ -19,8 +19,11 @@ import '../../providers/user_provider.dart';
 import '../../services/calibration_service.dart';
 import '../../services/feedback_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/lesson_question_generator.dart';
 import '../../services/tts_service.dart';
 import '../lesson/widgets/feedback_widget.dart';
+import '../lesson/widgets/name_entry_dialog.dart';
+import '../lesson/widgets/question_text_card.dart';
 
 // S-18 — Practice Session
 class PracticeSessionScreen extends ConsumerStatefulWidget {
@@ -42,8 +45,10 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   final CameraLensDirection _lensDirection = CameraLensDirection.front;
   int _rotationDegrees = 0;
   StreamSubscription<RecognitionResult>? _resultSub;
-  late List<String> _signs;
+  late final LessonDefinition _def;
+  late List<LessonQuestion> _questions;
   int _currentIndex = 0;
+  int _sequenceIndex = 0;
   int _correctCount = 0;
   late int _timeLeft;
   Timer? _countdownTimer;
@@ -53,6 +58,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   bool _finishing = false;
   late DateTime _sessionStart;
   final Set<int> _correctIndices = {};
+  final Set<String> _correctSigns = {};
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool get _ttsEnabled {
@@ -67,6 +73,16 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     return ref.read(userProvider(uid)).value?.soundEnabled ?? true;
   }
 
+  String get _fallbackName {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return 'ASL';
+    final name = ref.read(userProvider(uid)).value?.displayName;
+    return (name == null || name.trim().isEmpty) ? 'ASL' : name;
+  }
+
+  String get _currentTargetSign =>
+      _questions[_currentIndex].signSequence[_sequenceIndex];
+
   @override
   void initState() {
     super.initState();
@@ -75,8 +91,9 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       CalibrationService.instance.ensureLoaded(uid);
     }
     _timeLeft = kDifficultySeconds[widget.difficulty] ?? 10;
-    _signs = kLessons.firstWhere((l) => l.id == widget.lessonId).signs;
-    if (_signs.isEmpty) {
+    _def = kLessons.firstWhere((l) => l.id == widget.lessonId);
+    _questions = LessonQuestionGenerator.generate(_def, userName: _fallbackName);
+    if (_questions.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.pop();
       });
@@ -88,7 +105,8 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     _initCamera();
     _startCountdown();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_ttsEnabled) ref.read(ttsServiceProvider).speak(_signs[0]);
+      _maybePromptForName();
+      if (_ttsEnabled) ref.read(ttsServiceProvider).speak(_currentTargetSign);
     });
   }
 
@@ -100,6 +118,22 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     _cameraController?.dispose();
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  Future<void> _maybePromptForName() async {
+    if (_def.contentType != LessonContentType.nameEntry || !mounted) return;
+    final entered = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => NameEntryDialog(initialName: _fallbackName),
+    );
+    final name = (entered != null && entered.isNotEmpty) ? entered : _fallbackName;
+    if (!mounted) return;
+    setState(() {
+      _questions = LessonQuestionGenerator.generate(_def, userName: name);
+      _currentIndex = 0;
+      _sequenceIndex = 0;
+    });
   }
 
   Future<void> _initCamera() async {
@@ -142,7 +176,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       topConfidence: result.topConfidence,
       secondLabel: result.secondLabel,
       secondConfidence: result.secondConfidence,
-      targetLetter: _signs[_currentIndex],
+      targetLetter: _currentTargetSign,
       isTooDark: result.isTooDark,
       isTooBright: result.isTooBright,
       handTooClose: result.handTooClose,
@@ -151,15 +185,25 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     );
     setState(() => _feedbackResult = feedback);
 
-    if (feedback.state == FeedbackState.correct && !_autoAdvancing) {
-      _autoAdvancing = true;
-      _correctCount++;
-      _correctIndices.add(_currentIndex);
+    if (feedback.state != FeedbackState.correct || _autoAdvancing) return;
+
+    final question = _questions[_currentIndex];
+    _correctSigns.add(_currentTargetSign);
+
+    if (_sequenceIndex < question.signSequence.length - 1) {
       _playCorrectSound();
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (_autoAdvancing) _advance();
-      });
+      setState(() => _sequenceIndex++);
+      if (_ttsEnabled) ref.read(ttsServiceProvider).speak(_currentTargetSign);
+      return;
     }
+
+    _autoAdvancing = true;
+    _correctCount++;
+    _correctIndices.add(_currentIndex);
+    _playCorrectSound();
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (_autoAdvancing) _advance();
+    });
   }
 
   Future<void> _playCorrectSound() async {
@@ -190,9 +234,10 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   void _advance() {
     _countdownTimer?.cancel();
     if (!mounted) return;
-    if (_currentIndex + 1 < _signs.length) {
+    if (_currentIndex + 1 < _questions.length) {
       setState(() {
         _currentIndex++;
+        _sequenceIndex = 0;
         _timeLeft = kDifficultySeconds[widget.difficulty] ?? 10;
         _feedbackResult = FeedbackResult.initial;
         _autoAdvancing = false;
@@ -200,7 +245,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       _feedbackService.reset();
       _startCountdown();
       if (_ttsEnabled) {
-        ref.read(ttsServiceProvider).speak(_signName(_signs[_currentIndex]));
+        ref.read(ttsServiceProvider).speak(_signName(_currentTargetSign));
       }
     } else {
       _finishSession();
@@ -242,7 +287,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     await _cameraController?.stopImageStream().catchError((_) {});
 
     final duration = DateTime.now().difference(_sessionStart).inSeconds;
-    final accuracy = _signs.isEmpty ? 0.0 : _correctCount / _signs.length * 100;
+    final accuracy = _questions.isEmpty ? 0.0 : _correctCount / _questions.length * 100;
     final xp = _correctCount * kXpLearnCorrect;
 
     final uid = ref.read(authStateProvider).value?.uid;
@@ -269,19 +314,18 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       } catch (_) {}
 
       try {
-        final lesson = kLessons.firstWhere((l) => l.id == widget.lessonId);
         final missedSigns = [
-          for (var i = 0; i < _signs.length; i++)
-            if (!_correctIndices.contains(i)) _signs[i],
+          for (final sign in _def.signs)
+            if (!_correctSigns.contains(sign)) sign,
         ];
         final signAccuracy = await firestoreService.savePracticeResult(
               uid: uid,
               lessonId: widget.lessonId,
               correctCount: _correctCount,
-              totalCount: _signs.length,
+              totalCount: _questions.length,
               missedSigns: missedSigns,
               xpEarned: xp,
-              lessonSigns: lesson.signs,
+              lessonSigns: _def.signs,
               sessionType: 'practice',
             );
         await Future.wait([
@@ -314,7 +358,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       questNewlyCompleted: questNewlyCompleted,
       difficulty: widget.difficulty,
       correctCount: _correctCount,
-      totalCount: _signs.length,
+      totalCount: _questions.length,
     );
 
     if (mounted) {
@@ -324,7 +368,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_signs.isEmpty) {
+    if (_questions.isEmpty) {
       return const Scaffold(body: SizedBox.shrink());
     }
     return PopScope(
@@ -382,7 +426,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: (_currentIndex + 1) / _signs.length,
+                value: (_currentIndex + 1) / _questions.length,
                 backgroundColor: AppColors.primarySoft,
                 valueColor: const AlwaysStoppedAnimation(AppColors.primary),
                 minHeight: 8,
@@ -391,7 +435,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
           ),
           const SizedBox(width: 8),
           Text(
-            '${_currentIndex + 1} / ${_signs.length}',
+            '${_currentIndex + 1} / ${_questions.length}',
             style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(width: 8),
@@ -417,7 +461,33 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   }
 
   Widget _buildSignCard() {
-    final sign = _signs[_currentIndex];
+    final question = _questions[_currentIndex];
+    if (question.displayText != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Stack(
+          children: [
+            QuestionTextCard(
+              question: question,
+              sequenceIndex: _sequenceIndex,
+              onPrevious: null,
+              onNext: _advance,
+              onHint: () {},
+            ),
+            Positioned(
+              top: 12,
+              right: 56,
+              child: _CircularTimer(
+                timeLeft: _timeLeft,
+                totalTime: kDifficultySeconds[widget.difficulty] ?? 10,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final sign = _currentTargetSign;
     return Container(
       width: double.infinity,
       height: 280,

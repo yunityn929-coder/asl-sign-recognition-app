@@ -60,13 +60,17 @@ class CalibrationService {
   }
 
   Future<void> clearClass(String uid, String label) async {
-    await ensureLoaded(uid);
+    if (_loadedUid != uid) {
+      await ensureLoaded(uid);
+    }
     _samples.remove(label);
     await _firestoreService.clearCalibrationClass(uid, label);
   }
 
   Future<void> clearAll(String uid) async {
-    await ensureLoaded(uid);
+    if (_loadedUid != uid) {
+      await ensureLoaded(uid);
+    }
     _samples.clear();
     await _firestoreService.clearAllCalibration(uid);
   }

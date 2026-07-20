@@ -133,6 +133,28 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     }
   }
 
+  Future<void> _confirmClear() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Clear "$_currentLabel" samples?'),
+        content: const Text('This removes all captured samples for this sign and can\'t be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return;
+    await CalibrationService.instance.clearClass(uid, _currentLabel);
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -145,17 +167,35 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
         if (context.mounted) context.pop();
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.white,
         appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.textPrimary,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          centerTitle: true,
           title: Text(
-              'Calibrate: $_currentLabel (${_currentIndex + 1}/${kSignLabels.length})'),
+            'Calibrate: $_currentLabel (${_currentIndex + 1}/${kSignLabels.length})',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded),
+              tooltip: 'Clear captured samples',
+              onPressed: _capturedForClass == 0 ? null : _confirmClear,
+            ),
+          ],
         ),
         body: SafeArea(
           child: Column(
             children: [
-              Expanded(flex: 5, child: _buildCameraPreview()),
+              Expanded(
+                flex: 5,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: _buildCameraPreview(),
+                ),
+              ),
               _buildInstructions(),
               _buildQuickJump(),
               _buildControls(),
@@ -188,59 +228,67 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
 
   Widget _buildInstructions() {
     return Container(
-      color: const Color(0xFF111111),
+      color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Text(
         'Hold the sign for "$_currentLabel", then tap Capture.\n'
         'Captured: $_capturedForClass/${CalibrationService.maxSamplesPerClass}',
-        style: const TextStyle(color: Colors.white70, fontSize: 13),
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
       ),
     );
   }
 
   Widget _buildQuickJump() {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: kSignLabels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (context, i) {
-          final label = kSignLabels[i];
-          final selected = i == _currentIndex;
-          return GestureDetector(
-            onTap: () => setState(() => _currentIndex = i),
-            child: Container(
-              width: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : const Color(0xFF222222),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.white70,
-                  fontWeight: FontWeight.w700,
+    return Container(
+      color: Colors.white,
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: kSignLabels.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (context, i) {
+            final label = kSignLabels[i];
+            final selected = i == _currentIndex;
+            return GestureDetector(
+              onTap: () => setState(() => _currentIndex = i),
+              child: Container(
+                width: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.primary : AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? Colors.white : AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildControls() {
     return Container(
-      color: const Color(0xFF1A1A1A),
+      color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton(
               onPressed: _advance,
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.primary),
+                foregroundColor: AppColors.primary,
+              ),
               child: const Text('Skip'),
             ),
           ),
@@ -260,7 +308,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
             child: ElevatedButton(
               onPressed: _advance,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success,
+                backgroundColor: const Color(0xFFF7C860),
                 foregroundColor: Colors.white,
               ),
               child: const Text('Next'),
