@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/xp_constants.dart';
 import '../../models/daily_quest_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/quest_provider.dart';
 
 class QuestScreen extends ConsumerStatefulWidget {
-  const QuestScreen({super.key});
+  final bool justEarned;
+  const QuestScreen({super.key, this.justEarned = false});
 
   @override
   ConsumerState<QuestScreen> createState() => _QuestScreenState();
@@ -42,8 +42,9 @@ class _QuestScreenState extends ConsumerState<QuestScreen> {
     final questsAsync = ref.watch(questStreamProvider(uid));
 
     return questsAsync.when(
-      data: (daily) =>
-          daily == null ? const _LoadingQuests() : _QuestList(daily: daily),
+      data: (daily) => daily == null
+          ? const _LoadingQuests()
+          : _QuestList(daily: daily, animate: widget.justEarned),
       loading: () => const _LoadingQuests(),
       error: (_, __) => const Center(
         child: Text('Failed to load quests. Pull to refresh.'),
@@ -73,13 +74,11 @@ class _LoadingQuests extends StatelessWidget {
 
 class _QuestList extends StatelessWidget {
   final DailyQuestModel daily;
-  const _QuestList({required this.daily});
+  final bool animate;
+  const _QuestList({required this.daily, this.animate = false});
 
   @override
   Widget build(BuildContext context) {
-    final bonusClaimed = daily.bonusXpAwarded > 0;
-    final bonusAmount = kXpQuestBonus * daily.quests.length;
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -91,20 +90,13 @@ class _QuestList extends StatelessWidget {
               color: AppColors.textPrimary),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Complete quests to earn bonus XP',
-          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 4),
         Text(
-          _formatDate(DateTime.now()),
+          _formatResetIn(DateTime.now()),
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 20),
-        _BonusBanner(claimed: bonusClaimed, amount: bonusAmount),
-        const SizedBox(height: 20),
         for (final quest in daily.quests) ...[
-          _QuestCard(quest: quest),
+          _QuestCard(quest: quest, animate: animate),
           const SizedBox(height: 12),
         ],
       ],
@@ -112,72 +104,40 @@ class _QuestList extends StatelessWidget {
   }
 }
 
-class _BonusBanner extends StatelessWidget {
-  final bool claimed;
-  final int amount;
-  const _BonusBanner({required this.claimed, required this.amount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.xpGold.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.xpGold),
-      ),
-      child: Row(
-        children: [
-          const Text('⭐', style: TextStyle(fontSize: 24)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Complete all 3 quests for +$amount XP!',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                ),
-                if (claimed) ...[
-                  const SizedBox(height: 4),
-                  const Text(
-                    '✓ Bonus XP claimed!',
-                    style: TextStyle(
-                        color: AppColors.success, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _QuestCard extends StatelessWidget {
   final QuestModel quest;
-  const _QuestCard({required this.quest});
-
-  IconData get _icon {
-    switch (quest.type) {
-      case 'complete_lessons':
-        return Icons.school_outlined;
-      case 'earn_xp':
-        return Icons.bolt_outlined;
-      case 'practice_sessions':
-        return Icons.fitness_center_outlined;
-      default:
-        return Icons.flag_outlined;
-    }
-  }
+  final bool animate;
+  const _QuestCard({required this.quest, this.animate = false});
 
   @override
   Widget build(BuildContext context) {
     final progress = quest.target == 0
         ? 0.0
         : (quest.progress / quest.target).clamp(0.0, 1.0);
+
+    final progressBar = animate
+        ? TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: progress),
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) => LinearProgressIndicator(
+              value: value,
+              minHeight: 8,
+              backgroundColor: AppColors.primarySoft,
+              color: quest.completed ? AppColors.success : AppColors.primary,
+            ),
+          )
+        : LinearProgressIndicator(
+            value: progress,
+            minHeight: 8,
+            backgroundColor: AppColors.primarySoft,
+            color: quest.completed ? AppColors.success : AppColors.primary,
+          );
+
+    final xpBadge = Text(
+      '+${quest.xpReward} XP',
+      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.xpGold),
+    );
 
     return Opacity(
       opacity: quest.completed ? 0.6 : 1.0,
@@ -191,8 +151,6 @@ class _QuestCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(_icon, color: AppColors.primary),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,23 +179,23 @@ class _QuestCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 8,
-                      backgroundColor: AppColors.primarySoft,
-                      color:
-                          quest.completed ? AppColors.success : AppColors.primary,
-                    ),
+                    child: progressBar,
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              '+${quest.xpReward} XP',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700, color: AppColors.xpGold),
-            ),
+            if (animate && quest.completed)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.elasticOut,
+                builder: (context, value, child) =>
+                    Transform.scale(scale: value, child: child),
+                child: xpBadge,
+              )
+            else
+              xpBadge,
           ],
         ),
       ),
@@ -245,13 +203,8 @@ class _QuestCard extends StatelessWidget {
   }
 }
 
-String _formatDate(DateTime date) {
-  const weekdays = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
-  ];
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-  return '${weekdays[date.weekday - 1]}, ${date.day} ${months[date.month - 1]}';
+String _formatResetIn(DateTime now) {
+  final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+  final hoursLeft = (nextMidnight.difference(now).inMinutes / 60).ceil();
+  return 'Resets in $hoursLeft ${hoursLeft == 1 ? 'hour' : 'hours'}';
 }

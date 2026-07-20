@@ -7,7 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
 
 // S-17 — Settings
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -21,6 +21,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int? _dailyGoalMinutes;
   bool? _ttsEnabled;
   bool? _soundEnabled;
+  bool _repairAttempted = false;
 
   void _updateSetting(String uid, Map<String, dynamic> fields) {
     ref
@@ -36,9 +37,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text(
+          'Settings',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w900,
+            fontSize: 22,
+            letterSpacing: -0.3,
+          ),
+        ),
+        centerTitle: true,
         backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.15),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+          onPressed: () => context.go(kRouteHome),
+        ),
       ),
       body: uid == null
           ? const Center(child: CircularProgressIndicator())
@@ -52,24 +69,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return userAsync.when(
       data: (user) {
         if (user == null) {
-          return const Center(child: Text('User not found'));
+          if (!_repairAttempted) {
+            _repairAttempted = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              ref.read(firestoreServiceProvider).createUser(uid).catchError((_) {});
+            });
+          }
+          return const Center(child: CircularProgressIndicator());
         }
         final dailyGoalMinutes = _dailyGoalMinutes ?? user.dailyGoalMinutes;
         final ttsEnabled = _ttsEnabled ?? user.ttsEnabled;
         final soundEnabled = _soundEnabled ?? user.soundEnabled;
 
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           children: [
             const _SectionLabel('Learning'),
             const SizedBox(height: 8),
             _Card(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.flag_outlined,
-                      color: AppColors.primary),
-                  title: const Text('Daily Goal'),
-                  subtitle: Text('$dailyGoalMinutes minutes per day'),
+                  title: const Text(
+                    'Daily Goal',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
                   trailing: DropdownButton<int>(
                     value: dailyGoalMinutes,
                     underline: const SizedBox.shrink(),
@@ -84,86 +108,97 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     },
                   ),
                 ),
-                const Divider(indent: 56, height: 1),
                 SwitchListTile(
-                  secondary: const Icon(Icons.record_voice_over_outlined,
-                      color: AppColors.primary),
-                  title: const Text('Text to Speech'),
-                  subtitle: const Text('Read signs aloud during lessons'),
+                  title: const Text(
+                    'Text to Speech',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
                   value: ttsEnabled,
                   onChanged: (value) {
                     setState(() => _ttsEnabled = value);
                     _updateSetting(uid, {'ttsEnabled': value});
                   },
                 ),
-                const Divider(indent: 56, height: 1),
                 SwitchListTile(
-                  secondary: const Icon(Icons.volume_up_outlined,
-                      color: AppColors.primary),
-                  title: const Text('Sound Effects'),
-                  subtitle: const Text('Play sounds on correct answers'),
+                  title: const Text(
+                    'Sound Effects',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
                   value: soundEnabled,
                   onChanged: (value) {
                     setState(() => _soundEnabled = value);
                     _updateSetting(uid, {'soundEnabled': value});
                   },
                 ),
-                const Divider(indent: 56, height: 1),
                 ListTile(
-                  leading: const Icon(Icons.tune_outlined,
-                      color: AppColors.primary),
-                  title: const Text('Calibrate my signs'),
-                  subtitle: const Text(
-                      'Improve recognition accuracy for your hand'),
+                  title: const Text(
+                    'Calibration',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
                   trailing: const Icon(Icons.chevron_right,
                       color: AppColors.textSecondary),
-                  onTap: () => context.push(kRouteCalibration),
+                  onTap: () => context.push(kRouteCalibrationSettings),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+            Divider(height: 1, color: Colors.grey.shade300),
+            const SizedBox(height: 20),
             const _SectionLabel('About'),
             const SizedBox(height: 8),
             _Card(
               children: [
                 const ListTile(
-                  leading: Icon(Icons.info_outline, color: AppColors.primary),
-                  title: Text('Version'),
-                  trailing: Text('1.0.0',
-                      style: TextStyle(color: AppColors.textSecondary)),
+                  title: Text(
+                    'Version',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
+                  trailing: Text(
+                    '1.0.0',
+                    style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+                  ),
                 ),
-                const Divider(indent: 56, height: 1),
                 ListTile(
-                  leading: const Icon(Icons.privacy_tip_outlined,
-                      color: AppColors.primary),
-                  title: const Text('Privacy Policy'),
-                  trailing: const Icon(Icons.open_in_new,
+                  title: const Text(
+                    'Privacy Policy',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
+                  trailing: const Icon(Icons.chevron_right,
                       color: AppColors.textSecondary),
                   onTap: () {},
                 ),
-                const Divider(indent: 56, height: 1),
                 ListTile(
-                  leading: const Icon(Icons.description_outlined,
-                      color: AppColors.primary),
-                  title: const Text('Terms of Service'),
-                  trailing: const Icon(Icons.open_in_new,
+                  title: const Text(
+                    'Terms of Service',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
+                  trailing: const Icon(Icons.chevron_right,
                       color: AppColors.textSecondary),
                   onTap: () {},
                 ),
               ],
             ),
             if (kDebugMode) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              Divider(height: 1, color: Colors.grey.shade300),
+              const SizedBox(height: 20),
               const _SectionLabel('Debug'),
               const SizedBox(height: 8),
               _Card(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.bug_report_outlined,
-                        color: AppColors.primary),
-                    title: const Text('Recognition Test'),
-                    subtitle: const Text(
-                        'Physical-device gesture recognition diagnostics'),
+                    title: const Text(
+                      'Recognition Test',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                    ),
                     trailing: const Icon(Icons.chevron_right,
                         color: AppColors.textSecondary),
                     onTap: () => context.push(kRouteDebugRecognitionTest),
@@ -171,22 +206,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ],
-            const SizedBox(height: 24),
-            Center(
-              child: TextButton(
-                onPressed: () async {
-                  await ref.read(authServiceProvider).signOut();
-                  if (!mounted) return;
-                  context.go(kRouteSplash);
-                },
-                child: const Text(
-                  'Sign out',
-                  style: TextStyle(
-                      color: AppColors.error, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
           ],
         );
       },
@@ -202,12 +222,16 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textSecondary,
+    return Padding(
+      padding: const EdgeInsets.only(left: 16),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.7,
+          color: AppColors.textSecondary,
+        ),
       ),
     );
   }
@@ -219,14 +243,6 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primarySoft),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: children),
-    );
+    return Column(children: children);
   }
 }

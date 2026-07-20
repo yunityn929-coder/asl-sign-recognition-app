@@ -1,28 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../data/lesson_definitions.dart';
 import '../../models/checkout_data.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart';
 
 // S-19 — Session Checkout
-class CheckoutScreen extends ConsumerWidget {
+class CheckoutScreen extends StatelessWidget {
   final CheckoutData checkoutData;
   const CheckoutScreen({required this.checkoutData, super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final uid = ref.watch(authStateProvider).value?.uid;
-    final user = uid == null ? null : ref.watch(userProvider(uid)).value;
-
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final streakExtended =
-        user != null && user.currentStreak > 1 && user.lastStreakDate == today;
-
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -36,30 +26,37 @@ class CheckoutScreen extends ConsumerWidget {
                     _ResultHeader(checkoutData: checkoutData),
                     const SizedBox(height: 24),
                     _StatsCard(checkoutData: checkoutData),
-                    if (streakExtended) ...[
-                      const SizedBox(height: 16),
-                      _StreakCard(currentStreak: user.currentStreak),
-                    ],
                   ],
                 ),
               ),
             ),
-            _buildContinueButton(context, streakExtended),
+            _buildContinueButton(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildContinueButton(BuildContext context, bool streakExtended) {
+  void _handleContinue(BuildContext context) {
+    if (checkoutData.streakJustExtended) {
+      context.go(kRouteStreak, extra: {
+        'justEarned': true,
+        'skipQuestScreen': !checkoutData.questNewlyCompleted,
+      });
+    } else if (checkoutData.questNewlyCompleted) {
+      context.go(kRouteQuest, extra: {'justEarned': true});
+    } else {
+      context.go(kRouteHome);
+    }
+  }
+
+  Widget _buildContinueButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () => context.go(
-            streakExtended ? kRouteSessionStreak : kRouteSessionQuest,
-          ),
+          onPressed: () => _handleContinue(context),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
@@ -178,47 +175,6 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 4),
         Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
       ],
-    );
-  }
-}
-
-class _StreakCard extends StatelessWidget {
-  final int currentStreak;
-  const _StreakCard({required this.currentStreak});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppColors.primarySoft,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          const Text('🔥', style: TextStyle(fontSize: 28)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Streak extended!',
-                  style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Day $currentStreak',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

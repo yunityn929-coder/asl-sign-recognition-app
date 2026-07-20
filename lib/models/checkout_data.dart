@@ -4,7 +4,8 @@ class CheckoutData {
   final int durationSeconds;
   final String sessionType; // "learn" | "practice"
   final String lessonId;
-  final bool streakExtended;
+  final bool streakJustExtended;
+  final bool questNewlyCompleted;
   final String difficulty; // "easy" | "medium" | "hard" | "n/a"
   final int correctCount;
   final int totalCount;
@@ -15,7 +16,8 @@ class CheckoutData {
     required this.durationSeconds,
     required this.sessionType,
     required this.lessonId,
-    required this.streakExtended,
+    required this.streakJustExtended,
+    required this.questNewlyCompleted,
     this.difficulty = 'n/a',
     required this.correctCount,
     required this.totalCount,

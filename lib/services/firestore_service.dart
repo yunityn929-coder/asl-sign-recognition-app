@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,11 +9,8 @@ import '../models/daily_quest_model.dart';
 import '../models/lesson_model.dart';
 import '../models/user_model.dart';
 
-const _kDailyQuestTypes = ['complete_lessons', 'earn_xp', 'practice_sessions'];
-
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final Random _random = Random();
 
   Future<void> createUser(String uid) async {
     final ref = _db.collection('users').doc(uid);
@@ -24,6 +19,7 @@ class FirestoreService {
     final today = _today();
     try {
       await ref.set({
+        'uid': uid,
         'displayName': 'Learner',
         'email': '',
         'createdAt': FieldValue.serverTimestamp(),
@@ -41,6 +37,7 @@ class FirestoreService {
         'totalXp': 0,
         'ttsEnabled': true,
         'soundEnabled': true,
+        'calibrationEnabled': true,
         'streakGoalDays': 7,
         'streakGoalStartDate': '',
         'streakGoalAchieved': false,
@@ -69,7 +66,7 @@ class FirestoreService {
 
   Future<void> updateUser(String uid, Map<String, dynamic> fields) async {
     try {
-      await _db.collection('users').doc(uid).update(fields);
+      await _db.collection('users').doc(uid).set(fields, SetOptions(merge: true));
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         throw FirestorePermissionException('Permission denied. Deploy Firestore security rules.');
@@ -79,11 +76,55 @@ class FirestoreService {
   }
 
   Stream<List<LessonModel>> watchLessons(String uid) =>
-      _db.collection('users').doc(uid).collection('lessons').snapshots().map(
-            (snap) => snap.docs
-                .map((d) => LessonModel.fromMap(_normaliseLesson(d.data())))
-                .toList(),
+      _db.collection('users').doc(uid).collection('lessons').snapshots().asyncMap(
+            (snap) async {
+              final lessons = snap.docs
+                  .map((d) => LessonModel.fromMap(_normaliseLesson(d.data())))
+                  .toList();
+              return _reconcileLessons(uid, lessons);
+            },
           );
+
+  // Corrects data corrupted by a pre-fix markLessonComplete bug where
+  // replaying an already-completed lesson could regress a later lesson from
+  // 'completed' back to 'available', leaving two lessons simultaneously
+  // 'available'. The highest-index 'available' lesson is the true frontier —
+  // anything before it must have been genuinely completed at some point,
+  // since that's the only way a later lesson could have been unlocked.
+  Future<List<LessonModel>> _reconcileLessons(
+    String uid,
+    List<LessonModel> lessons,
+  ) async {
+    final availableIds =
+        lessons.where((l) => l.status == 'available').map((l) => l.lessonId).toList();
+    if (availableIds.length <= 1) return lessons;
+
+    final availableIndices = availableIds
+        .map((id) => kLessons.indexWhere((l) => l.id == id))
+        .where((i) => i >= 0)
+        .toList()
+      ..sort();
+    final frontierIdx = availableIndices.last;
+    final staleIds = availableIds
+        .where((id) => kLessons.indexWhere((l) => l.id == id) != frontierIdx)
+        .toSet();
+
+    final lessonsRef = _db.collection('users').doc(uid).collection('lessons');
+    final batch = _db.batch();
+    for (final id in staleIds) {
+      batch.set(lessonsRef.doc(id), {'status': 'completed'}, SetOptions(merge: true));
+    }
+    try {
+      await batch.commit();
+    } on FirebaseException catch (_) {
+      return lessons; // best-effort — surface uncorrected data rather than throw
+    }
+
+    return [
+      for (final l in lessons)
+        staleIds.contains(l.lessonId) ? l.copyWith(status: 'completed') : l,
+    ];
+  }
 
   Map<String, dynamic> _normaliseLesson(Map<String, dynamic> raw) {
     final map = Map<String, dynamic>.from(raw);
@@ -137,20 +178,33 @@ class FirestoreService {
   }
 
   Future<void> markLessonComplete(String uid, String lessonId) async {
-    final batch = _db.batch();
     final lessonsRef = _db.collection('users').doc(uid).collection('lessons');
+
+    // A replay of an already-completed lesson must not re-advance the next
+    // lesson to 'available' — that would regress it from 'completed' back to
+    // 'available' if the user has since progressed past it, producing two
+    // simultaneously-available (tooltip-showing) lessons.
+    bool alreadyCompleted = false;
+    try {
+      final existing = await lessonsRef.doc(lessonId).get();
+      alreadyCompleted = existing.data()?['status'] == 'completed';
+    } on FirebaseException catch (_) {}
+
+    final batch = _db.batch();
     batch.set(lessonsRef.doc(lessonId),
         {'status': 'completed', 'completedAt': FieldValue.serverTimestamp()},
         SetOptions(merge: true));
-    final idx = kLessons.indexWhere((l) => l.id == lessonId);
-    if (idx >= 0 && idx < kLessons.length - 1) {
-      batch.set(lessonsRef.doc(kLessons[idx + 1].id), {'status': 'available'},
-          SetOptions(merge: true));
-    }
-    final signCount = idx >= 0 ? kLessons[idx].signs.length : 0;
-    if (signCount > 0) {
-      batch.update(_db.collection('users').doc(uid),
-          {'signsLearned': FieldValue.increment(signCount)});
+    if (!alreadyCompleted) {
+      final idx = kLessons.indexWhere((l) => l.id == lessonId);
+      if (idx >= 0 && idx < kLessons.length - 1) {
+        batch.set(lessonsRef.doc(kLessons[idx + 1].id), {'status': 'available'},
+            SetOptions(merge: true));
+      }
+      final signCount = idx >= 0 ? kLessons[idx].signs.length : 0;
+      if (signCount > 0) {
+        batch.update(_db.collection('users').doc(uid),
+            {'signsLearned': FieldValue.increment(signCount)});
+      }
     }
     try {
       await batch.commit();
@@ -225,12 +279,24 @@ class FirestoreService {
         if (lastDate == today) return;
         final cur = (data['currentStreak'] as num?)?.toInt() ?? 0;
         final longest = (data['longestStreak'] as num?)?.toInt() ?? 0;
+        final totalXp = (data['totalXp'] as num?)?.toInt() ?? 0;
+        final goalAchieved = data['streakGoalAchieved'] as bool? ?? false;
         final newStreak = lastDate == yesterday ? cur + 1 : 1;
-        txn.update(ref, {
+
+        final update = <String, dynamic>{
           'currentStreak': newStreak,
           'longestStreak': newStreak > longest ? newStreak : longest,
           'lastStreakDate': today,
-        });
+        };
+
+        if (newStreak >= 7 && !goalAchieved) {
+          update['totalXp'] = totalXp + kXpStreakBonus;
+          update['streakGoalAchieved'] = true;
+        } else if (newStreak <= 1) {
+          update['streakGoalAchieved'] = false;
+        }
+
+        txn.update(ref, update);
       });
     } on FirebaseException catch (e) {
       throw FirestoreException(e.message ?? 'Failed to update streak');
@@ -299,6 +365,72 @@ class FirestoreService {
     } catch (_) {}
   }
 
+  Future<void> saveCalibrationSample(
+      String uid, String signLabel, List<List<double>> samples) async {
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('calibration')
+          .doc(signLabel)
+          .set({
+        'samples': samples.map((s) => {'v': s}).toList(),
+      }, SetOptions(merge: true));
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw const FirestorePermissionException('Permission denied.');
+      }
+      throw FirestoreException(e.message ?? 'Failed to save calibration sample');
+    }
+  }
+
+  Future<Map<String, List<List<double>>>> loadAllCalibration(String uid) async {
+    try {
+      final snap =
+          await _db.collection('users').doc(uid).collection('calibration').get();
+      final result = <String, List<List<double>>>{};
+      for (final doc in snap.docs) {
+        final raw = doc.data()['samples'] as List?;
+        if (raw == null) continue;
+        result[doc.id] = raw
+            .map((e) => ((e as Map)['v'] as List)
+                .map((v) => (v as num).toDouble())
+                .toList())
+            .toList();
+      }
+      return result;
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Failed to load calibration');
+    }
+  }
+
+  Future<void> clearCalibrationClass(String uid, String signLabel) async {
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('calibration')
+          .doc(signLabel)
+          .delete();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Failed to clear calibration class');
+    }
+  }
+
+  Future<void> clearAllCalibration(String uid) async {
+    try {
+      final ref = _db.collection('users').doc(uid).collection('calibration');
+      final snap = await ref.get();
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw FirestoreException(e.message ?? 'Failed to clear calibration');
+    }
+  }
+
   String _today() => DateTime.now().toIso8601String().substring(0, 10);
 
   CollectionReference<Map<String, dynamic>> _questsRef(String uid) =>
@@ -321,7 +453,12 @@ class FirestoreService {
       final ref = _questsRef(uid).doc(today);
       final snap = await ref.get();
       if (snap.exists) {
-        return DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!));
+        final daily = DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!));
+        final reconciled = _reconcileQuests(daily.quests);
+        if (identical(reconciled, daily.quests)) return daily;
+        final updated = daily.copyWith(quests: reconciled);
+        await ref.set(updated.toMap(), SetOptions(merge: true));
+        return updated;
       }
       return _generateDailyQuests(uid, today);
     } on FirebaseException catch (_) {
@@ -329,21 +466,50 @@ class FirestoreService {
     }
   }
 
-  Future<DailyQuestModel?> _generateDailyQuests(String uid, String dateStr) async {
-    final eligible = kQuestPool.where((d) => _kDailyQuestTypes.contains(d.type)).toList()
-      ..shuffle(_random);
-    final picks = eligible.take(3).toList();
+  // Rebuilds the stored quest list against the current kQuestPool whenever
+  // they've drifted (e.g. the fixed quest set changed after today's doc was
+  // already generated) — preserves progress for quests whose type/target is
+  // unchanged, drops any quest type no longer in the pool. Returns the same
+  // list instance untouched when already up to date.
+  List<QuestModel> _reconcileQuests(List<QuestModel> stored) {
+    final byType = {for (final q in stored) q.type: q};
+    final upToDate = stored.length == kQuestPool.length &&
+        kQuestPool.every((def) => byType[def.type]?.target == def.target);
+    if (upToDate) return stored;
 
+    return [
+      for (var i = 0; i < kQuestPool.length; i++)
+        _reconciledQuest(i, byType),
+    ];
+  }
+
+  QuestModel _reconciledQuest(int index, Map<String, QuestModel> byType) {
+    final def = kQuestPool[index];
+    final existing = byType[def.type];
+    final progress =
+        existing != null && existing.target == def.target ? existing.progress : 0;
+    return QuestModel(
+      id: 'quest_$index',
+      type: def.type,
+      description: def.description,
+      target: def.target,
+      progress: progress,
+      completed: progress >= def.target,
+      xpReward: def.xpReward,
+    );
+  }
+
+  Future<DailyQuestModel?> _generateDailyQuests(String uid, String dateStr) async {
     final quests = [
-      for (var i = 0; i < picks.length; i++)
+      for (var i = 0; i < kQuestPool.length; i++)
         QuestModel(
           id: 'quest_$i',
-          type: picks[i].type,
-          description: picks[i].description,
-          target: picks[i].target,
+          type: kQuestPool[i].type,
+          description: kQuestPool[i].description,
+          target: kQuestPool[i].target,
           progress: 0,
           completed: false,
-          xpReward: kXpQuestBonus,
+          xpReward: kQuestPool[i].xpReward,
         ),
     ];
 
@@ -352,7 +518,6 @@ class FirestoreService {
       generatedAt: dateStr,
       quests: quests,
       totalQuestsCompleted: 0,
-      bonusXpAwarded: 0,
     );
 
     try {
@@ -368,7 +533,6 @@ class FirestoreService {
 
   Future<void> updateQuestProgress(String uid, String questType, int amount) async {
     final ref = _questsRef(uid).doc(_today());
-    var shouldAwardBonus = false;
     try {
       await _db.runTransaction((txn) async {
         final snap = await txn.get(ref);
@@ -385,27 +549,14 @@ class FirestoreService {
         }).toList();
 
         final totalCompleted = updatedQuests.where((q) => q.completed).length;
-        final allCompleted = totalCompleted == updatedQuests.length;
-        final alreadyAwarded = daily.bonusXpAwarded > 0;
-        final bonusXp = allCompleted && !alreadyAwarded
-            ? kXpQuestBonus * updatedQuests.length
-            : daily.bonusXpAwarded;
-
-        if (allCompleted && !alreadyAwarded) shouldAwardBonus = true;
 
         txn.update(ref, {
           'quests': updatedQuests.map((q) => q.toMap()).toList(),
           'totalQuestsCompleted': totalCompleted,
-          'bonusXpAwarded': bonusXp,
         });
       });
     } on FirebaseException catch (_) {
       return;
-    }
-    if (shouldAwardBonus) {
-      try {
-        await addXp(uid, kXpQuestBonus * 3);
-      } on FirebaseException catch (_) {}
     }
   }
 

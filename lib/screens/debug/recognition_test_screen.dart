@@ -16,11 +16,14 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../controllers/recognition_controller.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/route_constants.dart';
 import '../../data/sign_label_map.dart';
 import '../../models/recognition_result.dart';
+import '../../services/calibration_service.dart';
 import '../../services/test_logger_service.dart';
 
 class RecognitionTestScreen extends ConsumerStatefulWidget {
@@ -44,6 +47,7 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
   final _sessionNameController = TextEditingController(text: 'session1');
   bool _sessionActive = false;
   String? _lastExportPath;
+  bool _calibrationEnabled = CalibrationService.instance.enabled;
 
   @override
   void initState() {
@@ -178,6 +182,24 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
         title: const Text('Recognition Test (Debug)'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.tune),
+            onPressed: () async {
+              try {
+                await _cameraController?.stopImageStream();
+              } catch (_) {}
+              await _cameraController?.dispose();
+              _cameraController = null;
+              if (!mounted) return;
+              setState(() => _cameraInitialized = false);
+              if (!mounted) return;
+              await this.context.push(kRouteCalibration);
+              if (!mounted) return;
+              await Future.delayed(const Duration(milliseconds: 150));
+              if (!mounted) return;
+              await _initCamera();
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.flip_camera_android_rounded),
             onPressed: _flipCamera,
           ),
@@ -257,32 +279,50 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
     return Container(
       color: const Color(0xFF1A1A1A),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _sessionNameController,
-              enabled: !_sessionActive,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: const InputDecoration(
-                labelText: 'session tag (e.g. yuni_indoor_daylight)',
-                labelStyle: TextStyle(color: Colors.white54, fontSize: 11),
-                isDense: true,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Calibration', style: TextStyle(color: Colors.white70, fontSize: 12)),
+              Switch(
+                value: _calibrationEnabled,
+                onChanged: (v) {
+                  setState(() => _calibrationEnabled = v);
+                  CalibrationService.instance.enabled = v;
+                },
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: _toggleSession,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _sessionActive ? AppColors.error : AppColors.success,
-            ),
-            child: Text(_sessionActive ? 'Stop' : 'Start'),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: _export,
-            child: const Text('Export'),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _sessionNameController,
+                  enabled: !_sessionActive,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'session tag (e.g. yuni_indoor_daylight)',
+                    labelStyle: TextStyle(color: Colors.white54, fontSize: 11),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _toggleSession,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _sessionActive ? AppColors.error : AppColors.success,
+                ),
+                child: Text(_sessionActive ? 'Stop' : 'Start'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: _export,
+                child: const Text('Export'),
+              ),
+            ],
           ),
         ],
       ),

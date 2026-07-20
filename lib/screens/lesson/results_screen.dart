@@ -5,20 +5,16 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../core/constants/xp_constants.dart';
-import '../../data/lesson_definitions.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/lesson_provider.dart';
-import '../../providers/user_provider.dart';
-import '../../services/firestore_service.dart';
-import '../../services/tts_service.dart';
 import 'widgets/results_widgets.dart';
 
-class ResultsScreen extends ConsumerStatefulWidget {
+class ResultsScreen extends ConsumerWidget {
   final String lessonId;
   final int correctCount;
   final int totalCount;
   final List<String> missedSigns;
   final Map<String, int> learnAttempts;
+  final bool streakJustExtended;
+  final bool questNewlyCompleted;
 
   const ResultsScreen({
     super.key,
@@ -27,79 +23,27 @@ class ResultsScreen extends ConsumerStatefulWidget {
     required this.totalCount,
     required this.missedSigns,
     this.learnAttempts = const {},
+    this.streakJustExtended = false,
+    this.questNewlyCompleted = false,
   });
 
-  @override
-  ConsumerState<ResultsScreen> createState() => _ResultsScreenState();
-}
+  int get _xpEarned => kXpLessonCompletion + (correctCount * kXpLearnCorrect);
 
-class _ResultsScreenState extends ConsumerState<ResultsScreen> {
-  bool _initialized = false;
-
-  int get _xpEarned =>
-      kXpLessonCompletion + (widget.correctCount * kXpLearnCorrect);
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
-  }
-
-  Future<void> _init() async {
-    if (_initialized) return;
-    _initialized = true;
-    final uid = ref.read(authStateProvider).value?.uid;
-    if (uid == null) return;
-    try {
-      await Future.wait([
-        ref.read(lessonActionsProvider(uid)).markLessonComplete(widget.lessonId),
-        ref.read(userActionsProvider(uid)).addXp(_xpEarned),
-      ]);
-    } catch (_) {}
-    try {
-      await ref
-          .read(firestoreServiceProvider)
-          .unlockPractice(uid, widget.lessonId);
-    } catch (_) {}
-    try {
-      await ref
-          .read(firestoreServiceProvider)
-          .saveSignProgress(uid, widget.lessonId, 0);
-    } catch (_) {}
-    try {
-      final lesson = kLessons.firstWhere((l) => l.id == widget.lessonId);
-      final signAccuracy =
-          await ref.read(firestoreServiceProvider).savePracticeResult(
-                uid: uid,
-                lessonId: widget.lessonId,
-                correctCount: widget.correctCount,
-                totalCount: widget.totalCount,
-                missedSigns: widget.missedSigns,
-                xpEarned: _xpEarned,
-                lessonSigns: lesson.signs,
-                learnAttempts: widget.learnAttempts,
-              );
-      await ref
-          .read(firestoreServiceProvider)
-          .updateSignAccuracy(uid: uid, newAccuracy: signAccuracy);
-    } catch (_) {}
-    try {
-      final quests = ref.read(firestoreServiceProvider);
-      await Future.wait([
-        quests.updateQuestProgress(uid, 'complete_lessons', 1),
-        quests.updateQuestProgress(uid, 'earn_xp', _xpEarned),
-        quests.updateQuestProgress(uid, 'practice_sessions', 1),
-      ]);
-    } catch (_) {}
-    if (mounted) {
-      ref
-          .read(ttsServiceProvider)
-          .speak('Lesson complete! You earned $_xpEarned XP');
+  void _handleContinue(BuildContext context) {
+    if (streakJustExtended) {
+      context.go(kRouteStreak, extra: {
+        'justEarned': true,
+        'skipQuestScreen': !questNewlyCompleted,
+      });
+    } else if (questNewlyCompleted) {
+      context.go(kRouteQuest, extra: {'justEarned': true});
+    } else {
+      context.go(kRouteHome);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -124,8 +68,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 60),
-        ResultHeader(
-            correctCount: widget.correctCount, totalCount: widget.totalCount),
+        ResultHeader(correctCount: correctCount, totalCount: totalCount),
         const SizedBox(height: 32),
         _buildStatsRow(),
         const SizedBox(height: 32),
@@ -134,7 +77,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
   }
 
   Widget _buildStatsRow() {
-    final skippedCount = widget.totalCount - widget.correctCount;
+    final skippedCount = totalCount - correctCount;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -153,7 +96,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _StatItem(
-            value: '${widget.correctCount}',
+            value: '$correctCount',
             label: 'Correct',
             valueColor: AppColors.success,
           ),
@@ -187,7 +130,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              onPressed: () => context.go(kRouteHome),
+              onPressed: () => _handleContinue(context),
               child: const Text(
                 'Continue',
                 style: TextStyle(
@@ -210,8 +153,8 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              onPressed: () => context
-                  .pushReplacement('/lesson/${widget.lessonId}/exercise'),
+              onPressed: () =>
+                  context.pushReplacement('/lesson/$lessonId/exercise'),
               child: const Text('Practise again', style: TextStyle(fontSize: 16)),
             ),
           ),

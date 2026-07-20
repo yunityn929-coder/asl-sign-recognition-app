@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
-import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/speech_bubble.dart';
@@ -18,14 +17,6 @@ class WelcomeIntroScreen extends ConsumerStatefulWidget {
 }
 
 class _WelcomeIntroScreenState extends ConsumerState<WelcomeIntroScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ttsServiceProvider).speak("Hi there! I'm Hani!");
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

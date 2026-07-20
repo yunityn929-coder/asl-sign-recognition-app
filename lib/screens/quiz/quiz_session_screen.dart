@@ -8,6 +8,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../data/quiz_definitions.dart';
 import '../../models/quiz_question.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
+import '../../services/firestore_service.dart';
 import '../../services/quiz_service.dart';
 
 const _kQuestionCount = 10;
@@ -41,6 +44,7 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
   int _correctCount = 0;
   int _timeLeft = 10;
   Timer? _timer;
+  bool _finishing = false;
 
   @override
   void initState() {
@@ -101,16 +105,75 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
       });
       _startTimer();
     } else {
-      context.pushReplacement(
-        kRouteQuizResult,
-        extra: {
-          'score': _correctCount,
-          'total': _questions.length,
-          'quizSet': widget.quizSet,
-          'wrongSigns': _wrongSigns,
-        },
-      );
+      _finishQuiz();
     }
+  }
+
+  Future<void> _finishQuiz() async {
+    if (mounted) setState(() => _finishing = true);
+    final xpEarned = _correctCount * 10;
+
+    final uid = ref.read(authStateProvider).value?.uid;
+    var streakJustExtended = false;
+    var questNewlyCompleted = false;
+
+    if (uid != null) {
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+
+      var wasStreakAlreadyUpdatedToday = true;
+      var beforeCompletedIds = <String>{};
+      try {
+        final beforeUser = await firestoreService.getUserOnce(uid);
+        wasStreakAlreadyUpdatedToday = beforeUser?.lastStreakDate == today;
+      } catch (_) {}
+      try {
+        final beforeQuests = await firestoreService.getDailyQuests(uid);
+        beforeCompletedIds = beforeQuests?.quests
+                .where((q) => q.completed)
+                .map((q) => q.id)
+                .toSet() ??
+            {};
+      } catch (_) {}
+
+      try {
+        await ref.read(userActionsProvider(uid)).addXp(xpEarned);
+        final existing =
+            ref.read(userProvider(uid)).value?.quizBestScores[widget.quizSet.id] ?? 0;
+        if (_correctCount > existing) {
+          await firestoreService.saveQuizBestScore(uid, widget.quizSet.id, _correctCount);
+        }
+        await Future.wait([
+          firestoreService.updateQuestProgress(uid, 'earn_xp', xpEarned),
+          firestoreService.updateQuestProgress(uid, 'play_quiz', 1),
+        ]);
+      } catch (_) {}
+
+      try {
+        final afterUser = await firestoreService.getUserOnce(uid);
+        streakJustExtended =
+            !wasStreakAlreadyUpdatedToday && afterUser?.lastStreakDate == today;
+      } catch (_) {}
+      try {
+        final afterQuests = await firestoreService.getDailyQuests(uid);
+        questNewlyCompleted = afterQuests?.quests.any(
+                (q) => q.completed && !beforeCompletedIds.contains(q.id)) ??
+            false;
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    context.pushReplacement(
+      kRouteQuizResult,
+      extra: {
+        'score': _correctCount,
+        'total': _questions.length,
+        'quizSet': widget.quizSet,
+        'wrongSigns': _wrongSigns,
+        'streakJustExtended': streakJustExtended,
+        'questNewlyCompleted': questNewlyCompleted,
+      },
+    );
   }
 
   @override
@@ -119,35 +182,46 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
     final correctIndex = question.options.indexOf(question.correctSign);
     final isCorrect = _selectedOptionIndex == correctIndex;
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            Expanded(
-              flex: 3,
-              child: Center(child: _buildQuestionCard(question)),
-            ),
-            if (_answered)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  isCorrect ? '✓ Correct! +10 XP' : '✗ Wrong — it was ${question.correctSign}',
-                  style: TextStyle(
-                    color: isCorrect ? AppColors.success : AppColors.error,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: AppColors.backgroundPrimary,
+          body: SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(),
+                Expanded(
+                  flex: 3,
+                  child: Center(child: _buildQuestionCard(question)),
                 ),
-              ),
-            Expanded(
-              flex: 2,
-              child: _buildOptionsGrid(question, correctIndex),
+                if (_answered)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      isCorrect ? '✓ Correct! +10 XP' : '✗ Wrong — it was ${question.correctSign}',
+                      style: TextStyle(
+                        color: isCorrect ? AppColors.success : AppColors.error,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  flex: 2,
+                  child: _buildOptionsGrid(question, correctIndex),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        if (_finishing)
+          const Positioned.fill(
+            child: ColoredBox(
+              color: Colors.white,
+              child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            ),
+          ),
+      ],
     );
   }
 

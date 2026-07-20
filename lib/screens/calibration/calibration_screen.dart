@@ -14,6 +14,7 @@ import '../../controllers/recognition_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/sign_label_map.dart';
 import '../../models/recognition_result.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/calibration_service.dart';
 
 class CalibrationScreen extends ConsumerStatefulWidget {
@@ -33,6 +34,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
   RecognitionResult? _lastResult;
 
   int _currentIndex = 0;
+  bool _readyToPop = false;
 
   String get _currentLabel => kSignLabels[_currentIndex];
   int get _capturedForClass =>
@@ -41,7 +43,10 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
   @override
   void initState() {
     super.initState();
-    CalibrationService.instance.ensureLoaded();
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid != null) {
+      CalibrationService.instance.ensureLoaded(uid);
+    }
     _resultSub = ref
         .read(recognitionControllerProvider)
         .results
@@ -84,6 +89,14 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     }
   }
 
+  Future<void> _releaseCamera() async {
+    try {
+      await _cameraController?.stopImageStream();
+    } catch (_) {}
+    await _cameraController?.dispose();
+    _cameraController = null;
+  }
+
   void _onCameraFrame(CameraImage image) {
     if (!mounted) return;
     ref.read(recognitionControllerProvider).processFrame(image, _rotationDegrees);
@@ -94,18 +107,24 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     setState(() => _lastResult = result);
   }
 
-  void _advance() {
+  void _advance() async {
     if (_currentIndex + 1 < kSignLabels.length) {
       setState(() => _currentIndex++);
     } else {
-      context.pop();
+      await _releaseCamera();
+      if (!mounted) return;
+      setState(() => _readyToPop = true);
+      if (context.mounted) context.pop();
     }
   }
 
   void _capture() {
     final result = _lastResult;
     if (result != null && result.handDetected && result.landmarks.isNotEmpty) {
-      CalibrationService.instance.addSample(_currentLabel, result.landmarks);
+      final uid = ref.read(authStateProvider).value?.uid;
+      if (uid != null) {
+        CalibrationService.instance.addSample(uid, _currentLabel, result.landmarks);
+      }
       setState(() {});
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,21 +135,32 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
+    return PopScope(
+      canPop: _readyToPop,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _releaseCamera();
+        if (!mounted) return;
+        setState(() => _readyToPop = true);
+        if (context.mounted) context.pop();
+      },
+      child: Scaffold(
         backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(
-            'Calibrate: $_currentLabel (${_currentIndex + 1}/${kSignLabels.length})'),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(flex: 5, child: _buildCameraPreview()),
-            _buildInstructions(),
-            _buildControls(),
-          ],
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          title: Text(
+              'Calibrate: $_currentLabel (${_currentIndex + 1}/${kSignLabels.length})'),
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(flex: 5, child: _buildCameraPreview()),
+              _buildInstructions(),
+              _buildQuickJump(),
+              _buildControls(),
+            ],
+          ),
         ),
       ),
     );
@@ -168,6 +198,40 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     );
   }
 
+  Widget _buildQuickJump() {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: kSignLabels.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final label = kSignLabels[i];
+          final selected = i == _currentIndex;
+          return GestureDetector(
+            onTap: () => setState(() => _currentIndex = i),
+            child: Container(
+              width: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : const Color(0xFF222222),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.white70,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildControls() {
     return Container(
       color: const Color(0xFF1A1A1A),
@@ -184,7 +248,10 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
           Expanded(
             child: ElevatedButton(
               onPressed: _capture,
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Capture'),
             ),
           ),
@@ -192,7 +259,10 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
           Expanded(
             child: ElevatedButton(
               onPressed: _advance,
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Next'),
             ),
           ),

@@ -70,11 +70,11 @@ class _NodeCoin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final faceColor = (isLocked || isCompleted)
+    final faceColor = isLocked
         ? const Color(0xFFECECEC)
         : const Color(0xFFFFD166);
 
-    final sideColor = (isLocked || isCompleted)
+    final sideColor = isLocked
         ? const Color(0xFFCACDD6)
         : const Color(0xFFFFAB17);
 
@@ -143,7 +143,7 @@ class _NodeIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isCompleted) {
-      return const Icon(Icons.check_rounded, color: Color(0xFF5BC8AC), size: 26);
+      return const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFFAB17), size: 26);
     }
     if (isLocked) {
       return Icon(

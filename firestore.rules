@@ -44,6 +44,10 @@ service cloud.firestore {
       return dateStr.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
     }
 
+    function isValidCalibrationSample() {
+      return request.resource.data.samples is list;
+    }
+
     match /users/{uid} {
       allow read: if isOwner(uid);
       allow create: if isOwner(uid) && isValidUserCreate();
@@ -63,6 +67,12 @@ service cloud.firestore {
       match /dailyQuests/{dateStr} {
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid) && isValidDailyQuest(dateStr);
+      }
+
+      match /calibration/{signLabel} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && isValidCalibrationSample();
+        allow delete: if isOwner(uid);
       }
     }
 

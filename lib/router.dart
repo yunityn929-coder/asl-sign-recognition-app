@@ -34,8 +34,6 @@ import 'screens/practice/practice_session_screen.dart';
 
 // Checkout flow
 import 'screens/checkout/checkout_screen.dart';
-import 'screens/checkout/streak_born_screen.dart';
-import 'screens/checkout/quest_update_screen.dart';
 
 // Post-session
 import 'screens/completion/learn_completion_screen.dart';
@@ -59,6 +57,7 @@ import 'screens/debug/recognition_test_screen.dart';
 
 // Calibration (optional per-user tuning, reached from Settings)
 import 'screens/calibration/calibration_screen.dart';
+import 'screens/settings/calibration_settings_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -150,7 +149,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: kRouteQuest,
           name: kRouteNameQuest,
-          builder: (context, state) => const QuestScreen(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? const {};
+            return QuestScreen(justEarned: extra['justEarned'] as bool? ?? false);
+          },
         ),
         GoRoute(
           path: kRouteSigns,
@@ -169,7 +171,13 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: kRouteStreak,
       name: kRouteNameStreak,
-      builder: (context, state) => const StreakScreen(),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? const {};
+        return StreakScreen(
+          justEarned: extra['justEarned'] as bool? ?? false,
+          skipQuestScreen: extra['skipQuestScreen'] as bool? ?? false,
+        );
+      },
     ),
 
     // S-15 — Mode Select
@@ -233,20 +241,6 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
-    // S-21 — Post-Checkout Streak Born
-    GoRoute(
-      path: kRouteSessionStreak,
-      name: kRouteNameSessionStreak,
-      builder: (context, state) => const StreakBornScreen(),
-    ),
-
-    // S-22 — Daily Quest Update
-    GoRoute(
-      path: kRouteSessionQuest,
-      name: kRouteNameSessionQuest,
-      builder: (context, state) => const QuestUpdateScreen(),
-    ),
-
     // S-23 — Settings
     GoRoute(
       path: kRouteSettings,
@@ -296,6 +290,8 @@ final GoRouter appRouter = GoRouter(
           learnAttempts:
               (extra['learnAttempts'] as Map?)?.cast<String, int>() ??
                   const {},
+          streakJustExtended: extra['streakJustExtended'] as bool? ?? false,
+          questNewlyCompleted: extra['questNewlyCompleted'] as bool? ?? false,
         );
       },
     ),
@@ -323,6 +319,8 @@ final GoRouter appRouter = GoRouter(
           total: extra['total'] as int? ?? 0,
           quizSet: extra['quizSet'] as QuizSet,
           wrongSigns: (extra['wrongSigns'] as List?)?.cast<String>() ?? const [],
+          streakJustExtended: extra['streakJustExtended'] as bool? ?? false,
+          questNewlyCompleted: extra['questNewlyCompleted'] as bool? ?? false,
         );
       },
     ),
@@ -343,6 +341,15 @@ final GoRouter appRouter = GoRouter(
       name: kRouteNameCalibration,
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const CalibrationScreen(),
+    ),
+
+    // Calibration settings — toggle + entry point for the calibration flow
+    // above (reached from Settings: "Calibrate my signs").
+    GoRoute(
+      path: kRouteCalibrationSettings,
+      name: kRouteNameCalibrationSettings,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const CalibrationSettingsScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

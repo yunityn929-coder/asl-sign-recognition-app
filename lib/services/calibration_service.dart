@@ -1,4 +1,4 @@
-/// Local, on-device storage for per-user sign calibration samples.
+/// Firestore-backed storage for per-user sign calibration samples.
 ///
 /// Stores a few normalized landmark vectors per class label, captured by
 /// the user during an optional calibration flow. Used to boost recognition
@@ -6,9 +6,7 @@
 /// doesn't match this specific user's hand/camera/lighting.
 library;
 
-import 'dart:convert';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'firestore_service.dart';
 
 class CalibrationService {
   CalibrationService._();
@@ -16,60 +14,60 @@ class CalibrationService {
 
   static const int maxSamplesPerClass = 5;
 
+  final FirestoreService _firestoreService = FirestoreService();
+
   final Map<String, List<List<double>>> _samples = {};
-  bool _loaded = false;
+  String? _loadedUid;
+  final Map<String, Future<void>> _pendingWrites = {};
 
   bool get hasAnyCalibration => _samples.values.any((s) => s.isNotEmpty);
 
+  // In-memory only, not persisted — A/B toggle for calibration blending.
+  bool enabled = true;
+
   List<List<double>> samplesFor(String label) => _samples[label] ?? const [];
 
-  Future<File> _file() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File('${dir.path}/calibration_samples.json');
-  }
-
-  Future<void> ensureLoaded() async {
-    if (_loaded) return;
-    _loaded = true;
+  Future<void> ensureLoaded(String uid) async {
+    if (_loadedUid == uid) return;
     try {
-      final file = await _file();
-      if (await file.exists()) {
-        final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-        raw.forEach((label, samples) {
-          _samples[label] = (samples as List)
-              .map((s) => (s as List).cast<double>())
-              .toList();
-        });
-      }
+      final loaded = await _firestoreService.loadAllCalibration(uid);
+      _samples
+        ..clear()
+        ..addAll(loaded);
+      _loadedUid = uid;
     } catch (_) {
-      _samples.clear();
+      // Leave any samples already captured this session intact; only
+      // treat this as "loaded" once a real fetch succeeds, so we keep
+      // retrying, but don't destroy in-progress capture work in the meantime.
     }
   }
 
-  Future<void> addSample(String label, List<double> normalised) async {
-    await ensureLoaded();
+  Future<void> addSample(String uid, String label, List<double> normalised) async {
+    if (_loadedUid != uid) {
+      await ensureLoaded(uid);
+    }
     final list = _samples.putIfAbsent(label, () => []);
     list.add(List<double>.from(normalised));
     if (list.length > maxSamplesPerClass) {
       list.removeAt(0);
     }
-    await _save();
+    final samplesSnapshot = List<List<double>>.from(list);
+    final previous = _pendingWrites[label] ?? Future.value();
+    final write = previous.catchError((_) {}).then((_) =>
+        _firestoreService.saveCalibrationSample(uid, label, samplesSnapshot));
+    _pendingWrites[label] = write;
+    await write;
   }
 
-  Future<void> clearClass(String label) async {
-    await ensureLoaded();
+  Future<void> clearClass(String uid, String label) async {
+    await ensureLoaded(uid);
     _samples.remove(label);
-    await _save();
+    await _firestoreService.clearCalibrationClass(uid, label);
   }
 
-  Future<void> clearAll() async {
-    await ensureLoaded();
+  Future<void> clearAll(String uid) async {
+    await ensureLoaded(uid);
     _samples.clear();
-    await _save();
-  }
-
-  Future<void> _save() async {
-    final file = await _file();
-    await file.writeAsString(jsonEncode(_samples));
+    await _firestoreService.clearAllCalibration(uid);
   }
 }

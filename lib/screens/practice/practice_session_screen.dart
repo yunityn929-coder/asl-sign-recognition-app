@@ -15,6 +15,8 @@ import '../../data/lesson_definitions.dart';
 import '../../models/checkout_data.dart';
 import '../../models/recognition_result.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
+import '../../services/calibration_service.dart';
 import '../../services/feedback_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/tts_service.dart';
@@ -48,15 +50,30 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   final FeedbackService _feedbackService = FeedbackService();
   FeedbackResult _feedbackResult = FeedbackResult.initial;
   bool _autoAdvancing = false;
+  bool _finishing = false;
   late DateTime _sessionStart;
   final Set<int> _correctIndices = {};
-  bool _speakerOn = true;
-  bool _showCorrect = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
+
+  bool get _ttsEnabled {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return true;
+    return ref.read(userProvider(uid)).value?.ttsEnabled ?? true;
+  }
+
+  bool get _soundEnabled {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return true;
+    return ref.read(userProvider(uid)).value?.soundEnabled ?? true;
+  }
 
   @override
   void initState() {
     super.initState();
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid != null) {
+      CalibrationService.instance.ensureLoaded(uid);
+    }
     _timeLeft = kDifficultySeconds[widget.difficulty] ?? 10;
     _signs = kLessons.firstWhere((l) => l.id == widget.lessonId).signs;
     if (_signs.isEmpty) {
@@ -71,7 +88,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     _initCamera();
     _startCountdown();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ttsServiceProvider).speak(_signs[0]);
+      if (_ttsEnabled) ref.read(ttsServiceProvider).speak(_signs[0]);
     });
   }
 
@@ -119,11 +136,18 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
 
   void _onRecognitionResult(RecognitionResult result) {
     if (!mounted) return;
+    if (_autoAdvancing) return;
     final feedback = _feedbackService.evaluate(
       topLabel: result.topLabel,
       topConfidence: result.topConfidence,
       secondLabel: result.secondLabel,
+      secondConfidence: result.secondConfidence,
       targetLetter: _signs[_currentIndex],
+      isTooDark: result.isTooDark,
+      isTooBright: result.isTooBright,
+      handTooClose: result.handTooClose,
+      handTooFar: result.handTooFar,
+      noHandTimeout: result.noHandTimeout,
     );
     setState(() => _feedbackResult = feedback);
 
@@ -132,19 +156,19 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       _correctCount++;
       _correctIndices.add(_currentIndex);
       _playCorrectSound();
-      setState(() => _showCorrect = true);
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) setState(() => _showCorrect = false);
+      Future.delayed(const Duration(milliseconds: 800), () {
         if (_autoAdvancing) _advance();
       });
     }
   }
 
   Future<void> _playCorrectSound() async {
-    if (!_speakerOn) return;
+    if (!_soundEnabled) return;
     try {
       await _audioPlayer.play(AssetSource('audio/success.mp3'));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PracticeSessionScreen] SFX error: $e');
+    }
   }
 
   void _startCountdown() {
@@ -166,7 +190,6 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   void _advance() {
     _countdownTimer?.cancel();
     if (!mounted) return;
-    setState(() => _showCorrect = false);
     if (_currentIndex + 1 < _signs.length) {
       setState(() {
         _currentIndex++;
@@ -176,7 +199,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       });
       _feedbackService.reset();
       _startCountdown();
-      if (_speakerOn) {
+      if (_ttsEnabled) {
         ref.read(ttsServiceProvider).speak(_signName(_signs[_currentIndex]));
       }
     } else {
@@ -215,32 +238,43 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
 
   Future<void> _finishSession() async {
     _autoAdvancing = false;
+    if (mounted) setState(() => _finishing = true);
     await _cameraController?.stopImageStream().catchError((_) {});
 
     final duration = DateTime.now().difference(_sessionStart).inSeconds;
     final accuracy = _signs.isEmpty ? 0.0 : _correctCount / _signs.length * 100;
     final xp = _correctCount * kXpLearnCorrect;
-    final checkoutData = CheckoutData(
-      xpEarned: xp,
-      accuracyPercent: accuracy,
-      durationSeconds: duration,
-      sessionType: 'practice',
-      lessonId: widget.lessonId,
-      streakExtended: false,
-      difficulty: widget.difficulty,
-      correctCount: _correctCount,
-      totalCount: _signs.length,
-    );
 
-    try {
-      final uid = ref.read(authStateProvider).value?.uid;
-      if (uid != null) {
+    final uid = ref.read(authStateProvider).value?.uid;
+    var questNewlyCompleted = false;
+    var streakJustExtended = false;
+
+    if (uid != null) {
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+
+      var wasStreakAlreadyUpdatedToday = true;
+      var beforeCompletedIds = <String>{};
+      try {
+        final beforeUser = await firestoreService.getUserOnce(uid);
+        wasStreakAlreadyUpdatedToday = beforeUser?.lastStreakDate == today;
+      } catch (_) {}
+      try {
+        final beforeQuests = await firestoreService.getDailyQuests(uid);
+        beforeCompletedIds = beforeQuests?.quests
+                .where((q) => q.completed)
+                .map((q) => q.id)
+                .toSet() ??
+            {};
+      } catch (_) {}
+
+      try {
         final lesson = kLessons.firstWhere((l) => l.id == widget.lessonId);
         final missedSigns = [
           for (var i = 0; i < _signs.length; i++)
             if (!_correctIndices.contains(i)) _signs[i],
         ];
-        final signAccuracy = await ref.read(firestoreServiceProvider).savePracticeResult(
+        final signAccuracy = await firestoreService.savePracticeResult(
               uid: uid,
               lessonId: widget.lessonId,
               correctCount: _correctCount,
@@ -248,14 +282,40 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
               missedSigns: missedSigns,
               xpEarned: xp,
               lessonSigns: lesson.signs,
+              sessionType: 'practice',
             );
-        await ref
-            .read(firestoreServiceProvider)
-            .updateSignAccuracy(uid: uid, newAccuracy: signAccuracy);
-        await ref.read(firestoreServiceProvider).updateQuestProgress(uid, 'practice_sessions', 1);
-        await ref.read(firestoreServiceProvider).updateQuestProgress(uid, 'earn_xp', xp);
-      }
-    } catch (_) {}
+        await Future.wait([
+          firestoreService.updateSignAccuracy(uid: uid, newAccuracy: signAccuracy),
+          ref.read(userActionsProvider(uid)).addXp(xp),
+          firestoreService.updateQuestProgress(uid, 'earn_xp', xp),
+        ]);
+      } catch (_) {}
+
+      try {
+        final afterUser = await firestoreService.getUserOnce(uid);
+        streakJustExtended =
+            !wasStreakAlreadyUpdatedToday && afterUser?.lastStreakDate == today;
+      } catch (_) {}
+      try {
+        final afterQuests = await firestoreService.getDailyQuests(uid);
+        questNewlyCompleted = afterQuests?.quests.any(
+                (q) => q.completed && !beforeCompletedIds.contains(q.id)) ??
+            false;
+      } catch (_) {}
+    }
+
+    final checkoutData = CheckoutData(
+      xpEarned: xp,
+      accuracyPercent: accuracy,
+      durationSeconds: duration,
+      sessionType: 'practice',
+      lessonId: widget.lessonId,
+      streakJustExtended: streakJustExtended,
+      questNewlyCompleted: questNewlyCompleted,
+      difficulty: widget.difficulty,
+      correctCount: _correctCount,
+      totalCount: _signs.length,
+    );
 
     if (mounted) {
       context.pushReplacement(kRouteCheckout, extra: checkoutData);
@@ -288,12 +348,26 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
               ),
             ),
           ),
+          if (_finishing)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Colors.white,
+                child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildTopBar() {
+    final uid = ref.read(authStateProvider).value?.uid;
+    final user = uid != null ? ref.watch(userProvider(uid)).value : null;
+    CalibrationService.instance.enabled = user?.calibrationEnabled ?? true;
+    final ttsEnabled = user?.ttsEnabled ?? true;
+    final soundEnabled = user?.soundEnabled ?? true;
+    final speakerOn = ttsEnabled && soundEnabled;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -322,16 +396,24 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
           ),
           const SizedBox(width: 8),
           GestureDetector(
-            onTap: () => setState(() => _speakerOn = !_speakerOn),
+            onTap: uid == null ? null : () => _toggleSound(uid, speakerOn),
             child: Icon(
-              _speakerOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-              color: _speakerOn ? AppColors.primary : AppColors.textSecondary,
+              speakerOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              color: speakerOn ? AppColors.primary : AppColors.textSecondary,
               size: 22,
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _toggleSound(String uid, bool currentlyOn) {
+    final next = !currentlyOn;
+    ref.read(userActionsProvider(uid)).updateSettings({
+      'ttsEnabled': next,
+      'soundEnabled': next,
+    });
   }
 
   Widget _buildSignCard() {
@@ -414,85 +496,11 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-            _buildCameraPreview(),
-            if (_showCorrect)
-              Positioned.fill(
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 300),
-                  builder: (context, value, child) {
-                    return Opacity(opacity: value, child: child);
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.5, end: 1.0),
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.elasticOut,
-                          builder: (context, scale, child) {
-                            return Transform.scale(scale: scale, child: child);
-                          },
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: AppColors.success,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.success.withValues(alpha: 0.4),
-                                  blurRadius: 20,
-                                  spreadRadius: 4,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.check_rounded,
-                              color: Colors.white,
-                              size: 48,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                          child: const Text(
-                            'Correct!',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.success,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            Visibility(
-              visible: !_showCorrect,
-              child: FeedbackWidget(
-                state: _feedbackResult.state,
-                message: _feedbackResult.message,
-              ),
-            ),
+          _buildCameraPreview(),
+          FeedbackWidget(
+            state: _feedbackResult.state,
+            message: _feedbackResult.message,
+          ),
         ],
       ),
     );
@@ -506,14 +514,14 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       );
     }
     final previewSize = _cameraController!.value.previewSize!;
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(
-        width: previewSize.height,
-        height: previewSize.width,
-        child: _lensDirection == CameraLensDirection.front
-            ? Transform.flip(flipX: true, child: CameraPreview(_cameraController!))
-            : CameraPreview(_cameraController!),
+    return ClipRect(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: previewSize.height,
+          height: previewSize.width,
+          child: CameraPreview(_cameraController!),
+        ),
       ),
     );
   }

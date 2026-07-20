@@ -1,70 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../data/quiz_definitions.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart';
-import '../../services/firestore_service.dart';
 
-class QuizResultScreen extends ConsumerStatefulWidget {
+class QuizResultScreen extends StatelessWidget {
   final int score;
   final int total;
   final QuizSet quizSet;
   final List<String> wrongSigns;
+  final bool streakJustExtended;
+  final bool questNewlyCompleted;
 
   const QuizResultScreen({
     required this.score,
     required this.total,
     required this.quizSet,
     required this.wrongSigns,
+    this.streakJustExtended = false,
+    this.questNewlyCompleted = false,
     super.key,
   });
 
-  @override
-  ConsumerState<QuizResultScreen> createState() => _QuizResultScreenState();
-}
+  int get _xpEarned => score * 10;
 
-class _QuizResultScreenState extends ConsumerState<QuizResultScreen> {
-  bool _xpSaved = false;
-
-  int get _xpEarned => widget.score * 10;
-
-  int get _accuracyPercent =>
-      widget.total == 0 ? 0 : ((widget.score / widget.total) * 100).round();
+  int get _accuracyPercent => total == 0 ? 0 : ((score / total) * 100).round();
 
   String get _trophyEmoji {
-    if (widget.total == 0) return '💪';
-    if (widget.score == widget.total) return '🏆';
-    final ratio = widget.score / widget.total;
+    if (total == 0) return '💪';
+    if (score == total) return '🏆';
+    final ratio = score / total;
     if (ratio >= 0.8) return '⭐';
     if (ratio >= 0.6) return '👍';
     return '💪';
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _saveXp());
-  }
-
-  Future<void> _saveXp() async {
-    if (_xpSaved) return;
-    _xpSaved = true;
-    final uid = ref.read(authStateProvider).value?.uid;
-    if (uid == null) return;
-    try {
-      await ref.read(userActionsProvider(uid)).addXp(_xpEarned);
-      final existing =
-          ref.read(userProvider(uid)).value?.quizBestScores[widget.quizSet.id] ?? 0;
-      if (widget.score > existing) {
-        await ref
-            .read(firestoreServiceProvider)
-            .saveQuizBestScore(uid, widget.quizSet.id, widget.score);
-      }
-    } catch (_) {}
+  void _handleContinue(BuildContext context) {
+    if (streakJustExtended) {
+      context.go(kRouteStreak, extra: {
+        'justEarned': true,
+        'skipQuestScreen': !questNewlyCompleted,
+      });
+    } else if (questNewlyCompleted) {
+      context.go(kRouteQuest, extra: {'justEarned': true});
+    } else {
+      context.go(kRouteHome);
+    }
   }
 
   @override
@@ -85,12 +67,12 @@ class _QuizResultScreenState extends ConsumerState<QuizResultScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                widget.quizSet.title,
+                quizSet.title,
                 style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
               _buildScoreCard(),
-              if (widget.wrongSigns.isNotEmpty) ...[
+              if (wrongSigns.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 _buildWeakSignsSection(context),
               ],
@@ -115,7 +97,7 @@ class _QuizResultScreenState extends ConsumerState<QuizResultScreen> {
       child: Column(
         children: [
           Text(
-            '${widget.score} / ${widget.total}',
+            '$score / $total',
             style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: AppColors.primary),
           ),
           const SizedBox(height: 4),
@@ -141,7 +123,7 @@ class _QuizResultScreenState extends ConsumerState<QuizResultScreen> {
   }
 
   Widget _buildWeakSignsSection(BuildContext context) {
-    final uniqueWrongSigns = widget.wrongSigns.toSet().toList();
+    final uniqueWrongSigns = wrongSigns.toSet().toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -181,7 +163,7 @@ class _QuizResultScreenState extends ConsumerState<QuizResultScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () => context.pushReplacement(kRouteQuizSession, extra: widget.quizSet),
+            onPressed: () => context.pushReplacement(kRouteQuizSession, extra: quizSet),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -195,7 +177,7 @@ class _QuizResultScreenState extends ConsumerState<QuizResultScreen> {
         SizedBox(
           width: double.infinity,
           child: TextButton(
-            onPressed: () => context.go(kRouteHome),
+            onPressed: () => _handleContinue(context),
             child: const Text(
               'Back to Quizzes',
               style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textSecondary),

@@ -6,7 +6,6 @@ import '../../controllers/onboarding_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../services/notification_service.dart';
-import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/progress_step_indicator.dart';
@@ -24,14 +23,6 @@ class OnboardingNotificationsScreen extends ConsumerStatefulWidget {
 class _OnboardingNotificationsScreenState
     extends ConsumerState<OnboardingNotificationsScreen> {
   bool _loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ttsServiceProvider).speak("I'll remind you to practice so it becomes a habit!");
-    });
-  }
 
   Future<void> _onRemind() async {
     setState(() => _loading = true);

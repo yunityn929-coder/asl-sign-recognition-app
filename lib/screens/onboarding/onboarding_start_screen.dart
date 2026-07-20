@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../controllers/onboarding_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
-import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/speech_bubble.dart';
@@ -21,14 +20,6 @@ class OnboardingStartScreen extends ConsumerStatefulWidget {
 class _OnboardingStartScreenState extends ConsumerState<OnboardingStartScreen> {
   String? _selected; // 'scratch' | 'find_level'
   bool _loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ttsServiceProvider).speak('Where would you like to start?');
-    });
-  }
 
   Future<void> _onContinue() async {
     if (_selected == null) return;

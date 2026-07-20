@@ -15,6 +15,7 @@ class UserModel {
   final int totalXp;
   final bool ttsEnabled;
   final bool soundEnabled;
+  final bool calibrationEnabled;
   final bool isAnonymous;
   final String authProvider;
   final int streakGoalDays;
@@ -40,6 +41,7 @@ class UserModel {
     required this.totalXp,
     required this.ttsEnabled,
     required this.soundEnabled,
+    required this.calibrationEnabled,
     required this.isAnonymous,
     required this.authProvider,
     required this.streakGoalDays,
@@ -64,6 +66,7 @@ class UserModel {
     int? totalXp,
     bool? ttsEnabled,
     bool? soundEnabled,
+    bool? calibrationEnabled,
     bool? isAnonymous,
     String? authProvider,
     int? streakGoalDays,
@@ -89,6 +92,7 @@ class UserModel {
         totalXp: totalXp ?? this.totalXp,
         ttsEnabled: ttsEnabled ?? this.ttsEnabled,
         soundEnabled: soundEnabled ?? this.soundEnabled,
+        calibrationEnabled: calibrationEnabled ?? this.calibrationEnabled,
         isAnonymous: isAnonymous ?? this.isAnonymous,
         authProvider: authProvider ?? this.authProvider,
         streakGoalDays: streakGoalDays ?? this.streakGoalDays,
@@ -115,6 +119,7 @@ class UserModel {
         totalXp: (map['totalXp'] as num?)?.toInt() ?? 0,
         ttsEnabled: map['ttsEnabled'] as bool? ?? true,
         soundEnabled: map['soundEnabled'] as bool? ?? true,
+        calibrationEnabled: map['calibrationEnabled'] as bool? ?? true,
         isAnonymous: map['isAnonymous'] as bool? ?? true,
         authProvider: map['authProvider'] as String? ?? 'anonymous',
         streakGoalDays: (map['streakGoalDays'] as num?)?.toInt() ?? 7,
@@ -143,6 +148,7 @@ class UserModel {
         'totalXp': totalXp,
         'ttsEnabled': ttsEnabled,
         'soundEnabled': soundEnabled,
+        'calibrationEnabled': calibrationEnabled,
         'isAnonymous': isAnonymous,
         'authProvider': authProvider,
         'streakGoalDays': streakGoalDays,

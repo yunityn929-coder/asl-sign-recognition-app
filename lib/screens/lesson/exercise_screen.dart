@@ -1,17 +1,21 @@
 import 'dart:async';
 
 import 'package:camera/camera.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../controllers/recognition_controller.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/xp_constants.dart';
 import '../../data/lesson_definitions.dart';
 import '../../models/lesson_model.dart';
 import '../../models/recognition_result.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/lesson_provider.dart';
+import '../../providers/user_provider.dart';
+import '../../services/calibration_service.dart';
 import '../../services/feedback_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/quiz_service.dart';
@@ -33,7 +37,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   final Set<int> _correctIndices = {};
   final Map<String, int> _learnAttempts = {};
   bool _showHint = false;
-  bool _speakerOn = true;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   // Camera
   CameraController? _cameraController;
@@ -45,11 +49,28 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   final FeedbackService _feedbackService = FeedbackService();
   FeedbackResult _feedbackResult = FeedbackResult.initial;
   bool _autoAdvancing = false;
+  bool _finishing = false;
   StreamSubscription<RecognitionResult>? _resultSub;
+
+  bool get _ttsEnabled {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return true;
+    return ref.read(userProvider(uid)).value?.ttsEnabled ?? true;
+  }
+
+  bool get _soundEnabled {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return true;
+    return ref.read(userProvider(uid)).value?.soundEnabled ?? true;
+  }
 
   @override
   void initState() {
     super.initState();
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid != null) {
+      CalibrationService.instance.ensureLoaded(uid);
+    }
     _def = kLessons.firstWhere(
       (l) => l.id == widget.lessonId,
       orElse: () =>
@@ -73,6 +94,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     _resultSub?.cancel();
     _cameraController?.stopImageStream().catchError((_) {});
     _cameraController?.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -138,12 +160,19 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   // results stream the same way.
   void _onRecognitionResult(RecognitionResult result) {
     if (!mounted) return;
+    if (_autoAdvancing) return;
 
     final feedback = _feedbackService.evaluate(
       topLabel: result.topLabel,
       topConfidence: result.topConfidence,
       secondLabel: result.secondLabel,
+      secondConfidence: result.secondConfidence,
       targetLetter: _currentSign,
+      isTooDark: result.isTooDark,
+      isTooBright: result.isTooBright,
+      handTooClose: result.handTooClose,
+      handTooFar: result.handTooFar,
+      noHandTimeout: result.noHandTimeout,
     );
 
     setState(() {
@@ -153,17 +182,23 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     if (feedback.state == FeedbackState.correct && !_autoAdvancing) {
       _autoAdvancing = true;
       _correctIndices.add(_currentIndex);
-      Future.delayed(const Duration(milliseconds: 1000), () {
+      _learnAttempts[_currentSign] = (_learnAttempts[_currentSign] ?? 0) + 1;
+      _playCorrectSound();
+      Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) {
           _autoAdvancing = false;
           _advance();
         }
       });
     }
+  }
 
-    if (feedback.state == FeedbackState.correct) {
-      _learnAttempts[_currentSign] =
-          (_learnAttempts[_currentSign] ?? 0) + 1;
+  Future<void> _playCorrectSound() async {
+    if (!_soundEnabled) return;
+    try {
+      await _audioPlayer.play(AssetSource('audio/success.mp3'));
+    } catch (e) {
+      debugPrint('[ExerciseScreen] SFX error: $e');
     }
   }
 
@@ -175,7 +210,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   }
 
   void _speakCurrentSign() {
-    if (_speakerOn) {
+    if (_ttsEnabled) {
       ref.read(ttsServiceProvider).speak(_signName(_currentSign));
     }
   }
@@ -212,20 +247,103 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       _enterLearnMode();
       _saveProgress();
     } else {
-      final missed = [
-        for (int i = 0; i < _def.signs.length; i++)
-          if (!_correctIndices.contains(i)) _def.signs[i],
-      ];
-      context.pushReplacement(
-        '/lesson/${widget.lessonId}/results',
-        extra: {
-          'correctCount': _correctIndices.length,
-          'totalCount': _def.signs.length,
-          'missedSigns': missed,
-          'learnAttempts': _learnAttempts,
-        },
-      );
+      _finishLesson();
     }
+  }
+
+  Future<void> _finishLesson() async {
+    if (mounted) setState(() => _finishing = true);
+    await _resultSub?.cancel();
+    await _cameraController?.stopImageStream().catchError((_) {});
+    final missed = [
+      for (int i = 0; i < _def.signs.length; i++)
+        if (!_correctIndices.contains(i)) _def.signs[i],
+    ];
+    final correctCount = _correctIndices.length;
+    final totalCount = _def.signs.length;
+    final xpEarned = kXpLessonCompletion + (correctCount * kXpLearnCorrect);
+
+    final uid = ref.read(authStateProvider).value?.uid;
+    var streakJustExtended = false;
+    var questNewlyCompleted = false;
+
+    if (uid != null) {
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+
+      var wasStreakAlreadyUpdatedToday = true;
+      var beforeCompletedIds = <String>{};
+      try {
+        final beforeUser = await firestoreService.getUserOnce(uid);
+        wasStreakAlreadyUpdatedToday = beforeUser?.lastStreakDate == today;
+      } catch (_) {}
+      try {
+        final beforeQuests = await firestoreService.getDailyQuests(uid);
+        beforeCompletedIds = beforeQuests?.quests
+                .where((q) => q.completed)
+                .map((q) => q.id)
+                .toSet() ??
+            {};
+      } catch (_) {}
+
+      try {
+        await Future.wait([
+          ref.read(lessonActionsProvider(uid)).markLessonComplete(widget.lessonId),
+          ref.read(userActionsProvider(uid)).addXp(xpEarned),
+        ]);
+      } catch (_) {}
+      try {
+        await firestoreService.unlockPractice(uid, widget.lessonId);
+      } catch (_) {}
+      try {
+        await firestoreService.saveSignProgress(uid, widget.lessonId, 0);
+      } catch (_) {}
+      try {
+        final lesson = kLessons.firstWhere((l) => l.id == widget.lessonId);
+        final signAccuracy = await firestoreService.savePracticeResult(
+              uid: uid,
+              lessonId: widget.lessonId,
+              correctCount: correctCount,
+              totalCount: totalCount,
+              missedSigns: missed,
+              xpEarned: xpEarned,
+              lessonSigns: lesson.signs,
+              learnAttempts: _learnAttempts,
+            );
+        await firestoreService.updateSignAccuracy(uid: uid, newAccuracy: signAccuracy);
+      } catch (_) {}
+      try {
+        await Future.wait([
+          firestoreService.updateQuestProgress(uid, 'complete_lessons', 1),
+          firestoreService.updateQuestProgress(uid, 'earn_xp', xpEarned),
+        ]);
+      } catch (_) {}
+
+      try {
+        final afterUser = await firestoreService.getUserOnce(uid);
+        streakJustExtended =
+            !wasStreakAlreadyUpdatedToday && afterUser?.lastStreakDate == today;
+      } catch (_) {}
+      try {
+        final afterQuests = await firestoreService.getDailyQuests(uid);
+        questNewlyCompleted = afterQuests?.quests.any(
+                (q) => q.completed && !beforeCompletedIds.contains(q.id)) ??
+            false;
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    context.pushReplacement(
+      '/lesson/${widget.lessonId}/results',
+      extra: {
+        'correctCount': correctCount,
+        'totalCount': totalCount,
+        'missedSigns': missed,
+        'learnAttempts': _learnAttempts,
+        'streakJustExtended': streakJustExtended,
+        'questNewlyCompleted': questNewlyCompleted,
+      },
+    );
   }
 
   void _saveProgress() {
@@ -254,11 +372,25 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
           body: _buildLearnBody(),
         ),
         if (_showHint) _buildHintOverlay(),
+        if (_finishing)
+          const Positioned.fill(
+            child: ColoredBox(
+              color: Colors.white,
+              child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            ),
+          ),
       ],
     );
   }
 
   PreferredSizeWidget _buildAppBar() {
+    final uid = ref.read(authStateProvider).value?.uid;
+    final user = uid != null ? ref.watch(userProvider(uid)).value : null;
+    CalibrationService.instance.enabled = user?.calibrationEnabled ?? true;
+    final ttsEnabled = user?.ttsEnabled ?? true;
+    final soundEnabled = user?.soundEnabled ?? true;
+    final speakerOn = ttsEnabled && soundEnabled;
+
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -289,10 +421,10 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () => setState(() => _speakerOn = !_speakerOn),
+                onTap: uid == null ? null : () => _toggleSound(uid, speakerOn),
                 child: Icon(
-                  _speakerOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                  color: _speakerOn ? AppColors.primary : AppColors.textSecondary,
+                  speakerOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                  color: speakerOn ? AppColors.primary : AppColors.textSecondary,
                   size: 22,
                 ),
               ),
@@ -301,6 +433,14 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         ),
       ],
     );
+  }
+
+  void _toggleSound(String uid, bool currentlyOn) {
+    final next = !currentlyOn;
+    ref.read(userActionsProvider(uid)).updateSettings({
+      'ttsEnabled': next,
+      'soundEnabled': next,
+    });
   }
 
   Widget _buildLearnBody() {
@@ -358,17 +498,13 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       );
     }
     final previewSize = _cameraController!.value.previewSize!;
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(
-        // previewSize is landscape (width > height); swap for portrait display
-        width: previewSize.height,
-        height: previewSize.width,
-        child: Transform(
-          alignment: Alignment.center,
-          transform: _lensDirection == CameraLensDirection.front
-              ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
-              : Matrix4.identity(),
+    return ClipRect(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          // previewSize is landscape (width > height); swap for portrait display
+          width: previewSize.height,
+          height: previewSize.width,
           child: CameraPreview(_cameraController!),
         ),
       ),

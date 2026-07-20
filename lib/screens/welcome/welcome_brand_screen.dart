@@ -37,7 +37,7 @@ class WelcomeBrandScreen extends ConsumerWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Learn ASL. For free. Forever.',
+                      'Learn the language of silenece',
                       style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
                     ),
                   ],

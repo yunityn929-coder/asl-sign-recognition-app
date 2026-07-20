@@ -21,6 +21,15 @@ class RecognitionResult {
   // not used by production screens.
   final int latencyMs;
 
+  // Environment-condition signals, computed from the raw (pre-normalisation)
+  // frame in RecognitionControllerImpl.processFrame(). Only meaningful when
+  // handDetected is true, except noHandTimeout which only applies when it's false.
+  final bool isTooDark;
+  final bool isTooBright;
+  final bool handTooClose;
+  final bool handTooFar;
+  final bool noHandTimeout; // true once ~2s have elapsed since a hand was last seen
+
   const RecognitionResult({
     required this.label,
     required this.confidence,
@@ -32,9 +41,21 @@ class RecognitionResult {
     required this.secondConfidence,
     required this.isConfident,
     this.latencyMs = -1,
+    this.isTooDark = false,
+    this.isTooBright = false,
+    this.handTooClose = false,
+    this.handTooFar = false,
+    this.noHandTimeout = false,
   });
 
-  RecognitionResult copyWith({int? latencyMs}) {
+  RecognitionResult copyWith({
+    int? latencyMs,
+    bool? isTooDark,
+    bool? isTooBright,
+    bool? handTooClose,
+    bool? handTooFar,
+    bool? noHandTimeout,
+  }) {
     return RecognitionResult(
       label: label,
       confidence: confidence,
@@ -46,6 +67,11 @@ class RecognitionResult {
       secondConfidence: secondConfidence,
       isConfident: isConfident,
       latencyMs: latencyMs ?? this.latencyMs,
+      isTooDark: isTooDark ?? this.isTooDark,
+      isTooBright: isTooBright ?? this.isTooBright,
+      handTooClose: handTooClose ?? this.handTooClose,
+      handTooFar: handTooFar ?? this.handTooFar,
+      noHandTimeout: noHandTimeout ?? this.noHandTimeout,
     );
   }
 }

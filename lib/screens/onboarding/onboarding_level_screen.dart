@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../controllers/onboarding_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
-import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/progress_step_indicator.dart';
@@ -41,14 +40,6 @@ class OnboardingLevelScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingLevelScreenState extends ConsumerState<OnboardingLevelScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ttsServiceProvider).speak('How much ASL do you know?');
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(onboardingControllerProvider);

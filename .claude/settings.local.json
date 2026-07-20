@@ -108,7 +108,14 @@
       "PowerShell(& \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" shell ls -la /storage/emulated/0/Android/data/com.hiasl.app/files/)",
       "PowerShell(& \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" pull \"/storage/emulated/0/Android/data/com.hiasl.app/files/hiasl_recotest_session2_1784439501781.csv\" \"C:\\\\HiASL_BSE_FYP_2026\\\\test_data\")",
       "Bash(flutter pub *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(flutter devices *)",
+      "Bash(flutter install *)",
+      "Bash(flutter logs *)",
+      "Bash(git rm *)",
+      "Bash(adb devices *)",
+      "PowerShell($adb = Get-Command adb -ErrorAction SilentlyContinue; if \\($adb\\) { $adb.Source } else { $envPath = \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; if \\(Test-Path $envPath\\) { $envPath } else { \"not found\" } })",
+      "PowerShell(& \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices -l)"
     ]
   }
 }

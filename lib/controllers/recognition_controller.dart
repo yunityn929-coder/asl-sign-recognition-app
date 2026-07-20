@@ -145,6 +145,18 @@ List<double> _computeEngineeredFeatures(List<double> n) {
 }
 
 // ---------------------------------------------------------------------------
+// Environment-condition classification (lighting / hand distance)
+// ---------------------------------------------------------------------------
+
+class _EnvFlags {
+  final bool isTooDark;
+  final bool isTooBright;
+  final bool handTooClose;
+  final bool handTooFar;
+  const _EnvFlags(this.isTooDark, this.isTooBright, this.handTooClose, this.handTooFar);
+}
+
+// ---------------------------------------------------------------------------
 // Implementation
 // ---------------------------------------------------------------------------
 
@@ -160,6 +172,14 @@ class RecognitionControllerImpl implements RecognitionController {
   bool _active = false;
   bool _processing = false;
   int _lastFrameMs = 0;
+  DateTime? _lastHandSeenAt;
+
+  // Starting thresholds — tune after live testing.
+  static const int _kDarkLumaThreshold = 60;
+  static const int _kBrightLumaThreshold = 200;
+  static const double _kHandTooFarFraction = 0.15;
+  static const double _kHandTooCloseFraction = 0.75;
+  static const Duration _kNoHandTimeout = Duration(seconds: 2);
 
   @override
   Stream<RecognitionResult> get results => _streamController.stream;
@@ -262,6 +282,8 @@ class RecognitionControllerImpl implements RecognitionController {
       });
 
       if (raw == null) {
+        final timedOut = _lastHandSeenAt == null ||
+            DateTime.now().difference(_lastHandSeenAt!) >= _kNoHandTimeout;
         _emit(RecognitionResult(
           label: '',
           confidence: 0,
@@ -273,12 +295,16 @@ class RecognitionControllerImpl implements RecognitionController {
           secondConfidence: 0,
           isConfident: false,
           latencyMs: stopwatch.elapsedMilliseconds,
+          noHandTimeout: timedOut,
         ));
         return;
       }
 
+      _lastHandSeenAt = DateTime.now();
+
       final landmarksRaw = (raw['landmarks'] as List).cast<double>();
       final handedness = raw['handedness'] as String?;
+      final envFlags = _classifyEnvironment(image, landmarksRaw);
       final normalised = _normalise(landmarksRaw);
       if (handedness == 'Left') {
         for (var i = 0; i < normalised.length; i += 3) {
@@ -286,7 +312,13 @@ class RecognitionControllerImpl implements RecognitionController {
         }
       }
       final result = _infer(normalised);
-      _emit(result.copyWith(latencyMs: stopwatch.elapsedMilliseconds));
+      _emit(result.copyWith(
+        latencyMs: stopwatch.elapsedMilliseconds,
+        isTooDark: envFlags.isTooDark,
+        isTooBright: envFlags.isTooBright,
+        handTooClose: envFlags.handTooClose,
+        handTooFar: envFlags.handTooFar,
+      ));
     } catch (e) {
       debugPrint('[Recognition] processFrame error: $e');
       if (!_streamController.isClosed) {
@@ -352,6 +384,38 @@ class RecognitionControllerImpl implements RecognitionController {
     }
   }
 
+  _EnvFlags _classifyEnvironment(CameraImage image, List<double> landmarksRaw) {
+    // Sample the luma plane at a stride for perf at 10fps.
+    final yBytes = image.planes[0].bytes;
+    var sum = 0;
+    var count = 0;
+    for (var i = 0; i < yBytes.length; i += 20) {
+      sum += yBytes[i];
+      count++;
+    }
+    final meanLuma = count == 0 ? 128 : sum / count;
+    final isTooDark = meanLuma < _kDarkLumaThreshold;
+    final isTooBright = meanLuma > _kBrightLumaThreshold;
+
+    // x,y at indices i, i+1 for each of 21 landmarks (raw, pre-normalise —
+    // already normalised [0,1] fractions of image width/height).
+    double minX = 1, maxX = 0, minY = 1, maxY = 0;
+    for (var i = 0; i < landmarksRaw.length; i += 3) {
+      final x = landmarksRaw[i];
+      final y = landmarksRaw[i + 1];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    final bboxFraction =
+        (maxX - minX) > (maxY - minY) ? (maxX - minX) : (maxY - minY);
+    final handTooFar = bboxFraction < _kHandTooFarFraction;
+    final handTooClose = bboxFraction > _kHandTooCloseFraction;
+
+    return _EnvFlags(isTooDark, isTooBright, handTooClose, handTooFar);
+  }
+
   // Centre on wrist (landmark 0) then scale by the Euclidean norm of
   // (centred) landmark 9 — matches the training-time normalisation.
   List<double> _normalise(List<double> raw) {
@@ -392,7 +456,8 @@ class RecognitionControllerImpl implements RecognitionController {
     print('[DIAG] Raw output:   ${output[0]}');
 
     final probs = List<double>.from(output[0]);
-    if (CalibrationService.instance.hasAnyCalibration) {
+    debugPrint('[CALIB DIAG] hasAnyCalibration=${CalibrationService.instance.hasAnyCalibration} enabled=${CalibrationService.instance.enabled} samplesFor(topGuess)=${CalibrationService.instance.samplesFor(kSignLabels[probs.indexOf(probs.reduce((a, b) => a > b ? a : b))]).length}');
+    if (CalibrationService.instance.hasAnyCalibration && CalibrationService.instance.enabled) {
       double sumProbs = 0;
       for (var i = 0; i < probs.length; i++) {
         final calibSamples = CalibrationService.instance.samplesFor(kSignLabels[i]);

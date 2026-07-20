@@ -49,7 +49,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (!mounted) return;
       final onboardingComplete = userModel?.onboardingComplete ?? false;
       context.go(onboardingComplete ? kRouteHome : kRouteWelcomeBrand);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[SplashScreen] user doc init/read error: $e');
       if (!mounted) return;
       context.go(kRouteWelcomeBrand);
     }

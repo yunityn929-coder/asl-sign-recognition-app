@@ -3,27 +3,23 @@ class DailyQuestModel {
   final String generatedAt;
   final List<QuestModel> quests;
   final int totalQuestsCompleted;
-  final int bonusXpAwarded;
 
   const DailyQuestModel({
     required this.date,
     required this.generatedAt,
     required this.quests,
     required this.totalQuestsCompleted,
-    required this.bonusXpAwarded,
   });
 
   DailyQuestModel copyWith({
     List<QuestModel>? quests,
     int? totalQuestsCompleted,
-    int? bonusXpAwarded,
   }) =>
       DailyQuestModel(
         date: date,
         generatedAt: generatedAt,
         quests: quests ?? this.quests,
         totalQuestsCompleted: totalQuestsCompleted ?? this.totalQuestsCompleted,
-        bonusXpAwarded: bonusXpAwarded ?? this.bonusXpAwarded,
       );
 
   factory DailyQuestModel.fromMap(Map<String, dynamic> map) => DailyQuestModel(
@@ -33,7 +29,6 @@ class DailyQuestModel {
             .map((e) => QuestModel.fromMap(e as Map<String, dynamic>))
             .toList(),
         totalQuestsCompleted: (map['totalQuestsCompleted'] as num?)?.toInt() ?? 0,
-        bonusXpAwarded: (map['bonusXpAwarded'] as num?)?.toInt() ?? 0,
       );
 
   Map<String, dynamic> toMap() => {
@@ -41,7 +36,6 @@ class DailyQuestModel {
         'generatedAt': generatedAt,
         'quests': quests.map((e) => e.toMap()).toList(),
         'totalQuestsCompleted': totalQuestsCompleted,
-        'bonusXpAwarded': bonusXpAwarded,
       };
 }
 

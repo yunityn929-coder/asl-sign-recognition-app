@@ -4,12 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
-import '../../services/tts_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/speech_bubble.dart';
-
-const _kSpeech = 'Just 4 quick questions before we start your first lesson!';
 
 // S-04 — Welcome: Questions Preview
 class WelcomePreviewScreen extends ConsumerStatefulWidget {
@@ -20,14 +17,6 @@ class WelcomePreviewScreen extends ConsumerStatefulWidget {
 }
 
 class _WelcomePreviewScreenState extends ConsumerState<WelcomePreviewScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ttsServiceProvider).speak(_kSpeech);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

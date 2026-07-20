@@ -126,7 +126,6 @@ class _PathBodyState extends State<PathBody> {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
-    final List<Offset> allPositions = [];
     final List<_NodeData> allNodes  = [];
     double currentY = _contentTopPad;
 
@@ -137,10 +136,11 @@ class _PathBodyState extends State<PathBody> {
       for (int i = 0; i < defs.length; i++) {
         final cx = _xForIndex(i, width) + 50;
         final cy = currentY + i * _nodeSpacing + _nodeRadius;
-        allPositions.add(Offset(cx, cy));
+        final model = _modelFor(defs[i].id, section.number);
+        debugPrint('[LESSON DIAG] id=${model.lessonId} status=${model.status}');
         allNodes.add(_NodeData(
           def: defs[i],
-          model: _modelFor(defs[i].id, section.number),
+          model: model,
           centre: Offset(cx, cy),
         ));
       }
@@ -156,14 +156,7 @@ class _PathBodyState extends State<PathBody> {
         width: width,
         height: totalH,
         child: Stack(
-          children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _DashedPathPainter(positions: allPositions),
-              ),
-            ),
-            ..._buildSectionWidgets(allNodes),
-          ],
+          children: _buildSectionWidgets(allNodes),
         ),
       ),
     );
@@ -220,41 +213,4 @@ class _NodeData {
   final LessonModel model;
   final Offset centre;
   const _NodeData({required this.def, required this.model, required this.centre});
-}
-
-class _DashedPathPainter extends CustomPainter {
-  final List<Offset> positions;
-  const _DashedPathPainter({required this.positions});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (positions.length < 2) return;
-
-    final paint = Paint()
-      ..color = const Color(0xFF999999)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
-    final path = Path()..moveTo(positions[0].dx, positions[0].dy + 22);
-    for (int i = 0; i < positions.length - 1; i++) {
-      final a = positions[i];
-      final b = positions[i + 1];
-      path.cubicTo(a.dx, a.dy + 55, b.dx, b.dy - 55, b.dx, b.dy);
-    }
-
-    const dashLen = 6.0;
-    const gapLen  = 8.0;
-
-    for (final metric in path.computeMetrics()) {
-      double dist = 0;
-      while (dist < metric.length) {
-        final end = math.min(dist + dashLen, metric.length);
-        canvas.drawPath(metric.extractPath(dist, end), paint);
-        dist += dashLen + gapLen;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedPathPainter old) => old.positions != positions;
 }

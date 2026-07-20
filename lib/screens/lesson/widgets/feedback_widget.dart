@@ -96,6 +96,36 @@ class FeedbackWidget extends StatelessWidget {
           foreground: Colors.white,
           icon: Icons.back_hand_outlined,
         );
+      case FeedbackState.noHandTimeout:
+        return const _FeedbackStyle(
+          background: Color(0xCC4A4A4A),
+          foreground: Colors.white,
+          icon: Icons.pan_tool_outlined,
+        );
+      case FeedbackState.tooDark:
+        return const _FeedbackStyle(
+          background: AppColors.warning,
+          foreground: Color(0xFF5A3A00),
+          icon: Icons.brightness_low_rounded,
+        );
+      case FeedbackState.tooBright:
+        return const _FeedbackStyle(
+          background: AppColors.warning,
+          foreground: Color(0xFF5A3A00),
+          icon: Icons.brightness_high_rounded,
+        );
+      case FeedbackState.tooFar:
+        return const _FeedbackStyle(
+          background: AppColors.warning,
+          foreground: Color(0xFF5A3A00),
+          icon: Icons.zoom_in_rounded,
+        );
+      case FeedbackState.tooClose:
+        return const _FeedbackStyle(
+          background: AppColors.warning,
+          foreground: Color(0xFF5A3A00),
+          icon: Icons.zoom_out_rounded,
+        );
     }
   }
 }
