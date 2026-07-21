@@ -32,7 +32,7 @@ class _SocialSignInScreenState extends ConsumerState<SocialSignInScreen> {
         final user = await ref
             .read(authServiceProvider)
             .linkWithGoogle()
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 60));
 
         if (user == null) return; // user dismissed picker
 
@@ -54,7 +54,7 @@ class _SocialSignInScreenState extends ConsumerState<SocialSignInScreen> {
         final result = await ref
             .read(authServiceProvider)
             .signInWithGoogle()
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 60));
 
         if (result.user == null) return; // user dismissed picker
 
@@ -78,7 +78,8 @@ class _SocialSignInScreenState extends ConsumerState<SocialSignInScreen> {
         }
       }
     } on TimeoutException {
-      setState(() => _error = 'Sign-in timed out. Please try again.');
+      setState(() => _error =
+          'This is taking longer than expected. If it doesn\'t complete, check your profile before trying again.');
     } on FirebaseAuthException catch (e) {
       if (e.code == 'credential-already-in-use') {
         setState(() => _error =

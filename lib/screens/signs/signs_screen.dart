@@ -146,49 +146,7 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
         return _SignCard(
           sign: sign,
           accuracy: accuracy,
-          onTap: () => _showSignDetails(context, sign),
-        );
-      },
-    );
-  }
-
-  void _showSignDetails(BuildContext context, String sign) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              kAvailableSigns.contains(sign)
-                  ? Image.asset(
-                      '$kSignImagePath$sign.png',
-                      height: 160,
-                      fit: BoxFit.contain,
-                    )
-                  : Container(
-                      width: 96,
-                      height: 96,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.backgroundAccent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(sign,
-                          style: const TextStyle(
-                              fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                    ),
-              const SizedBox(height: 16),
-              Text('Sign $sign',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-            ],
-          ),
+          onTap: () {},
         );
       },
     );

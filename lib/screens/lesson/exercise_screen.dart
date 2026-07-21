@@ -392,10 +392,9 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
             {};
       } catch (_) {}
 
-      // All independent writes run in parallel with an overall timeout cap —
-      // markLessonComplete/addXp touch separate Firestore docs (lessons
-      // subcollection vs. the user doc) so there's no ordering dependency
-      // between them.
+      // All independent writes run in parallel — markLessonComplete/addXp
+      // touch separate Firestore docs (lessons subcollection vs. the user
+      // doc) so there's no ordering dependency between them.
       await Future.wait([
         ref.read(lessonActionsProvider(uid)).markLessonComplete(widget.lessonId),
         ref.read(userActionsProvider(uid)).addXp(xpEarned),
@@ -404,10 +403,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         _savePracticeAndAccuracy(uid, correctCount, totalCount, missed, xpEarned),
         firestoreService.updateQuestProgress(uid, 'complete_lessons', 1),
         firestoreService.updateQuestProgress(uid, 'earn_xp', xpEarned),
-      ]).timeout(
-        const Duration(milliseconds: 800),
-        onTimeout: () => <void>[],
-      ).catchError((_) => <void>[]);
+      ]).catchError((_) => <void>[]);
 
       try {
         final afterUser = await firestoreService.getUserOnce(uid);

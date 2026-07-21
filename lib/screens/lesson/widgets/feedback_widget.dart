@@ -42,9 +42,11 @@ class FeedbackWidget extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(style.icon,
-                    size: isCorrect ? 22 : 18, color: style.foreground),
-                const SizedBox(width: 8),
+                if (style.icon != null) ...[
+                  Icon(style.icon,
+                      size: isCorrect ? 22 : 18, color: style.foreground),
+                  const SizedBox(width: 8),
+                ],
                 Flexible(
                   child: Text(
                     message,
@@ -76,7 +78,7 @@ class FeedbackWidget extends StatelessWidget {
         return const _FeedbackStyle(
           background: Color(0xFFFFD166),
           foreground: Color(0xFF6B4E00),
-          icon: Icons.hourglass_top_rounded,
+          icon: null,
         );
       case FeedbackState.correct:
         return const _FeedbackStyle(
@@ -88,7 +90,7 @@ class FeedbackWidget extends StatelessWidget {
         return const _FeedbackStyle(
           background: AppColors.warning,
           foreground: Color(0xFF5A3A00),
-          icon: Icons.info_rounded,
+          icon: null,
         );
       case FeedbackState.wrongUnclear:
         return const _FeedbackStyle(
@@ -106,25 +108,25 @@ class FeedbackWidget extends StatelessWidget {
         return const _FeedbackStyle(
           background: AppColors.warning,
           foreground: Color(0xFF5A3A00),
-          icon: Icons.brightness_low_rounded,
+          icon: null,
         );
       case FeedbackState.tooBright:
         return const _FeedbackStyle(
           background: AppColors.warning,
           foreground: Color(0xFF5A3A00),
-          icon: Icons.brightness_high_rounded,
+          icon: null,
         );
       case FeedbackState.tooFar:
         return const _FeedbackStyle(
           background: AppColors.warning,
           foreground: Color(0xFF5A3A00),
-          icon: Icons.zoom_in_rounded,
+          icon: null,
         );
       case FeedbackState.tooClose:
         return const _FeedbackStyle(
           background: AppColors.warning,
           foreground: Color(0xFF5A3A00),
-          icon: Icons.zoom_out_rounded,
+          icon: null,
         );
     }
   }
@@ -133,7 +135,7 @@ class FeedbackWidget extends StatelessWidget {
 class _FeedbackStyle {
   final Color background;
   final Color foreground;
-  final IconData icon;
+  final IconData? icon;
 
   const _FeedbackStyle({
     required this.background,

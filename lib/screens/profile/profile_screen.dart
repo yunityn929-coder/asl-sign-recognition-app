@@ -91,9 +91,10 @@ class _ProfileContent extends ConsumerWidget {
             child: Text(
               'Your Progress',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.7,
+                color: AppColors.textSecondary,
               ),
             ),
           ),

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 
-final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
+final userProvider = StreamProvider.family.autoDispose<UserModel?, String>((ref, uid) {
   return ref.watch(firestoreServiceProvider).watchUser(uid);
 });
 
@@ -18,6 +18,6 @@ class UserActions {
       _service.updateUser(_uid, fields);
 }
 
-final userActionsProvider = Provider.family<UserActions, String>(
+final userActionsProvider = Provider.family.autoDispose<UserActions, String>(
   (ref, uid) => UserActions(ref.read(firestoreServiceProvider), uid),
 );

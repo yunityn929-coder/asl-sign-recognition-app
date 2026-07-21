@@ -51,16 +51,6 @@ class AuthService {
         return result.user;
       }
     } on FirebaseAuthException catch (e) {
-      // The Google account is already tied to a different Firebase UID.
-      // Fall through to sign in with that existing account.
-      if (e.code == 'credential-already-in-use' && e.credential != null) {
-        try {
-          final result = await _auth.signInWithCredential(e.credential!);
-          return result.user;
-        } on FirebaseAuthException catch (inner) {
-          throw AuthException(_friendly(inner.code));
-        }
-      }
       throw AuthException(_friendly(e.code));
     }
   }
@@ -95,6 +85,8 @@ class AuthService {
     switch (code) {
       case 'account-exists-with-different-credential':
         return 'This Google account is linked to a different sign-in method.';
+      case 'credential-already-in-use':
+        return 'This Google account is already linked to another profile.';
       case 'network-request-failed':
         return 'No internet connection. Please try again.';
       case 'sign_in_failed':

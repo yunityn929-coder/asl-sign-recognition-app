@@ -372,11 +372,8 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
           if (!_correctSigns.contains(sign)) sign,
       ];
       // savePracticeResult must run first (updateSignAccuracy depends on its
-      // return value); the rest are independent writes run in parallel, all
-      // capped by an overall timeout so a slow network can't stall this screen.
-      await _saveResultAndAccuracy(uid, missedSigns, xp)
-          .timeout(const Duration(milliseconds: 800), onTimeout: () {})
-          .catchError((_) {});
+      // return value); the rest are independent writes run in parallel.
+      await _saveResultAndAccuracy(uid, missedSigns, xp).catchError((_) {});
 
       try {
         final afterUser = await firestoreService.getUserOnce(uid);

@@ -4,11 +4,11 @@ import '../models/daily_quest_model.dart';
 import '../services/firestore_service.dart';
 
 final dailyQuestProvider =
-    FutureProvider.family<DailyQuestModel?, String>((ref, uid) {
+    FutureProvider.family.autoDispose<DailyQuestModel?, String>((ref, uid) {
   return ref.watch(firestoreServiceProvider).getDailyQuests(uid);
 });
 
 final questStreamProvider =
-    StreamProvider.family<DailyQuestModel?, String>((ref, uid) {
+    StreamProvider.family.autoDispose<DailyQuestModel?, String>((ref, uid) {
   return ref.watch(firestoreServiceProvider).watchDailyQuests(uid);
 });

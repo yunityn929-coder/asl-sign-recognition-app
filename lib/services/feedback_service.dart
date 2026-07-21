@@ -113,7 +113,7 @@ class FeedbackService {
       next = topConfidence >= _highConfidence
           ? FeedbackResult(
               FeedbackState.correct,
-              "✓ Perfect! That's $targetLetter!",
+              "Perfect! That's $targetLetter!",
             )
           : const FeedbackResult(
               FeedbackState.correctHeld,
@@ -122,7 +122,7 @@ class FeedbackService {
     } else if (secondLabel == targetLetter && secondConfidence >= _secondPlaceFloor) {
       next = FeedbackResult(
         FeedbackState.correct,
-        "✓ That's $targetLetter!",
+        "That's $targetLetter!",
       );
     } else if (topConfidence < _lowConfidence) {
       next = const FeedbackResult(
@@ -173,9 +173,9 @@ class FeedbackService {
       case 'bright':
         return const FeedbackResult(FeedbackState.tooBright, 'Too bright, reduce glare');
       case 'close':
-        return const FeedbackResult(FeedbackState.tooClose, 'Move your hand a bit farther from the camera');
+        return const FeedbackResult(FeedbackState.tooClose, 'Move your hand a bit farther');
       case 'far':
-        return const FeedbackResult(FeedbackState.tooFar, 'Move your hand closer to the camera');
+        return const FeedbackResult(FeedbackState.tooFar, 'Move your hand closer');
       default:
         return null;
     }
