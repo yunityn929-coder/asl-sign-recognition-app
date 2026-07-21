@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -38,6 +39,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       uid = user.uid;
     } catch (_) {
       if (!mounted) return;
+      FlutterNativeSplash.remove();
       context.go(kRouteWelcomeBrand);
       return;
     }
@@ -48,10 +50,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       final userModel = await firestoreService.getUserOnce(uid);
       if (!mounted) return;
       final onboardingComplete = userModel?.onboardingComplete ?? false;
+      FlutterNativeSplash.remove();
       context.go(onboardingComplete ? kRouteHome : kRouteWelcomeBrand);
     } catch (e) {
       debugPrint('[SplashScreen] user doc init/read error: $e');
       if (!mounted) return;
+      FlutterNativeSplash.remove();
       context.go(kRouteWelcomeBrand);
     }
   }

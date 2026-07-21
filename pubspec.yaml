@@ -40,6 +40,9 @@ dependencies:
   # Testing / diagnostics (debug-only screen, not user-facing)
   path_provider: ^2.1.0
 
+  # Native splash screen handoff
+  flutter_native_splash: ^2.4.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -63,3 +66,10 @@ flutter_launcher_icons:
   adaptive_icon_background: "assets/icon/app_icon_background.png"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
   min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  color_dark: "#FFFFFF"
+  android_12:
+    color: "#FFFFFF"
+    color_dark: "#FFFFFF"
