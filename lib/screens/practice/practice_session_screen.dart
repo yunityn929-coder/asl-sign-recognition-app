@@ -17,6 +17,7 @@ import '../../models/recognition_result.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/calibration_service.dart';
+import '../../services/camera_gate.dart';
 import '../../services/feedback_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/lesson_question_generator.dart';
@@ -44,6 +45,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   bool _cameraInitialized = false;
   final CameraLensDirection _lensDirection = CameraLensDirection.front;
   int _rotationDegrees = 0;
+  Completer<void>? _releaseCompleter;
   StreamSubscription<RecognitionResult>? _resultSub;
   late final LessonDefinition _def;
   late List<LessonQuestion> _questions;
@@ -114,10 +116,28 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   void dispose() {
     _resultSub?.cancel();
     _countdownTimer?.cancel();
-    _cameraController?.stopImageStream().catchError((_) {});
-    _cameraController?.dispose();
+    // Chains completion onto the real async teardown (rather than firing
+    // stopImageStream/dispose and forgetting about them) so the shared
+    // CameraGate never unblocks the next screen's camera-open before this
+    // screen's camera hardware is actually closed.
+    final controller = _cameraController;
+    _cameraController = null;
+    if (controller != null) {
+      controller.stopImageStream().catchError((_) {}).whenComplete(() {
+        controller.dispose().catchError((_) {}).whenComplete(_completeRelease);
+      });
+    } else {
+      _completeRelease();
+    }
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  // Guards against completing an already-completed Completer, which throws.
+  void _completeRelease() {
+    if (_releaseCompleter != null && !_releaseCompleter!.isCompleted) {
+      _releaseCompleter!.complete();
+    }
   }
 
   Future<void> _maybePromptForName() async {
@@ -137,6 +157,15 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   }
 
   Future<void> _initCamera() async {
+    final previous = CameraGate.chain;
+    _releaseCompleter = Completer<void>();
+    CameraGate.chain = _releaseCompleter!.future;
+    await previous; // wait for any prior screen to fully release the camera first
+    if (!mounted) {
+      _completeRelease();
+      return;
+    }
+
     try {
       final cameras = await availableCameras();
       final selected = cameras.firstWhere(
@@ -152,7 +181,8 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       );
       await controller.initialize();
       if (!mounted) {
-        controller.dispose();
+        await controller.dispose();
+        _completeRelease();
         return;
       }
       _cameraController = controller;
@@ -160,6 +190,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       setState(() => _cameraInitialized = true);
     } catch (e) {
       debugPrint('[PracticeSessionScreen] camera init error: $e');
+      _completeRelease();
     }
   }
 
@@ -281,6 +312,29 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     );
   }
 
+  Future<void> _saveResultAndAccuracy(
+    String uid,
+    List<String> missedSigns,
+    int xp,
+  ) async {
+    final firestoreService = ref.read(firestoreServiceProvider);
+    final signAccuracy = await firestoreService.savePracticeResult(
+          uid: uid,
+          lessonId: widget.lessonId,
+          correctCount: _correctCount,
+          totalCount: _questions.length,
+          missedSigns: missedSigns,
+          xpEarned: xp,
+          lessonSigns: _def.signs,
+          sessionType: 'practice',
+        );
+    await Future.wait([
+      firestoreService.updateSignAccuracy(uid: uid, newAccuracy: signAccuracy),
+      ref.read(userActionsProvider(uid)).addXp(xp),
+      firestoreService.updateQuestProgress(uid, 'earn_xp', xp),
+    ]);
+  }
+
   Future<void> _finishSession() async {
     _autoAdvancing = false;
     if (mounted) setState(() => _finishing = true);
@@ -313,27 +367,16 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
             {};
       } catch (_) {}
 
-      try {
-        final missedSigns = [
-          for (final sign in _def.signs)
-            if (!_correctSigns.contains(sign)) sign,
-        ];
-        final signAccuracy = await firestoreService.savePracticeResult(
-              uid: uid,
-              lessonId: widget.lessonId,
-              correctCount: _correctCount,
-              totalCount: _questions.length,
-              missedSigns: missedSigns,
-              xpEarned: xp,
-              lessonSigns: _def.signs,
-              sessionType: 'practice',
-            );
-        await Future.wait([
-          firestoreService.updateSignAccuracy(uid: uid, newAccuracy: signAccuracy),
-          ref.read(userActionsProvider(uid)).addXp(xp),
-          firestoreService.updateQuestProgress(uid, 'earn_xp', xp),
-        ]);
-      } catch (_) {}
+      final missedSigns = [
+        for (final sign in _def.signs)
+          if (!_correctSigns.contains(sign)) sign,
+      ];
+      // savePracticeResult must run first (updateSignAccuracy depends on its
+      // return value); the rest are independent writes run in parallel, all
+      // capped by an overall timeout so a slow network can't stall this screen.
+      await _saveResultAndAccuracy(uid, missedSigns, xp)
+          .timeout(const Duration(milliseconds: 800), onTimeout: () {})
+          .catchError((_) {});
 
       try {
         final afterUser = await firestoreService.getUserOnce(uid);

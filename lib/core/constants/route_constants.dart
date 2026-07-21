@@ -1,8 +1,8 @@
 // Route path constants — used in GoRouter path: and context.go()
 const String kRouteSplash                      = '/';
 const String kRouteWelcomeBrand                = '/welcome/brand';
-const String kRouteWelcomeIntro                = '/welcome/intro';
 const String kRouteWelcomePreview              = '/welcome/preview';
+const String kRouteOnboardingReason            = '/onboarding/reason';
 const String kRouteOnboardingLevel             = '/onboarding/level';
 const String kRouteOnboardingGoal              = '/onboarding/goal';
 const String kRouteOnboardingNotifications     = '/onboarding/notifications';
@@ -33,12 +33,13 @@ const String kRouteQuizResult                  = '/quiz/result';
 const String kRouteDebugRecognitionTest        = '/debug/recognition-test';
 const String kRouteCalibration                 = '/settings/calibration';
 const String kRouteCalibrationSettings         = '/settings/calibration-settings';
+const String kRouteReminderSettings            = '/settings/reminder';
 
 // Named route identifiers — used in GoRouter name: and context.goNamed()
 const String kRouteNameSplash                      = 'splash';
 const String kRouteNameWelcomeBrand                = 'welcome-brand';
-const String kRouteNameWelcomeIntro                = 'welcome-intro';
 const String kRouteNameWelcomePreview              = 'welcome-preview';
+const String kRouteNameOnboardingReason            = 'onboarding-reason';
 const String kRouteNameOnboardingLevel             = 'onboarding-level';
 const String kRouteNameOnboardingGoal              = 'onboarding-goal';
 const String kRouteNameOnboardingNotifications     = 'onboarding-notifications';
@@ -69,3 +70,4 @@ const String kRouteNameQuizResult                  = 'quiz-result';
 const String kRouteNameDebugRecognitionTest        = 'debug-recognition-test';
 const String kRouteNameCalibration                 = 'calibration';
 const String kRouteNameCalibrationSettings         = 'calibration-settings';
+const String kRouteNameReminderSettings            = 'reminder-settings';

@@ -24,6 +24,7 @@ import '../../core/constants/route_constants.dart';
 import '../../data/sign_label_map.dart';
 import '../../models/recognition_result.dart';
 import '../../services/calibration_service.dart';
+import '../../services/camera_gate.dart';
 import '../../services/test_logger_service.dart';
 
 class RecognitionTestScreen extends ConsumerStatefulWidget {
@@ -39,6 +40,7 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
   CameraLensDirection _lensDirection = CameraLensDirection.front;
   bool _cameraInitialized = false;
   int _rotationDegrees = 0;
+  Completer<void>? _releaseCompleter;
 
   StreamSubscription<RecognitionResult>? _resultSub;
   RecognitionResult? _lastResult;
@@ -62,14 +64,41 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
   @override
   void dispose() {
     _resultSub?.cancel();
-    _cameraController?.stopImageStream().catchError((_) {});
-    _cameraController?.dispose();
+    // Chains completion onto the real async teardown (rather than firing
+    // stopImageStream/dispose and forgetting about them) so the shared
+    // CameraGate never unblocks the next screen's camera-open before this
+    // screen's camera hardware is actually closed.
+    final controller = _cameraController;
+    _cameraController = null;
+    if (controller != null) {
+      controller.stopImageStream().catchError((_) {}).whenComplete(() {
+        controller.dispose().catchError((_) {}).whenComplete(_completeRelease);
+      });
+    } else {
+      _completeRelease();
+    }
     // Don't wipe an unexported session's buffer on accidental navigation —
     // only endSession() explicitly (via the Stop button) clears it.
     super.dispose();
   }
 
+  // Guards against completing an already-completed Completer, which throws.
+  void _completeRelease() {
+    if (_releaseCompleter != null && !_releaseCompleter!.isCompleted) {
+      _releaseCompleter!.complete();
+    }
+  }
+
   Future<void> _initCamera() async {
+    final previous = CameraGate.chain;
+    _releaseCompleter = Completer<void>();
+    CameraGate.chain = _releaseCompleter!.future;
+    await previous; // wait for any prior screen (or this one's own last close) first
+    if (!mounted) {
+      _completeRelease();
+      return;
+    }
+
     try {
       final cameras = await availableCameras();
       final selected = cameras.firstWhere(
@@ -85,7 +114,8 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
       );
       await controller.initialize();
       if (!mounted) {
-        controller.dispose();
+        await controller.dispose();
+        _completeRelease();
         return;
       }
       _cameraController = controller;
@@ -93,6 +123,7 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
       setState(() => _cameraInitialized = true);
     } catch (e) {
       debugPrint('[RecognitionTestScreen] camera init error: $e');
+      _completeRelease();
     }
   }
 
@@ -106,6 +137,7 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
     } catch (_) {}
     await _cameraController?.dispose();
     _cameraController = null;
+    _completeRelease(); // release the current gate slot before re-acquiring
     await _initCamera();
   }
 
@@ -189,6 +221,7 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
               } catch (_) {}
               await _cameraController?.dispose();
               _cameraController = null;
+              _completeRelease(); // release the gate slot before CalibrationScreen acquires it
               if (!mounted) return;
               setState(() => _cameraInitialized = false);
               if (!mounted) return;

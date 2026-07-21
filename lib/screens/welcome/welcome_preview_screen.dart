@@ -27,7 +27,7 @@ class _WelcomePreviewScreenState extends ConsumerState<WelcomePreviewScreen> {
         foregroundColor: AppColors.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(kRouteWelcomeIntro),
+          onPressed: () => context.go(kRouteWelcomeBrand),
         ),
       ),
       body: SafeArea(
@@ -37,12 +37,15 @@ class _WelcomePreviewScreenState extends ConsumerState<WelcomePreviewScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  MascotImage(assetName: 'mascot_excited', size: 180),
-                  SizedBox(height: 24),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 40),
-                    child: SpeechBubble(text: 'Just 4 quick questions before we start!'),
+                    child: SpeechBubble(
+                      text: 'Just 4 quick questions before we start!',
+                      showTail: true,
+                    ),
                   ),
+                  SizedBox(height: 24),
+                  MascotImage(assetName: 'owl_reading', size: 220),
                 ],
               ),
             ),
@@ -50,7 +53,7 @@ class _WelcomePreviewScreenState extends ConsumerState<WelcomePreviewScreen> {
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: AppButton(
                 label: 'CONTINUE',
-                onPressed: () => context.go(kRouteOnboardingLevel),
+                onPressed: () => context.go(kRouteOnboardingReason),
               ),
             ),
           ],

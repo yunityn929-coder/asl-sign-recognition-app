@@ -106,6 +106,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       color: AppColors.textSecondary),
                   onTap: () => context.push(kRouteCalibrationSettings),
                 ),
+                ListTile(
+                  title: const Text(
+                    'Practice Reminder',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
+                  trailing: const Icon(Icons.chevron_right,
+                      color: AppColors.textSecondary),
+                  onTap: () => context.push(kRouteReminderSettings),
+                ),
               ],
             ),
             const SizedBox(height: 20),

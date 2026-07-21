@@ -10,27 +10,27 @@ import '../../widgets/mascot_image.dart';
 import '../../widgets/progress_step_indicator.dart';
 import '../../widgets/speech_bubble.dart';
 
-const _kGoals = [
-  (5,  'Casual'),
-  (10, 'Regular'),
-  (15, 'Serious'),
-  (20, 'Intense'),
+const _kReasons = [
+  ('family', 'Signing with family', Icons.favorite_rounded, Color(0xFFEF5DA8)),
+  ('work', 'Signing at work', Icons.work_rounded, Color(0xFFFF9F45)),
+  ('education', 'Supporting my education', Icons.school_rounded, Color(0xFF2EC4B6)),
+  ('deaf', "I'm Deaf myself", Icons.front_hand_rounded, Color(0xFF4CC9F0)),
+  ('people', 'Connecting with people', Icons.people_alt_rounded, Color(0xFF4361EE)),
+  ('fun', 'For fun!', Icons.auto_awesome_rounded, Color(0xFFFF6B6B)),
 ];
 
-// S-06 — Onboarding Q2: Daily Goal
-class OnboardingGoalScreen extends ConsumerStatefulWidget {
-  const OnboardingGoalScreen({super.key});
+// Onboarding: Reason for learning ASL
+class OnboardingReasonScreen extends ConsumerStatefulWidget {
+  const OnboardingReasonScreen({super.key});
 
   @override
-  ConsumerState<OnboardingGoalScreen> createState() => _OnboardingGoalScreenState();
+  ConsumerState<OnboardingReasonScreen> createState() => _OnboardingReasonScreenState();
 }
 
-class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
-  // dailyGoalMinutes defaults to 5 in OnboardingState so treat 0 as unselected.
-  int? _selected;
-
+class _OnboardingReasonScreenState extends ConsumerState<OnboardingReasonScreen> {
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(onboardingControllerProvider);
     final ctrl = ref.read(onboardingControllerProvider.notifier);
 
     return Scaffold(
@@ -45,10 +45,10 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                    onPressed: () => context.go(kRouteOnboardingLevel),
+                    onPressed: () => context.go(kRouteWelcomePreview),
                   ),
                   const Expanded(
-                    child: ProgressStepIndicator(currentStep: 3, totalSteps: 4),
+                    child: ProgressStepIndicator(currentStep: 1, totalSteps: 4),
                   ),
                 ],
               ),
@@ -60,21 +60,20 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
                 children: [
                   MascotImage(assetName: 'owl_reading', size: 60),
                   SizedBox(width: 12),
-                  Flexible(
-                    child: SpeechBubble(text: "What's your daily learning goal?"),
-                  ),
+                  Flexible(child: SpeechBubble(text: 'Why are you learning ASL?')),
                 ],
               ),
             ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                children: _kGoals
-                    .map((g) => _GoalCard(
-                          minutes: g.$1,
-                          label: g.$2,
-                          selected: _selected == g.$1,
-                          onTap: () => setState(() => _selected = g.$1),
+                children: _kReasons
+                    .map((r) => _ReasonCard(
+                          label: r.$2,
+                          icon: r.$3,
+                          color: r.$4,
+                          selected: state.reasons.contains(r.$1),
+                          onTap: () => ctrl.toggleReason(r.$1),
                         ))
                     .toList(),
               ),
@@ -82,13 +81,10 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
               child: AppButton(
-                label: "I'M COMMITTED",
-                onPressed: _selected == null
+                label: 'CONTINUE',
+                onPressed: state.reasons.isEmpty
                     ? null
-                    : () {
-                        ctrl.setDailyGoal(_selected!);
-                        context.go(kRouteOnboardingNotifications);
-                      },
+                    : () => context.go(kRouteOnboardingLevel),
               ),
             ),
           ],
@@ -98,15 +94,17 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
   }
 }
 
-class _GoalCard extends StatelessWidget {
-  final int minutes;
+class _ReasonCard extends StatelessWidget {
   final String label;
+  final IconData icon;
+  final Color color;
   final bool selected;
   final VoidCallback onTap;
 
-  const _GoalCard({
-    required this.minutes,
+  const _ReasonCard({
     required this.label,
+    required this.icon,
+    required this.color,
     required this.selected,
     required this.onTap,
   });
@@ -121,7 +119,7 @@ class _GoalCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.backgroundCard,
-          border: selected ? Border.all(color: AppColors.primary, width: 2) : null,
+          border: selected ? Border.all(color: color, width: 2) : null,
           borderRadius: BorderRadius.circular(16),
           boxShadow: selected
               ? null
@@ -135,24 +133,38 @@ class _GoalCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.timer_outlined,
-                color: selected ? AppColors.primary : AppColors.textSecondary, size: 20),
+            Icon(icon, color: color, size: 18),
             const SizedBox(width: 12),
             Expanded(
-              child: Text('$minutes min / day',
-                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 15)),
+              child: Text(label,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 14)),
             ),
-            Text(label,
-                style: TextStyle(
-                    color: selected ? AppColors.primary : AppColors.textSecondary,
-                    fontSize: 13)),
-            if (selected) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.check_circle, color: AppColors.primary, size: 20),
-            ],
+            _ToggleIndicator(selected: selected, color: color),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ToggleIndicator extends StatelessWidget {
+  final bool selected;
+  final Color color;
+
+  const _ToggleIndicator({required this.selected, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? color : Colors.transparent,
+        border: selected ? null : Border.all(color: AppColors.textSecondary, width: 1.5),
+      ),
+      child: selected ? const Icon(Icons.check, color: Colors.white, size: 14) : null,
     );
   }
 }

@@ -25,6 +25,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _fallbackTriggered = false;
+  bool _guidanceChecked = false;
   late final ScrollController _scroll;
   final _activeUnit = ValueNotifier<int>(0);
   List<double>? _unitTopYs;
@@ -100,6 +101,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final lessonsAsync = ref.watch(lessonProvider(uid));
     final user         = userAsync.asData?.value;
 
+    if (!_guidanceChecked && user != null) {
+      _guidanceChecked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _maybeShowFirstTimeGuidance(context, uid, user);
+      });
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: _buildAppBar(context, user),
@@ -125,6 +133,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _maybeShowFirstTimeGuidance(
+      BuildContext context, String uid, UserModel user) async {
+    if (user.hasSeenHomeGuidance) return;
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Welcome to HiASL',
+          style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          "Quick tip: if hand-sign recognition doesn't feel accurate for you, "
+          "calibrate your signs in Settings. It teaches the camera your hand "
+          "shape and lighting so it recognizes you better.",
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'later'),
+            child: const Text('Got it', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx, 'calibrate'),
+            child: const Text('Calibrate Now'),
+          ),
+        ],
+      ),
+    );
+
+    await ref.read(firestoreServiceProvider).updateUser(uid, {'hasSeenHomeGuidance': true});
+    if (result == 'calibrate' && context.mounted) {
+      context.push(kRouteCalibrationSettings);
+    }
   }
 
   Widget _buildBody(BuildContext context, String uid, List<LessonModel> lessons) {
@@ -344,12 +394,11 @@ class _QuestButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.redeem_rounded, color: Colors.white, size: 28),
-              SizedBox(height: 2),
-              Text(
+              Image.asset('assets/images/treasure.png', width: 35, height: 35),
+              const Text(
                 'Quests',
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
               ),

@@ -16,6 +16,7 @@ import '../../data/sign_label_map.dart';
 import '../../models/recognition_result.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/calibration_service.dart';
+import '../../services/camera_gate.dart';
 
 class CalibrationScreen extends ConsumerStatefulWidget {
   const CalibrationScreen({super.key});
@@ -25,6 +26,8 @@ class CalibrationScreen extends ConsumerStatefulWidget {
 }
 
 class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
+  Completer<void>? _releaseCompleter;
+
   CameraController? _cameraController;
   final CameraLensDirection _lensDirection = CameraLensDirection.front;
   bool _cameraInitialized = false;
@@ -57,12 +60,43 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
   @override
   void dispose() {
     _resultSub?.cancel();
-    _cameraController?.stopImageStream().catchError((_) {});
-    _cameraController?.dispose();
+    // Normal exits (see _advance/PopScope below) already await _releaseCamera()
+    // before navigating, so _cameraController is usually null here already —
+    // this is only a safety net for disposal paths that bypass those (hot
+    // reload, forced disposal, etc). Chains completion onto the real teardown
+    // instead of firing-and-forgetting, so the shared gate never unblocks the
+    // next camera user before the hardware is actually closed.
+    final controller = _cameraController;
+    _cameraController = null;
+    if (controller != null) {
+      controller.stopImageStream().catchError((_) {}).whenComplete(() {
+        controller.dispose().catchError((_) {}).whenComplete(_completeRelease);
+      });
+    } else {
+      _completeRelease();
+    }
     super.dispose();
   }
 
+  // Guards against completing an already-completed Completer, which throws
+  // — can otherwise happen if _releaseCamera() runs after _initCamera()'s
+  // own catch/early-return paths already completed the same completer.
+  void _completeRelease() {
+    if (_releaseCompleter != null && !_releaseCompleter!.isCompleted) {
+      _releaseCompleter!.complete();
+    }
+  }
+
   Future<void> _initCamera() async {
+    final previous = CameraGate.chain;
+    _releaseCompleter = Completer<void>();
+    CameraGate.chain = _releaseCompleter!.future;
+    await previous; // wait for any prior instance to fully release the camera first
+    if (!mounted) {
+      _completeRelease();
+      return;
+    }
+
     try {
       final cameras = await availableCameras();
       final selected = cameras.firstWhere(
@@ -78,7 +112,8 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
       );
       await controller.initialize();
       if (!mounted) {
-        controller.dispose();
+        await controller.dispose();
+        _completeRelease();
         return;
       }
       _cameraController = controller;
@@ -86,6 +121,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
       setState(() => _cameraInitialized = true);
     } catch (e) {
       debugPrint('[CalibrationScreen] camera init error: $e');
+      _completeRelease();
     }
   }
 
@@ -93,8 +129,13 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     try {
       await _cameraController?.stopImageStream();
     } catch (_) {}
-    await _cameraController?.dispose();
+    try {
+      await _cameraController?.dispose();
+    } catch (_) {}
     _cameraController = null;
+    _cameraInitialized = false;
+    _completeRelease();
+    _releaseCompleter = null;
   }
 
   void _onCameraFrame(CameraImage image) {

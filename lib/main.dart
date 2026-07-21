@@ -2,10 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'core/constants/app_colors.dart';
 import 'firebase_options.dart';
 import 'router.dart';
+import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +22,11 @@ Future<void> main() async {
       await auth.signInAnonymously();
     } catch (_) {}
   }
+
+  // MYT has a fixed UTC+8 offset with no DST, so a static location lookup is safe.
+  tz_data.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Asia/Kuala_Lumpur'));
+  await NotificationService().initialize();
 
   runApp(const ProviderScope(child: HiAslApp()));
 }

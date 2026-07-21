@@ -4,12 +4,13 @@ import '../core/constants/app_colors.dart';
 
 class SpeechBubble extends StatelessWidget {
   final String text;
+  final bool showTail;
 
-  const SpeechBubble({super.key, required this.text});
+  const SpeechBubble({super.key, required this.text, this.showTail = false});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final bubble = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.backgroundCard,
@@ -31,5 +32,34 @@ class SpeechBubble extends StatelessWidget {
         ),
       ),
     );
+
+    if (!showTail) return bubble;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        bubble,
+        SizedBox(
+          width: 16,
+          height: 8,
+          child: CustomPaint(painter: _SpeechBubbleTrianglePainter()),
+        ),
+      ],
+    );
   }
+}
+
+class _SpeechBubbleTrianglePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fillPath = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(fillPath, Paint()..color = AppColors.backgroundCard);
+  }
+
+  @override
+  bool shouldRepaint(_SpeechBubbleTrianglePainter old) => false;
 }

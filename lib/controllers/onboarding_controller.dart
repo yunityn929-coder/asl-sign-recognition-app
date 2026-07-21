@@ -5,6 +5,7 @@ import '../services/firestore_service.dart';
 
 class OnboardingState {
   final String aslLevel;
+  final Set<String> reasons;
   final int dailyGoalMinutes;
   final bool notificationsEnabled;
   final String startingPoint;
@@ -12,6 +13,7 @@ class OnboardingState {
 
   const OnboardingState({
     this.aslLevel = '',
+    this.reasons = const {},
     this.dailyGoalMinutes = 5,
     this.notificationsEnabled = false,
     this.startingPoint = 'scratch',
@@ -20,6 +22,7 @@ class OnboardingState {
 
   OnboardingState copyWith({
     String? aslLevel,
+    Set<String>? reasons,
     int? dailyGoalMinutes,
     bool? notificationsEnabled,
     String? startingPoint,
@@ -27,6 +30,7 @@ class OnboardingState {
   }) =>
       OnboardingState(
         aslLevel: aslLevel ?? this.aslLevel,
+        reasons: reasons ?? this.reasons,
         dailyGoalMinutes: dailyGoalMinutes ?? this.dailyGoalMinutes,
         notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
         startingPoint: startingPoint ?? this.startingPoint,
@@ -41,6 +45,11 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   final String _uid;
 
   void setAslLevel(String level) => state = state.copyWith(aslLevel: level);
+  void toggleReason(String key) {
+    final updated = Set<String>.from(state.reasons);
+    if (!updated.remove(key)) updated.add(key);
+    state = state.copyWith(reasons: updated);
+  }
   void setDailyGoal(int minutes) => state = state.copyWith(dailyGoalMinutes: minutes);
   void setNotifications(bool enabled) => state = state.copyWith(notificationsEnabled: enabled);
   void setStartingPoint(String point) => state = state.copyWith(startingPoint: point);
@@ -56,6 +65,7 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     final today = DateTime.now().toIso8601String().substring(0, 10);
     await _firestore.updateUser(_uid, {
       'aslLevel': state.aslLevel,
+      'reasons': state.reasons.toList(),
       'dailyGoalMinutes': state.dailyGoalMinutes,
       'notificationsEnabled': state.notificationsEnabled,
       'startLessonId': startLessonId,

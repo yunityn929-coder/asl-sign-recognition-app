@@ -14,15 +14,12 @@ class ProgressStepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: LinearProgressIndicator(
-        value: currentStep / totalSteps,
-        backgroundColor: AppColors.backgroundCard,
-        color: AppColors.primary,
-        minHeight: 6,
-        borderRadius: BorderRadius.circular(3),
-      ),
+    return LinearProgressIndicator(
+      value: currentStep / totalSteps,
+      backgroundColor: AppColors.backgroundCard,
+      color: AppColors.primary,
+      minHeight: 6,
+      borderRadius: BorderRadius.circular(3),
     );
   }
 }

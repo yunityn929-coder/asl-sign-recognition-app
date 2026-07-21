@@ -26,54 +26,68 @@ class _OnboardingNotificationsScreenState
 
   Future<void> _onRemind() async {
     setState(() => _loading = true);
-    final granted = await ref.read(notificationServiceProvider).requestPermission();
-    ref.read(onboardingControllerProvider.notifier).setNotifications(granted);
+    bool granted = false;
+    try {
+      granted = await ref.read(notificationServiceProvider).requestPermission();
+    } catch (_) {
+      granted = false;
+    }
+    final ctrl = ref.read(onboardingControllerProvider.notifier);
+    ctrl.setNotifications(granted);
+    ctrl.setStreakGoal(7);
+    final startLessonId = ref.read(onboardingControllerProvider).startingPoint;
+    try {
+      await ctrl.initLessons(startLessonId);
+      await ctrl.complete(startLessonId);
+    } catch (e) {
+      debugPrint('[OnboardingNotificationsScreen] onboarding completion error: $e');
+    }
     if (mounted) {
       setState(() => _loading = false);
-      context.go(kRouteOnboardingAchievement);
+      context.go(kRouteHome);
     }
-  }
-
-  void _onMaybeLater() {
-    ref.read(onboardingControllerProvider.notifier).setNotifications(false);
-    context.go(kRouteOnboardingAchievement);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => context.go(kRouteOnboardingGoal),
-        ),
-      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const ProgressStepIndicator(currentStep: 3, totalSteps: 4),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 8, 24, 0),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  MascotImage(assetName: 'mascot_speech', size: 56),
-                  SizedBox(width: 12),
-                  Flexible(
-                    child: SpeechBubble(
-                      text: "I'll remind you to practice so it becomes a habit!",
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                    onPressed: () => context.go(kRouteOnboardingGoal),
+                  ),
+                  const Expanded(
+                    child: ProgressStepIndicator(currentStep: 4, totalSteps: 4),
                   ),
                 ],
               ),
             ),
-            const Expanded(child: SizedBox()),
+            const Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 40),
+                    child: SpeechBubble(
+                      text: "I'll remind you to practice so it becomes a habit!",
+                      showTail: true,
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  MascotImage(assetName: 'owl_reading', size: 220),
+                ],
+              ),
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : AppButton(
@@ -81,14 +95,6 @@ class _OnboardingNotificationsScreenState
                       onPressed: _onRemind,
                     ),
             ),
-            Center(
-              child: AppButton(
-                label: 'Maybe later',
-                onPressed: _onMaybeLater,
-                isSecondary: true,
-              ),
-            ),
-            const SizedBox(height: 32),
           ],
         ),
       ),

@@ -18,6 +18,7 @@ import '../../providers/user_provider.dart';
 import '../../services/calibration_service.dart';
 import '../../services/feedback_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/camera_gate.dart';
 import '../../services/lesson_question_generator.dart';
 import '../../services/quiz_service.dart';
 import '../../services/tts_service.dart';
@@ -50,6 +51,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   static const CameraLensDirection _lensDirection = CameraLensDirection.front;
   bool _cameraInitialized = false;
   int _rotationDegrees = 0;
+  Completer<void>? _releaseCompleter;
 
   // Recognition
   final FeedbackService _feedbackService = FeedbackService();
@@ -107,10 +109,28 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   @override
   void dispose() {
     _resultSub?.cancel();
-    _cameraController?.stopImageStream().catchError((_) {});
-    _cameraController?.dispose();
+    // Chains completion onto the real async teardown (rather than firing
+    // stopImageStream/dispose and forgetting about them) so the shared
+    // CameraGate never unblocks the next screen's camera-open before this
+    // screen's camera hardware is actually closed.
+    final controller = _cameraController;
+    _cameraController = null;
+    if (controller != null) {
+      controller.stopImageStream().catchError((_) {}).whenComplete(() {
+        controller.dispose().catchError((_) {}).whenComplete(_completeRelease);
+      });
+    } else {
+      _completeRelease();
+    }
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  // Guards against completing an already-completed Completer, which throws.
+  void _completeRelease() {
+    if (_releaseCompleter != null && !_releaseCompleter!.isCompleted) {
+      _releaseCompleter!.complete();
+    }
   }
 
   Future<void> _maybePromptForName() async {
@@ -152,6 +172,15 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   // RecognitionControllerImpl the first time a frame is processed, triggered
   // by _onCameraFrame below. practice_session_screen.dart should mirror this.
   Future<void> _initCamera() async {
+    final previous = CameraGate.chain;
+    _releaseCompleter = Completer<void>();
+    CameraGate.chain = _releaseCompleter!.future;
+    await previous; // wait for any prior screen to fully release the camera first
+    if (!mounted) {
+      _completeRelease();
+      return;
+    }
+
     try {
       final cameras = await availableCameras();
       final selected = cameras.firstWhere(
@@ -169,7 +198,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       );
       await controller.initialize();
       if (!mounted) {
-        controller.dispose();
+        await controller.dispose();
+        _completeRelease();
         return;
       }
       _cameraController = controller;
@@ -177,6 +207,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       setState(() => _cameraInitialized = true);
     } catch (e) {
       debugPrint('[ExerciseScreen] camera init error: $e');
+      _completeRelease();
     }
   }
 
@@ -301,6 +332,31 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     }
   }
 
+  Future<void> _savePracticeAndAccuracy(
+    String uid,
+    int correctCount,
+    int totalCount,
+    List<String> missed,
+    int xpEarned,
+  ) async {
+    try {
+      final lesson = kLessons.firstWhere((l) => l.id == widget.lessonId);
+      final signAccuracy = await ref.read(firestoreServiceProvider).savePracticeResult(
+            uid: uid,
+            lessonId: widget.lessonId,
+            correctCount: correctCount,
+            totalCount: totalCount,
+            missedSigns: missed,
+            xpEarned: xpEarned,
+            lessonSigns: lesson.signs,
+            learnAttempts: _learnAttempts,
+          );
+      await ref
+          .read(firestoreServiceProvider)
+          .updateSignAccuracy(uid: uid, newAccuracy: signAccuracy);
+    } catch (_) {}
+  }
+
   Future<void> _finishLesson() async {
     if (mounted) setState(() => _finishing = true);
     await _resultSub?.cancel();
@@ -336,38 +392,22 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
             {};
       } catch (_) {}
 
-      try {
-        await Future.wait([
-          ref.read(lessonActionsProvider(uid)).markLessonComplete(widget.lessonId),
-          ref.read(userActionsProvider(uid)).addXp(xpEarned),
-        ]);
-      } catch (_) {}
-      try {
-        await firestoreService.unlockPractice(uid, widget.lessonId);
-      } catch (_) {}
-      try {
-        await firestoreService.saveSignProgress(uid, widget.lessonId, 0);
-      } catch (_) {}
-      try {
-        final lesson = kLessons.firstWhere((l) => l.id == widget.lessonId);
-        final signAccuracy = await firestoreService.savePracticeResult(
-              uid: uid,
-              lessonId: widget.lessonId,
-              correctCount: correctCount,
-              totalCount: totalCount,
-              missedSigns: missed,
-              xpEarned: xpEarned,
-              lessonSigns: lesson.signs,
-              learnAttempts: _learnAttempts,
-            );
-        await firestoreService.updateSignAccuracy(uid: uid, newAccuracy: signAccuracy);
-      } catch (_) {}
-      try {
-        await Future.wait([
-          firestoreService.updateQuestProgress(uid, 'complete_lessons', 1),
-          firestoreService.updateQuestProgress(uid, 'earn_xp', xpEarned),
-        ]);
-      } catch (_) {}
+      // All independent writes run in parallel with an overall timeout cap —
+      // markLessonComplete/addXp touch separate Firestore docs (lessons
+      // subcollection vs. the user doc) so there's no ordering dependency
+      // between them.
+      await Future.wait([
+        ref.read(lessonActionsProvider(uid)).markLessonComplete(widget.lessonId),
+        ref.read(userActionsProvider(uid)).addXp(xpEarned),
+        firestoreService.unlockPractice(uid, widget.lessonId),
+        firestoreService.saveSignProgress(uid, widget.lessonId, 0),
+        _savePracticeAndAccuracy(uid, correctCount, totalCount, missed, xpEarned),
+        firestoreService.updateQuestProgress(uid, 'complete_lessons', 1),
+        firestoreService.updateQuestProgress(uid, 'earn_xp', xpEarned),
+      ]).timeout(
+        const Duration(milliseconds: 800),
+        onTimeout: () => <void>[],
+      ).catchError((_) => <void>[]);
 
       try {
         final afterUser = await firestoreService.getUserOnce(uid);

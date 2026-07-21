@@ -9,15 +9,13 @@ import 'models/checkout_data.dart';
 // Welcome
 import 'screens/splash/splash_screen.dart';
 import 'screens/welcome/welcome_brand_screen.dart';
-import 'screens/welcome/welcome_intro_screen.dart';
 import 'screens/welcome/welcome_preview_screen.dart';
 
 // Onboarding
+import 'screens/onboarding/onboarding_reason_screen.dart';
 import 'screens/onboarding/onboarding_level_screen.dart';
 import 'screens/onboarding/onboarding_goal_screen.dart';
 import 'screens/onboarding/onboarding_notifications_screen.dart';
-import 'screens/onboarding/onboarding_achievement_screen.dart';
-import 'screens/onboarding/streak_goal_screen.dart';
 
 // Shell tabs
 import 'screens/home/home_screen.dart';
@@ -59,6 +57,9 @@ import 'screens/debug/recognition_test_screen.dart';
 import 'screens/calibration/calibration_screen.dart';
 import 'screens/settings/calibration_settings_screen.dart';
 
+// Reminder (daily practice notification, reached from Settings)
+import 'screens/settings/reminder_settings_screen.dart';
+
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final GoRouter appRouter = GoRouter(
@@ -80,18 +81,18 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const WelcomeBrandScreen(),
     ),
 
-    // S-03 — Welcome: Mascot Intro
-    GoRoute(
-      path: kRouteWelcomeIntro,
-      name: kRouteNameWelcomeIntro,
-      builder: (context, state) => const WelcomeIntroScreen(),
-    ),
-
     // S-04 — Welcome: Questions Preview
     GoRoute(
       path: kRouteWelcomePreview,
       name: kRouteNameWelcomePreview,
       builder: (context, state) => const WelcomePreviewScreen(),
+    ),
+
+    // Onboarding: Reason (why learning ASL)
+    GoRoute(
+      path: kRouteOnboardingReason,
+      name: kRouteNameOnboardingReason,
+      builder: (context, state) => const OnboardingReasonScreen(),
     ),
 
     // S-05 — Onboarding Q1: ASL Level
@@ -113,23 +114,6 @@ final GoRouter appRouter = GoRouter(
       path: kRouteOnboardingNotifications,
       name: kRouteNameOnboardingNotifications,
       builder: (context, state) => const OnboardingNotificationsScreen(),
-    ),
-
-    // S-08 — Onboarding: Achievement Preview
-    GoRoute(
-      path: kRouteOnboardingAchievement,
-      name: kRouteNameOnboardingAchievement,
-      builder: (context, state) => const OnboardingAchievementScreen(),
-    ),
-
-    // S-12 — Streak Goal Selection
-    GoRoute(
-      path: kRouteOnboardingStreakGoal,
-      name: kRouteNameOnboardingStreakGoal,
-      builder: (context, state) {
-        final startLessonId = state.extra as String? ?? 's1l1';
-        return StreakGoalScreen(startLessonId: startLessonId);
-      },
     ),
 
     // Shell — persistent bottom nav for Home / Quiz / Signs / Profile
@@ -351,6 +335,15 @@ final GoRouter appRouter = GoRouter(
       name: kRouteNameCalibrationSettings,
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const CalibrationSettingsScreen(),
+    ),
+
+    // Reminder settings — daily practice notification toggle + time picker
+    // (reached from Settings: "Practice Reminder").
+    GoRoute(
+      path: kRouteReminderSettings,
+      name: kRouteNameReminderSettings,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ReminderSettingsScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

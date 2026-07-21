@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../widgets/app_button.dart';
-import '../../widgets/mascot_image.dart';
 
 // S-02 — Welcome: Brand Screen
 class WelcomeBrandScreen extends ConsumerWidget {
@@ -20,13 +19,13 @@ class WelcomeBrandScreen extends ConsumerWidget {
         child: SafeArea(
           child: Column(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    MascotImage(assetName: 'mascot_wave', size: 200),
-                    SizedBox(height: 32),
-                    Text(
+                    Image.asset('assets/images/owl.png', width: 200, height: 200),
+                    const SizedBox(height: 32),
+                    const Text(
                       'HiASL',
                       style: TextStyle(
                         fontSize: 42,
@@ -35,8 +34,8 @@ class WelcomeBrandScreen extends ConsumerWidget {
                         letterSpacing: 1,
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text(
+                    const SizedBox(height: 8),
+                    const Text(
                       'Learn the language of silenece',
                       style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
                     ),
@@ -49,7 +48,7 @@ class WelcomeBrandScreen extends ConsumerWidget {
                   children: [
                     AppButton(
                       label: 'GET STARTED',
-                      onPressed: () => context.go(kRouteWelcomeIntro),
+                      onPressed: () => context.go(kRouteWelcomePreview),
                     ),
                     const SizedBox(height: 12),
                     AppButton(

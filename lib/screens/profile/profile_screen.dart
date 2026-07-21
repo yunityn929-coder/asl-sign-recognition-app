@@ -290,24 +290,25 @@ class _ProgressCard extends StatelessWidget {
         children: [
           Expanded(
             child: _StatItem(
-              icon: Icons.star_rounded,
-              iconColor: AppColors.xpGold,
+              iconWidget: const Text('✦', style: TextStyle(color: AppColors.xpGold, fontSize: 22)),
               value: '$totalXp',
               label: 'Total XP',
             ),
           ),
           Expanded(
             child: _StatItem(
-              icon: Icons.local_fire_department_rounded,
-              iconColor: currentStreak > 0 ? Colors.orange : AppColors.textSecondary,
+              iconWidget: Icon(
+                Icons.local_fire_department_rounded,
+                color: currentStreak > 0 ? Colors.orange : AppColors.textSecondary,
+                size: 22,
+              ),
               value: '$currentStreak',
               label: 'Day Streak',
             ),
           ),
           Expanded(
             child: _StatItem(
-              icon: Icons.menu_book_rounded,
-              iconColor: AppColors.success,
+              iconWidget: const Icon(Icons.menu_book_rounded, color: AppColors.success, size: 22),
               value: '$lessonsCompleted/$totalLessons',
               label: 'Lessons Done',
             ),
@@ -320,14 +321,12 @@ class _ProgressCard extends StatelessWidget {
 
 class _StatItem extends StatelessWidget {
   const _StatItem({
-    required this.icon,
-    required this.iconColor,
+    required this.iconWidget,
     required this.value,
     required this.label,
   });
 
-  final IconData icon;
-  final Color iconColor;
+  final Widget iconWidget;
   final String value;
   final String label;
 
@@ -335,7 +334,7 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, color: iconColor, size: 22),
+        iconWidget,
         const SizedBox(height: 6),
         Text(
           value,

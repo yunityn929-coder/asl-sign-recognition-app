@@ -16,6 +16,10 @@ class UserModel {
   final bool ttsEnabled;
   final bool soundEnabled;
   final bool calibrationEnabled;
+  final bool reminderEnabled;
+  final int reminderHour;
+  final int reminderMinute;
+  final bool hasSeenHomeGuidance;
   final bool isAnonymous;
   final String authProvider;
   final int streakGoalDays;
@@ -42,6 +46,10 @@ class UserModel {
     required this.ttsEnabled,
     required this.soundEnabled,
     required this.calibrationEnabled,
+    required this.reminderEnabled,
+    required this.reminderHour,
+    required this.reminderMinute,
+    required this.hasSeenHomeGuidance,
     required this.isAnonymous,
     required this.authProvider,
     required this.streakGoalDays,
@@ -67,6 +75,10 @@ class UserModel {
     bool? ttsEnabled,
     bool? soundEnabled,
     bool? calibrationEnabled,
+    bool? reminderEnabled,
+    int? reminderHour,
+    int? reminderMinute,
+    bool? hasSeenHomeGuidance,
     bool? isAnonymous,
     String? authProvider,
     int? streakGoalDays,
@@ -93,6 +105,10 @@ class UserModel {
         ttsEnabled: ttsEnabled ?? this.ttsEnabled,
         soundEnabled: soundEnabled ?? this.soundEnabled,
         calibrationEnabled: calibrationEnabled ?? this.calibrationEnabled,
+        reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+        reminderHour: reminderHour ?? this.reminderHour,
+        reminderMinute: reminderMinute ?? this.reminderMinute,
+        hasSeenHomeGuidance: hasSeenHomeGuidance ?? this.hasSeenHomeGuidance,
         isAnonymous: isAnonymous ?? this.isAnonymous,
         authProvider: authProvider ?? this.authProvider,
         streakGoalDays: streakGoalDays ?? this.streakGoalDays,
@@ -120,6 +136,10 @@ class UserModel {
         ttsEnabled: map['ttsEnabled'] as bool? ?? true,
         soundEnabled: map['soundEnabled'] as bool? ?? true,
         calibrationEnabled: map['calibrationEnabled'] as bool? ?? true,
+        reminderEnabled: map['reminderEnabled'] as bool? ?? false,
+        reminderHour: (map['reminderHour'] as num?)?.toInt() ?? 19,
+        reminderMinute: (map['reminderMinute'] as num?)?.toInt() ?? 0,
+        hasSeenHomeGuidance: map['hasSeenHomeGuidance'] as bool? ?? false,
         isAnonymous: map['isAnonymous'] as bool? ?? true,
         authProvider: map['authProvider'] as String? ?? 'anonymous',
         streakGoalDays: (map['streakGoalDays'] as num?)?.toInt() ?? 7,
@@ -152,6 +172,10 @@ class UserModel {
         'ttsEnabled': ttsEnabled,
         'soundEnabled': soundEnabled,
         'calibrationEnabled': calibrationEnabled,
+        'reminderEnabled': reminderEnabled,
+        'reminderHour': reminderHour,
+        'reminderMinute': reminderMinute,
+        'hasSeenHomeGuidance': hasSeenHomeGuidance,
         'isAnonymous': isAnonymous,
         'authProvider': authProvider,
         'streakGoalDays': streakGoalDays,

@@ -115,7 +115,16 @@
       "Bash(git rm *)",
       "Bash(adb devices *)",
       "PowerShell($adb = Get-Command adb -ErrorAction SilentlyContinue; if \\($adb\\) { $adb.Source } else { $envPath = \"$env:LOCALAPPDATA\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; if \\(Test-Path $envPath\\) { $envPath } else { \"not found\" } })",
-      "PowerShell(& \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices -l)"
+      "PowerShell(& \"C:\\\\Users\\\\Yuni\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices -l)",
+      "Bash(xargs grep -l \"zonedSchedule\")",
+      "Bash(xargs grep -il \"boot\")",
+      "Bash(adb -s AYAV6R3C18002701 logcat -c)",
+      "Bash(/c/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s AYAV6R3C18002701 logcat -c)",
+      "Bash(timeout 180 /c/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s AYAV6R3C18002701 logcat -v time)",
+      "Bash(python -c \"import PIL; print\\('Pillow', PIL.__version__\\)\")",
+      "Bash(magick -version)",
+      "Bash(convert -version)",
+      "Bash(dart run *)"
     ]
   }
 }
