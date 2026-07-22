@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/errors/app_exception.dart';
 
@@ -11,10 +14,27 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
   bool get isAnonymous => _auth.currentUser?.isAnonymous ?? true;
 
+  static const _nativeAnonymousUidKey = 'native_anonymous_uid';
+
   Future<User> signInSilently() async {
-    if (_auth.currentUser != null) return _auth.currentUser!;
+    if (_auth.currentUser != null) {
+      debugPrint('[TEMP DEBUG] signInSilently: reusing existing currentUser uid=${_auth.currentUser!.uid}');
+      final existing = _auth.currentUser!;
+      if (existing.isAnonymous) {
+        final prefs = await SharedPreferences.getInstance();
+        if (!prefs.containsKey(_nativeAnonymousUidKey)) {
+          await prefs.setString(_nativeAnonymousUidKey, existing.uid);
+        }
+      }
+      return existing;
+    }
     try {
       final cred = await _auth.signInAnonymously();
+      debugPrint('[TEMP DEBUG] signInSilently: created NEW anonymous uid=${cred.user!.uid}');
+      final prefs = await SharedPreferences.getInstance();
+      if (!prefs.containsKey(_nativeAnonymousUidKey)) {
+        await prefs.setString(_nativeAnonymousUidKey, cred.user!.uid);
+      }
       return cred.user!;
     } on FirebaseAuthException catch (e) {
       throw AuthException(e.message ?? 'Anonymous sign-in failed');
@@ -22,17 +42,41 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    final current = _auth.currentUser;
+    final prefs = await SharedPreferences.getInstance();
+    final nativeUid = prefs.getString(_nativeAnonymousUidKey);
     try {
       await _googleSignIn.disconnect();
     } catch (_) {}
+
+    if (current != null && !current.isAnonymous && nativeUid != null && current.uid == nativeUid) {
+      // This account originated from this device's own anonymous session —
+      // unlink instead of full sign-out to preserve all progress data.
+      try {
+        await current.unlink('google.com');
+        return;
+      } on FirebaseAuthException catch (_) {
+        // Fall through to full sign-out if unlink fails for any reason.
+      }
+    }
     await _auth.signOut();
   }
 
-  // Returns the signed-in User, or null if the user cancelled the picker.
-  // Throws AuthException on actual failures.
-  Future<User?> linkWithGoogle() async {
+  // Returns the signed-in User (plus the Google account's own display name,
+  // email, and photo URL), or nulls if the user cancelled the picker. Throws
+  // AuthException on actual failures.
+  Future<({User? user, String? googleDisplayName, String? googleEmail, String? googlePhotoUrl})> linkWithGoogle() async {
+    final current = _auth.currentUser;
+    if (current == null || !current.isAnonymous) {
+      throw const AuthException(
+          "You're already signed in. Sign out first if you want to link a different account.");
+    }
+
+    await GoogleSignIn().signOut();
     final googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) return null; // user dismissed the picker
+    if (googleUser == null) {
+      return (user: null, googleDisplayName: null, googleEmail: null, googlePhotoUrl: null); // user dismissed the picker
+    }
 
     try {
       final googleAuth = await googleUser.authentication;
@@ -41,16 +85,16 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      final current = _auth.currentUser;
-      if (current != null && current.isAnonymous) {
-        // Link to preserve all Firestore data under this UID.
-        final result = await current.linkWithCredential(credential);
-        return result.user;
-      } else {
-        final result = await _auth.signInWithCredential(credential);
-        return result.user;
-      }
+      // Link to preserve all Firestore data under this UID.
+      final result = await current.linkWithCredential(credential);
+      return (
+        user: result.user,
+        googleDisplayName: googleUser.displayName,
+        googleEmail: googleUser.email,
+        googlePhotoUrl: googleUser.photoUrl,
+      );
     } on FirebaseAuthException catch (e) {
+      debugPrint('[TEMP DEBUG] linkWithGoogle FirebaseAuthException: code=${e.code}, message=${e.message}');
       throw AuthException(_friendly(e.code));
     }
   }
@@ -61,8 +105,19 @@ class AuthService {
   // account was genuinely new to Firebase so callers can decide whether a
   // Firestore user doc needs bootstrapping.
   Future<({User? user, bool isNewUser})> signInWithGoogle() async {
+    await GoogleSignIn().signOut();
     final googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) return (user: null, isNewUser: false); // user dismissed the picker
+
+    final blockedDoc = await FirebaseFirestore.instance
+        .collection('deletedGoogleAccounts')
+        .doc(googleUser.id)
+        .get();
+    if (blockedDoc.exists) {
+      throw const AuthException(
+        'This Google account was previously deleted from HiASL and can no longer sign in. You can create a new profile instead.',
+      );
+    }
 
     try {
       final googleAuth = await googleUser.authentication;
@@ -78,6 +133,79 @@ class AuthService {
       );
     } on FirebaseAuthException catch (e) {
       throw AuthException(_friendly(e.code));
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) throw const AuthException('No signed-in user.');
+    try {
+      await _recordDeletedGoogleAccount(user);
+      await user.delete();
+      debugPrint('[TEMP DEBUG] deleteAccount: user.delete() succeeded for uid=${user.uid}, currentUser now = ${FirebaseAuth.instance.currentUser?.uid ?? "null"}');
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login' && !user.isAnonymous) {
+        await _rollbackDeletedGoogleAccountRecord(user);
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) {
+          throw const AuthException('Re-authentication cancelled.');
+        }
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await user.reauthenticateWithCredential(credential);
+        try {
+          await _recordDeletedGoogleAccount(user);
+          await user.delete();
+          debugPrint('[TEMP DEBUG] deleteAccount: user.delete() succeeded for uid=${user.uid}, currentUser now = ${FirebaseAuth.instance.currentUser?.uid ?? "null"}');
+        } catch (e2) {
+          await _rollbackDeletedGoogleAccountRecord(user);
+          rethrow;
+        }
+      } else {
+        await _rollbackDeletedGoogleAccountRecord(user);
+        throw AuthException(_friendly(e.code));
+      }
+    }
+  }
+
+  // Marks a deleted account's Google identity as blocked so signInWithGoogle()
+  // can refuse it later (see the deletedGoogleAccounts lookup there). Only
+  // recorded for accounts that actually had a linked google.com provider.
+  // Must run BEFORE user.delete() — the write requires an authenticated
+  // request, and delete() clears the session.
+  Future<void> _recordDeletedGoogleAccount(User user) async {
+    final hasGoogleProvider =
+        user.providerData.any((p) => p.providerId == 'google.com');
+    if (!hasGoogleProvider) return;
+    final googleUid = user.providerData
+        .firstWhere((p) => p.providerId == 'google.com')
+        .uid;
+    await FirebaseFirestore.instance
+        .collection('deletedGoogleAccounts')
+        .doc(googleUid)
+        .set({'deletedAt': FieldValue.serverTimestamp(), 'firebaseUid': user.uid});
+  }
+
+  // Best-effort undo of _recordDeletedGoogleAccount() when delete() ends up
+  // failing or being cancelled after the record was already written, so a
+  // still-live account isn't incorrectly blocklisted.
+  Future<void> _rollbackDeletedGoogleAccountRecord(User user) async {
+    try {
+      final hasGoogleProvider =
+          user.providerData.any((p) => p.providerId == 'google.com');
+      if (!hasGoogleProvider) return;
+      final googleUid = user.providerData
+          .firstWhere((p) => p.providerId == 'google.com')
+          .uid;
+      await FirebaseFirestore.instance
+          .collection('deletedGoogleAccounts')
+          .doc(googleUid)
+          .delete();
+    } catch (_) {
+      // Best-effort only — don't let rollback failure mask the original error.
     }
   }
 

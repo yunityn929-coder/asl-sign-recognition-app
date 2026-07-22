@@ -53,7 +53,7 @@ class WelcomeBrandScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     AppButton(
                       label: 'I already have an account',
-                      onPressed: () => context.go(kRouteSocialSignIn, extra: false),
+                      onPressed: () => context.go(kRouteSignIn),
                       isSecondary: true,
                     ),
                   ],

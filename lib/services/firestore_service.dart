@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/xp_constants.dart';
@@ -15,7 +16,10 @@ class FirestoreService {
   Future<void> createUser(String uid) async {
     final ref = _db.collection('users').doc(uid);
     final snap = await ref.get();
-    if (snap.exists) return;
+    if (snap.exists) {
+      debugPrint('[TEMP DEBUG] createUser: doc already existed for uid=$uid, skipping');
+      return;
+    }
     final today = _today();
     try {
       await ref.set({
@@ -46,6 +50,7 @@ class FirestoreService {
         'streakGoalStartDate': '',
         'streakGoalAchieved': false,
       });
+      debugPrint('[TEMP DEBUG] createUser: wrote NEW doc for uid=$uid');
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         throw FirestorePermissionException('Permission denied. Deploy Firestore security rules.');
@@ -571,6 +576,29 @@ class FirestoreService {
   Stream<DailyQuestModel?> watchDailyQuests(String uid) {
     return _questsRef(uid).doc(_today()).snapshots().map((snap) =>
         snap.exists ? DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!)) : null);
+  }
+
+  // Deletes every known subcollection under users/{uid}/, then the user doc
+  // itself last, so no orphaned data survives account deletion.
+  Future<void> deleteUserData(String uid) async {
+    final userRef = _db.collection('users').doc(uid);
+    const subcollections = ['lessons', 'calibration', 'practiceResults', 'dailyQuests'];
+    try {
+      for (final name in subcollections) {
+        final snap = await userRef.collection(name).get();
+        final batch = _db.batch();
+        for (final doc in snap.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+      await userRef.delete();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw const FirestorePermissionException('Permission denied.');
+      }
+      throw FirestoreException(e.message ?? 'Failed to delete user data');
+    }
   }
 }
 

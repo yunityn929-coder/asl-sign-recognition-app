@@ -2,6 +2,7 @@ class UserModel {
   final String uid;
   final String email;
   final String displayName;
+  final String photoUrl;
   final String createdAt;
   final String lastActiveDate;
   final bool onboardingComplete;
@@ -32,6 +33,7 @@ class UserModel {
     required this.uid,
     required this.email,
     required this.displayName,
+    required this.photoUrl,
     required this.createdAt,
     required this.lastActiveDate,
     required this.onboardingComplete,
@@ -62,6 +64,7 @@ class UserModel {
   UserModel copyWith({
     String? email,
     String? displayName,
+    String? photoUrl,
     String? lastActiveDate,
     bool? onboardingComplete,
     String? aslLevel,
@@ -91,6 +94,7 @@ class UserModel {
         uid: uid,
         email: email ?? this.email,
         displayName: displayName ?? this.displayName,
+        photoUrl: photoUrl ?? this.photoUrl,
         createdAt: createdAt,
         lastActiveDate: lastActiveDate ?? this.lastActiveDate,
         onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -122,6 +126,7 @@ class UserModel {
         uid: uid,
         email: map['email'] as String? ?? '',
         displayName: map['displayName'] as String? ?? '',
+        photoUrl: map['photoUrl'] as String? ?? '',
         createdAt: map['createdAt'] as String? ?? '',
         lastActiveDate: map['lastActiveDate'] as String? ?? '',
         onboardingComplete: map['onboardingComplete'] as bool? ?? false,
@@ -158,6 +163,7 @@ class UserModel {
   Map<String, dynamic> toMap() => {
         'email': email,
         'displayName': displayName,
+        'photoUrl': photoUrl,
         'createdAt': createdAt,
         'lastActiveDate': lastActiveDate,
         'onboardingComplete': onboardingComplete,

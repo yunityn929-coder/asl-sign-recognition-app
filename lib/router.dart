@@ -48,7 +48,8 @@ import 'screens/quiz/quiz_result_screen.dart';
 // Social / extras
 import 'screens/settings/settings_screen.dart';
 import 'screens/leaderboard/leaderboard_screen.dart';
-import 'screens/social/social_sign_in_screen.dart';
+import 'screens/social/link_account_screen.dart';
+import 'screens/social/sign_in_screen.dart';
 
 // Debug / diagnostics (not part of learner-facing flow)
 import 'screens/debug/recognition_test_screen.dart';
@@ -239,12 +240,18 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const LeaderboardScreen(),
     ),
 
-    // S-25 — Google Sign-In (social unlock)
+    // S-25 — Google Sign-In: link current anonymous progress to a Google account
     GoRoute(
-      path: kRouteSocialSignIn,
-      name: kRouteNameSocialSignIn,
-      builder: (context, state) =>
-          SocialSignInScreen(isSignUp: state.extra as bool? ?? true),
+      path: kRouteLinkAccount,
+      name: kRouteNameLinkAccount,
+      builder: (context, state) => const LinkAccountScreen(),
+    ),
+
+    // S-25 — Google Sign-In: switch to a different existing account
+    GoRoute(
+      path: kRouteSignIn,
+      name: kRouteNameSignIn,
+      builder: (context, state) => const SignInScreen(),
     ),
 
     // S-15 — Lesson Exercise (root navigator so push/pop works outside the shell)

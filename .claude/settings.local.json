@@ -158,7 +158,13 @@
       "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s AYAV6R3C18002701 pull /sdcard/f9.png C:/Users/Yuni/AppData/Local/Temp/claude/C--hiasl-bse-fyp-2026-asl-sign-recognition-app/7860a311-bcf5-4925-ad65-463c6d5fddf8/scratchpad/f9.png)",
       "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s AYAV6R3C18002701 shell input tap 790 1300)",
       "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s AYAV6R3C18002701 shell screencap -p /sdcard/f10.png)",
-      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s AYAV6R3C18002701 pull /sdcard/f10.png C:/Users/Yuni/AppData/Local/Temp/claude/C--hiasl-bse-fyp-2026-asl-sign-recognition-app/7860a311-bcf5-4925-ad65-463c6d5fddf8/scratchpad/f10.png)"
+      "Bash(C:/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe -s AYAV6R3C18002701 pull /sdcard/f10.png C:/Users/Yuni/AppData/Local/Temp/claude/C--hiasl-bse-fyp-2026-asl-sign-recognition-app/7860a311-bcf5-4925-ad65-463c6d5fddf8/scratchpad/f10.png)",
+      "mcp__plugin_firebase_firebase__firebase_get_environment",
+      "mcp__plugin_firebase_firebase__firestore_get_document",
+      "mcp__plugin_firebase_firebase__auth_get_users",
+      "mcp__plugin_firebase_firebase__firestore_list_collections",
+      "Bash(firebase deploy *)",
+      "mcp__plugin_firebase_firebase__firestore_update_document"
     ]
   }
 }

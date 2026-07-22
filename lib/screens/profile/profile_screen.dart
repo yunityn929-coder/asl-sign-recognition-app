@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/lesson_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -47,7 +48,7 @@ class ProfileScreen extends ConsumerWidget {
           }
           return _ProfileContent(
             uid: firebaseUser.uid,
-            photoUrl: firebaseUser.photoURL,
+            isAnonymous: firebaseUser.isAnonymous,
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -58,9 +59,9 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _ProfileContent extends ConsumerWidget {
-  const _ProfileContent({required this.uid, required this.photoUrl});
+  const _ProfileContent({required this.uid, required this.isAnonymous});
   final String uid;
-  final String? photoUrl;
+  final bool isAnonymous;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -84,7 +85,7 @@ class _ProfileContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 16),
-          _IdCard(user: user, photoUrl: photoUrl),
+          _IdCard(user: user, isAnonymous: isAnonymous),
           const SizedBox(height: 28),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
@@ -107,9 +108,11 @@ class _ProfileContent extends ConsumerWidget {
               totalLessons: totalLessons,
             ),
           ),
-          if (user != null && !user.isAnonymous) ...[
+          if (!isAnonymous) ...[
             const SizedBox(height: 28),
             const _SignOutButton(),
+            const SizedBox(height: 12),
+            const _DeleteAccountButton(),
           ],
           const SizedBox(height: 32),
         ],
@@ -119,14 +122,12 @@ class _ProfileContent extends ConsumerWidget {
 }
 
 class _IdCard extends StatelessWidget {
-  const _IdCard({required this.user, required this.photoUrl});
+  const _IdCard({required this.user, required this.isAnonymous});
   final UserModel? user;
-  final String? photoUrl;
+  final bool isAnonymous;
 
   @override
   Widget build(BuildContext context) {
-    final isAnonymous = user?.isAnonymous ?? true;
-
     return Container(
       margin: const EdgeInsets.only(top: 16, left: 20, right: 20),
       padding: const EdgeInsets.all(20),
@@ -140,7 +141,16 @@ class _IdCard extends StatelessWidget {
       ),
       child: isAnonymous
           ? _buildAnonymousContent(context)
-          : _buildSignedInContent(),
+          : (user == null ? _buildLoadingContent() : _buildSignedInContent()),
+    );
+  }
+
+  Widget _buildLoadingContent() {
+    return const SizedBox(
+      height: 84,
+      child: Center(
+        child: CircularProgressIndicator(strokeWidth: 2.5),
+      ),
     );
   }
 
@@ -190,7 +200,7 @@ class _IdCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => context.push(kRouteSocialSignIn, extra: true),
+                onPressed: () => context.push(kRouteLinkAccount),
                 child: const Text('Create Profile'),
               ),
             ),
@@ -205,7 +215,7 @@ class _IdCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => context.push(kRouteSocialSignIn, extra: false),
+                onPressed: () => context.push(kRouteSignIn),
                 child: const Text('Sign In'),
               ),
             ),
@@ -225,8 +235,8 @@ class _IdCard extends StatelessWidget {
         CircleAvatar(
           radius: 32,
           backgroundColor: AppColors.primary,
-          backgroundImage: photoUrl != null ? NetworkImage(photoUrl!) : null,
-          child: photoUrl == null
+          backgroundImage: user.photoUrl.isNotEmpty ? NetworkImage(user.photoUrl) : null,
+          child: user.photoUrl.isEmpty
               ? Text(
                   firstLetter,
                   style: const TextStyle(
@@ -352,44 +362,144 @@ class _StatItem extends StatelessWidget {
   }
 }
 
-class _SignOutButton extends ConsumerWidget {
+class _SignOutButton extends ConsumerStatefulWidget {
   const _SignOutButton();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SignOutButton> createState() => _SignOutButtonState();
+}
+
+class _SignOutButtonState extends ConsumerState<_SignOutButton> {
+  bool _loading = false;
+
+  Future<void> _onTap() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Sign Out?'),
+          content: const Text('Are you sure you want to sign out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: const Text('Sign Out'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      await ref.read(authServiceProvider).signOut();
+      if (mounted) context.go(kRouteSplash);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: TextButton(
-        onPressed: () async {
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Sign Out?'),
-              content: const Text('Are you sure you want to sign out?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel'),
+        onPressed: _loading ? null : _onTap,
+        child: _loading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.error),
+              )
+            : const Text(
+                'Sign out',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                  child: const Text('Sign Out'),
-                ),
-              ],
-            ),
-          );
-          if (confirmed != true) return;
-          await ref.read(authServiceProvider).signOut();
-          if (context.mounted) context.go(kRouteSplash);
-        },
-        child: const Text(
-          'Sign out',
-          style: TextStyle(
-            color: AppColors.error,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+              ),
+      ),
+    );
+  }
+}
+
+class _DeleteAccountButton extends ConsumerStatefulWidget {
+  const _DeleteAccountButton();
+
+  @override
+  ConsumerState<_DeleteAccountButton> createState() => _DeleteAccountButtonState();
+}
+
+class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
+  bool _loading = false;
+
+  Future<void> _onTap() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete Account?'),
+          content: const Text(
+            'This permanently deletes your account and progress. '
+            "Action can't be undone.",
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: const Text('Delete'),
+            ),
+          ],
         ),
+      );
+      if (confirmed != true) return;
+
+      final uid = ref.read(authStateProvider).value?.uid;
+      if (uid == null) return;
+      try {
+        await ref.read(firestoreServiceProvider).deleteUserData(uid);
+        await ref.read(authServiceProvider).deleteAccount();
+        if (mounted) context.go(kRouteSplash);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete account: $e')),
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: TextButton(
+        onPressed: _loading ? null : _onTap,
+        child: _loading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.error),
+              )
+            : const Text(
+                'Delete Account',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }
