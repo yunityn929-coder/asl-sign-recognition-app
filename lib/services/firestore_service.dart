@@ -578,6 +578,31 @@ class FirestoreService {
         snap.exists ? DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!)) : null);
   }
 
+  // Awards a medal the first time a user gets every question correct for a
+  // given lesson+difficulty combination. Returns true if this call newly
+  // awarded a medal (caller should show the reward screen), false if no
+  // medal was awarded (either not all-correct, or already earned before).
+  Future<bool> awardMedalIfEligible({
+    required String uid,
+    required String lessonId,
+    required String difficulty,
+    required bool allCorrect,
+  }) async {
+    if (!allCorrect || difficulty == 'n/a') return false;
+    final key = '${lessonId}_$difficulty';
+    final snap = await _db.collection('users').doc(uid).get();
+    final existing = (snap.data()?['medalsEarned'] as Map?)?[key] == true;
+    if (existing) return false;
+    try {
+      await _db.collection('users').doc(uid).update({
+        'medalsEarned.$key': true,
+      });
+      return true;
+    } on FirebaseException catch (_) {
+      return false; // best-effort — don't block navigation over this
+    }
+  }
+
   // Deletes every known subcollection under users/{uid}/, then the user doc
   // itself last, so no orphaned data survives account deletion.
   Future<void> deleteUserData(String uid) async {

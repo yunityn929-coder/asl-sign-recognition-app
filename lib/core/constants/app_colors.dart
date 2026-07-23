@@ -19,6 +19,11 @@ class AppColors {
   static const xpGold            = Color(0xFFFFD700);
   static const onboardingBg      = Color(0xFFFFFFFF);
 
+  // Medal tiers (practice difficulty badges)
+  static const medalBronze       = Color(0xFFCD7F32);
+  static const medalSilver       = Color(0xFFB0B0B8);
+  static const medalGold         = Color(0xFFFFD700);
+
   // Milestone Path UI tokens
   static const nodeGold         = Color(0xFFFFD166);
   static const nodeGoldShadow   = Color(0xFFC89E3A);

@@ -214,6 +214,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   PreferredSizeWidget _buildAppBar(BuildContext context, UserModel? user) {
     final xp     = user?.totalXp ?? 0;
     final streak = user?.currentStreak ?? 0;
+    final medals = user?.medalsEarned.values.where((v) => v).length ?? 0;
 
     return AppBar(
       backgroundColor: Colors.white,
@@ -231,6 +232,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       actions: [
         _XpBadge(xp: xp),
+        const SizedBox(width: 8),
+        _MedalBadge(count: medals),
         const SizedBox(width: 8),
         _StreakBadge(streak: streak, onTap: () => context.go(kRouteStreak)),
         IconButton(
@@ -327,6 +330,37 @@ class _XpBadge extends StatelessWidget {
             '$xp XP',
             style: const TextStyle(
               color: AppColors.xpGold,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MedalBadge extends StatelessWidget {
+  final int count;
+  const _MedalBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.medalGold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.emoji_events_rounded, color: AppColors.medalGold, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: AppColors.medalGold,
               fontWeight: FontWeight.w700,
               fontSize: 13,
             ),

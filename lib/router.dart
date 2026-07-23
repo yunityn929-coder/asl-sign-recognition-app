@@ -35,6 +35,7 @@ import 'screens/checkout/checkout_screen.dart';
 
 // Post-session
 import 'screens/completion/learn_completion_screen.dart';
+import 'screens/medal/medal_reward_screen.dart';
 
 // Lesson flow
 import 'screens/lesson/exercise_screen.dart';
@@ -213,6 +214,22 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final data = state.extra as CheckoutData;
         return CheckoutScreen(checkoutData: data);
+      },
+    ),
+
+    // Medal Reward — shown after Checkout when a practice session earns a
+    // new medal, before continuing into the streak/quest/home chain.
+    GoRoute(
+      path: kRouteMedalReward,
+      name: kRouteNameMedalReward,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? const {};
+        return MedalRewardScreen(
+          difficulty: extra['difficulty'] as String? ?? 'easy',
+          nextRoute: extra['nextRoute'] as String? ?? kRouteHome,
+          nextRouteExtra: extra['nextRouteExtra'] as Map<String, dynamic>?,
+        );
       },
     ),
 

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/difficulty_constants.dart';
 import '../../core/constants/route_constants.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 
 // S-17 — Practice Setup
 class PracticeSetupScreen extends ConsumerStatefulWidget {
@@ -20,6 +22,10 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = ref.read(authStateProvider).value?.uid;
+    final user = uid != null ? ref.watch(userProvider(uid)).value : null;
+    final medalsEarned = user?.medalsEarned ?? const {};
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -35,6 +41,8 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                     subtitle: '${kDifficultySeconds['easy']}s per sign',
                     icon: Icons.directions_walk,
                     selected: _difficulty == 'easy',
+                    medalEarned: medalsEarned['${widget.lessonId}_easy'] == true,
+                    medalColor: AppColors.medalBronze,
                     onTap: () => setState(() => _difficulty = 'easy'),
                   ),
                   const SizedBox(height: 12),
@@ -43,6 +51,8 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                     subtitle: '${kDifficultySeconds['medium']}s per sign',
                     icon: Icons.directions_run,
                     selected: _difficulty == 'medium',
+                    medalEarned: medalsEarned['${widget.lessonId}_medium'] == true,
+                    medalColor: AppColors.medalSilver,
                     onTap: () => setState(() => _difficulty = 'medium'),
                   ),
                   const SizedBox(height: 12),
@@ -51,6 +61,8 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                     subtitle: '${kDifficultySeconds['hard']}s per sign',
                     icon: Icons.bolt,
                     selected: _difficulty == 'hard',
+                    medalEarned: medalsEarned['${widget.lessonId}_hard'] == true,
+                    medalColor: AppColors.medalGold,
                     onTap: () => setState(() => _difficulty = 'hard'),
                   ),
                   const SizedBox(height: 24),
@@ -111,6 +123,8 @@ class _DifficultyCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final bool selected;
+  final bool medalEarned;
+  final Color medalColor;
   final VoidCallback onTap;
 
   const _DifficultyCard({
@@ -118,6 +132,8 @@ class _DifficultyCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.selected,
+    required this.medalEarned,
+    required this.medalColor,
     required this.onTap,
   });
 
@@ -144,12 +160,20 @@ class _DifficultyCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: selected ? AppColors.textPrimary : AppColors.textSecondary,
-                      )),
+                  Row(
+                    children: [
+                      Text(label,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+                          )),
+                      if (medalEarned) ...[
+                        const SizedBox(width: 6),
+                        Icon(Icons.emoji_events_rounded, color: medalColor, size: 18),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 2),
                   Text(subtitle, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],

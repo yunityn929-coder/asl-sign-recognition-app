@@ -85,20 +85,11 @@ class _ProfileContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 16),
+          const _SectionLabel('Account'),
+          const SizedBox(height: 12),
           _IdCard(user: user, isAnonymous: isAnonymous),
           const SizedBox(height: 28),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Your Progress',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.7,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
+          const _SectionLabel('Your Progress'),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -107,6 +98,13 @@ class _ProfileContent extends ConsumerWidget {
               lessonsCompleted: lessonsCompleted,
               totalLessons: totalLessons,
             ),
+          ),
+          const SizedBox(height: 28),
+          const _SectionLabel('Badges'),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _BadgesCard(medalsEarned: user?.medalsEarned ?? const {}),
           ),
           if (!isAnonymous) ...[
             const SizedBox(height: 28),
@@ -121,6 +119,27 @@ class _ProfileContent extends ConsumerWidget {
   }
 }
 
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.7,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
 class _IdCard extends StatelessWidget {
   const _IdCard({required this.user, required this.isAnonymous});
   final UserModel? user;
@@ -129,7 +148,7 @@ class _IdCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: 16, left: 20, right: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isAnonymous ? const Color(0xFFF5F5F5) : AppColors.primarySoft,
@@ -301,25 +320,18 @@ class _ProgressCard extends StatelessWidget {
         children: [
           Expanded(
             child: _StatItem(
-              iconWidget: const Text('✦', style: TextStyle(color: AppColors.xpGold, fontSize: 22)),
               value: '$totalXp',
               label: 'Total XP',
             ),
           ),
           Expanded(
             child: _StatItem(
-              iconWidget: Icon(
-                Icons.local_fire_department_rounded,
-                color: currentStreak > 0 ? Colors.orange : AppColors.textSecondary,
-                size: 22,
-              ),
               value: '$currentStreak',
               label: 'Day Streak',
             ),
           ),
           Expanded(
             child: _StatItem(
-              iconWidget: const Icon(Icons.menu_book_rounded, color: AppColors.success, size: 22),
               value: '$lessonsCompleted/$totalLessons',
               label: 'Lessons Done',
             ),
@@ -332,12 +344,10 @@ class _ProgressCard extends StatelessWidget {
 
 class _StatItem extends StatelessWidget {
   const _StatItem({
-    required this.iconWidget,
     required this.value,
     required this.label,
   });
 
-  final Widget iconWidget;
   final String value;
   final String label;
 
@@ -345,8 +355,6 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        iconWidget,
-        const SizedBox(height: 6),
         Text(
           value,
           style: const TextStyle(
@@ -358,6 +366,229 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 2),
         Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
       ],
+    );
+  }
+}
+
+const List<int> _kBadgeTiers = [5, 10, 20];
+
+class _MedalKind {
+  final String difficulty;
+  final Color color;
+  final String title;
+  final String owlAsset;
+  final String medalName;
+  const _MedalKind(this.difficulty, this.color, this.title, this.owlAsset, this.medalName);
+}
+
+const List<_MedalKind> _kMedalKinds = [
+  _MedalKind('easy', AppColors.medalBronze, 'Skilled Signer', 'owl_student', 'Bronze'),
+  _MedalKind('medium', AppColors.medalSilver, 'Expert Signer', 'owl_expert', 'Silver'),
+  _MedalKind('hard', AppColors.medalGold, 'Master Signer', 'owl_master', 'Gold'),
+];
+
+class _BadgesCard extends StatelessWidget {
+  const _BadgesCard({required this.medalsEarned});
+  final Map<String, bool> medalsEarned;
+
+  int _countFor(String difficulty) => medalsEarned.entries
+      .where((e) => e.value && e.key.endsWith('_$difficulty'))
+      .length;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.backgroundCard,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          for (final kind in _kMedalKinds)
+            Expanded(
+              child: _BadgeColumn(kind: kind, count: _countFor(kind.difficulty)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeColumn extends StatelessWidget {
+  const _BadgeColumn({required this.kind, required this.count});
+  final _MedalKind kind;
+  final int count;
+
+  static const _lockedColor = Color(0xFFD0D0D0);
+  static const _tier1Color = Color(0xFFFDFAE5);
+  static const _tier2Color = Color(0xFFBCE2ED);
+  static const _tier3Color = Color(0xFFFFE2E8);
+
+  static Color _tierBackground(int count) {
+    if (count >= 20) return _tier3Color;
+    if (count >= 10) return _tier2Color;
+    if (count >= 5) return _tier1Color;
+    return _lockedColor;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unlocked = count >= _kBadgeTiers.first;
+    final mastered = count >= _kBadgeTiers.last;
+    final nextThreshold =
+        _kBadgeTiers.firstWhere((t) => count < t, orElse: () => _kBadgeTiers.last);
+    final textColor = unlocked ? kind.color : _lockedColor;
+    final bgColor = _tierBackground(count);
+
+    return GestureDetector(
+      onTap: () => _showBadgeInfoDialog(context, unlocked, mastered, nextThreshold),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _BadgeCircleIcon(
+            color: bgColor,
+            owlAsset: kind.owlAsset,
+            unlocked: unlocked,
+            mastered: mastered,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            kind.title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: unlocked ? AppColors.textPrimary : AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$count/$nextThreshold',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBadgeInfoDialog(
+    BuildContext context,
+    bool unlocked,
+    bool mastered,
+    int nextThreshold,
+  ) {
+    final medalWord = kind.medalName.toLowerCase();
+    final message = mastered
+        ? "You've collected $count $medalWord medals and fully mastered the "
+            '${kind.title} badge!'
+        : 'Collect ${nextThreshold - count} more $medalWord '
+            "medal${nextThreshold - count == 1 ? '' : 's'} to "
+            '${unlocked ? 'move to the next tier' : 'unlock this badge'}.';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(kind.title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeCircleIcon extends StatelessWidget {
+  const _BadgeCircleIcon({
+    required this.color,
+    required this.owlAsset,
+    required this.unlocked,
+    required this.mastered,
+  });
+  final Color color;
+  final String owlAsset;
+  final bool unlocked;
+  final bool mastered;
+
+  static const double _diameter = 52;
+  static const double _border = 4;
+  static const double _padding = 4;
+
+  // Standard luminance-weighted greyscale matrix, used to dim the owl
+  // artwork when its tier hasn't been unlocked yet.
+  static const List<double> _greyscaleMatrix = [
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0, 0, 0, 1, 0,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final owlImage = Image.asset(
+      'assets/images/$owlAsset.png',
+      width: _diameter - 2 * _border - 2 * _padding,
+      height: _diameter - 2 * _border - 2 * _padding,
+      fit: BoxFit.contain,
+    );
+
+    return SizedBox(
+      width: _diameter + 4,
+      height: _diameter + 4,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: _diameter,
+            height: _diameter,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(color: Colors.white, width: _border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.10),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: unlocked
+                  ? owlImage
+                  : Opacity(
+                      opacity: 0.55,
+                      child: ColorFiltered(
+                        colorFilter: const ColorFilter.matrix(_greyscaleMatrix),
+                        child: owlImage,
+                      ),
+                    ),
+            ),
+          ),
+          if (mastered)
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(color: Color(0x33000000), blurRadius: 2, offset: Offset(0, 1)),
+                  ],
+                ),
+                child: const Icon(Icons.workspace_premium,
+                    size: 13, color: AppColors.medalGold),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

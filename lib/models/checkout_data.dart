@@ -9,6 +9,7 @@ class CheckoutData {
   final String difficulty; // "easy" | "medium" | "hard" | "n/a"
   final int correctCount;
   final int totalCount;
+  final bool medalNewlyEarned;
 
   const CheckoutData({
     required this.xpEarned,
@@ -21,5 +22,6 @@ class CheckoutData {
     this.difficulty = 'n/a',
     required this.correctCount,
     required this.totalCount,
+    this.medalNewlyEarned = false,
   });
 }

@@ -336,7 +336,15 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   }
 
   Future<void> _finishSession() async {
-    _autoAdvancing = false;
+    // Stop accepting recognition results immediately — otherwise a frame
+    // already in flight through the pipeline can still emit one more
+    // RecognitionResult after this point (stopImageStream() below doesn't
+    // cancel work already dispatched), and since the user is very likely
+    // still holding the same correct hand shape a moment after their last
+    // answer, that stray frame would re-enter the correct-answer branch and
+    // double-count _correctCount (and re-trigger _finishSession itself).
+    await _resultSub?.cancel();
+    _resultSub = null;
     if (mounted) setState(() => _finishing = true);
     await _cameraController?.stopImageStream().catchError((_) {});
 
@@ -347,6 +355,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     final uid = ref.read(authStateProvider).value?.uid;
     var questNewlyCompleted = false;
     var streakJustExtended = false;
+    var medalNewlyEarned = false;
 
     if (uid != null) {
       final firestoreService = ref.read(firestoreServiceProvider);
@@ -386,6 +395,14 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
                 (q) => q.completed && !beforeCompletedIds.contains(q.id)) ??
             false;
       } catch (_) {}
+      try {
+        medalNewlyEarned = await firestoreService.awardMedalIfEligible(
+          uid: uid,
+          lessonId: widget.lessonId,
+          difficulty: widget.difficulty,
+          allCorrect: _correctCount == _questions.length && _questions.isNotEmpty,
+        );
+      } catch (_) {}
     }
 
     final checkoutData = CheckoutData(
@@ -399,6 +416,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       difficulty: widget.difficulty,
       correctCount: _correctCount,
       totalCount: _questions.length,
+      medalNewlyEarned: medalNewlyEarned,
     );
 
     if (mounted) {

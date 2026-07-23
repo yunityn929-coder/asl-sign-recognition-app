@@ -28,6 +28,7 @@ class UserModel {
   final bool streakGoalAchieved;
   final Map<String, Map<String, int>> signAccuracy;
   final Map<String, int> quizBestScores;
+  final Map<String, bool> medalsEarned;
 
   const UserModel({
     required this.uid,
@@ -59,6 +60,7 @@ class UserModel {
     required this.streakGoalAchieved,
     this.signAccuracy = const {},
     this.quizBestScores = const {},
+    this.medalsEarned = const {},
   });
 
   UserModel copyWith({
@@ -89,6 +91,7 @@ class UserModel {
     bool? streakGoalAchieved,
     Map<String, Map<String, int>>? signAccuracy,
     Map<String, int>? quizBestScores,
+    Map<String, bool>? medalsEarned,
   }) =>
       UserModel(
         uid: uid,
@@ -120,6 +123,7 @@ class UserModel {
         streakGoalAchieved: streakGoalAchieved ?? this.streakGoalAchieved,
         signAccuracy: signAccuracy ?? this.signAccuracy,
         quizBestScores: quizBestScores ?? this.quizBestScores,
+        medalsEarned: medalsEarned ?? this.medalsEarned,
       );
 
   factory UserModel.fromMap(String uid, Map<String, dynamic> map) => UserModel(
@@ -158,6 +162,8 @@ class UserModel {
         quizBestScores: Map<String, int>.from(
             (map['quizBestScores'] as Map? ?? {}).map(
                 (k, v) => MapEntry(k as String, (v as num).toInt()))),
+        medalsEarned: Map<String, bool>.from(
+            (map['medalsEarned'] as Map? ?? {})),
       );
 
   Map<String, dynamic> toMap() => {
@@ -189,6 +195,7 @@ class UserModel {
         'streakGoalAchieved': streakGoalAchieved,
         'signAccuracy': signAccuracy,
         'quizBestScores': quizBestScores,
+        'medalsEarned': medalsEarned,
       };
 
   // Returns accuracy as 0.0-1.0 for a sign; -1.0 if no data (show "New").

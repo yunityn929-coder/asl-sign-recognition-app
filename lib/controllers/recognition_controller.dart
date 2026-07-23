@@ -456,7 +456,6 @@ class RecognitionControllerImpl implements RecognitionController {
     print('[DIAG] Raw output:   ${output[0]}');
 
     final probs = List<double>.from(output[0]);
-    debugPrint('[CALIB DIAG] hasAnyCalibration=${CalibrationService.instance.hasAnyCalibration} enabled=${CalibrationService.instance.enabled} samplesFor(topGuess)=${CalibrationService.instance.samplesFor(kSignLabels[probs.indexOf(probs.reduce((a, b) => a > b ? a : b))]).length}');
     if (CalibrationService.instance.hasAnyCalibration && CalibrationService.instance.enabled) {
       double sumProbs = 0;
       for (var i = 0; i < probs.length; i++) {

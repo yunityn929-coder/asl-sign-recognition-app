@@ -164,7 +164,8 @@
       "mcp__plugin_firebase_firebase__auth_get_users",
       "mcp__plugin_firebase_firebase__firestore_list_collections",
       "Bash(firebase deploy *)",
-      "mcp__plugin_firebase_firebase__firestore_update_document"
+      "mcp__plugin_firebase_firebase__firestore_update_document",
+      "Bash(/c/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe *)"
     ]
   }
 }

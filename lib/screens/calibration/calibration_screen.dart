@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -38,6 +39,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
 
   int _currentIndex = 0;
   bool _readyToPop = false;
+  bool _calibrationChanged = false;
 
   String get _currentLabel => kSignLabels[_currentIndex];
   int get _capturedForClass =>
@@ -152,10 +154,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     if (_currentIndex + 1 < kSignLabels.length) {
       setState(() => _currentIndex++);
     } else {
-      await _releaseCamera();
-      if (!mounted) return;
-      setState(() => _readyToPop = true);
-      if (context.mounted) context.pop();
+      await _exitScreen();
     }
   }
 
@@ -165,6 +164,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
       final uid = ref.read(authStateProvider).value?.uid;
       if (uid != null) {
         CalibrationService.instance.addSample(uid, _currentLabel, result.landmarks);
+        _calibrationChanged = true;
       }
       setState(() {});
     } else {
@@ -193,7 +193,44 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     final uid = ref.read(authStateProvider).value?.uid;
     if (uid == null) return;
     await CalibrationService.instance.clearClass(uid, _currentLabel);
+    _calibrationChanged = true;
     if (mounted) setState(() {});
+  }
+
+  // Shared exit path for both "finished cycling through all signs" (_advance)
+  // and manual back navigation (PopScope below). If anything was captured or
+  // cleared this session, prompts the user to restart the app before this
+  // pops, rather than after — so the dialog still has the Calibration
+  // screen's context to anchor to.
+  Future<void> _exitScreen() async {
+    await _releaseCamera();
+    if (!mounted) return;
+    if (_calibrationChanged) {
+      await _showRestartRequiredDialog();
+      if (!mounted) return;
+    }
+    setState(() => _readyToPop = true);
+    if (context.mounted) context.pop();
+  }
+
+  Future<void> _showRestartRequiredDialog() {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restart Required'),
+        content: const Text(
+          'Your calibration changes are saved. Please close and reopen the '
+          'app so sign recognition picks them up.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => SystemNavigator.pop(),
+            child: const Text('Exit App'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -202,10 +239,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
       canPop: _readyToPop,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        await _releaseCamera();
-        if (!mounted) return;
-        setState(() => _readyToPop = true);
-        if (context.mounted) context.pop();
+        await _exitScreen();
       },
       child: Scaffold(
         backgroundColor: Colors.white,

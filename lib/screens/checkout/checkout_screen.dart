@@ -6,13 +6,67 @@ import '../../core/constants/route_constants.dart';
 import '../../data/lesson_definitions.dart';
 import '../../models/checkout_data.dart';
 
+class _MedalSpec {
+  final String label;
+  final Color color;
+  const _MedalSpec(this.label, this.color);
+}
+
+const Map<String, _MedalSpec> _kMedalSpecs = {
+  'easy': _MedalSpec('Bronze Medal', AppColors.medalBronze),
+  'medium': _MedalSpec('Silver Medal', AppColors.medalSilver),
+  'hard': _MedalSpec('Gold Medal', AppColors.medalGold),
+};
+
 // S-19 — Session Checkout
-class CheckoutScreen extends StatelessWidget {
+class CheckoutScreen extends StatefulWidget {
   final CheckoutData checkoutData;
   const CheckoutScreen({required this.checkoutData, super.key});
 
   @override
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends State<CheckoutScreen> {
+  bool _medalDialogShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.checkoutData.medalNewlyEarned) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showMedalDialog());
+    }
+  }
+
+  void _showMedalDialog() {
+    if (_medalDialogShown || !mounted) return;
+    _medalDialogShown = true;
+    final spec = _kMedalSpecs[widget.checkoutData.difficulty] ?? _kMedalSpecs['easy']!;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.emoji_events_rounded, color: spec.color, size: 30),
+        title: Text('${spec.label} ', textAlign: TextAlign.center),
+        content: Text(
+          "Congratulations! You've earned a "
+          '${spec.label.split(' ').first.toLowerCase()} medal.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            child: const Text('Continue', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final checkoutData = widget.checkoutData;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -30,33 +84,39 @@ class CheckoutScreen extends StatelessWidget {
                 ),
               ),
             ),
-            _buildContinueButton(context),
+            _buildContinueButton(context, checkoutData),
           ],
         ),
       ),
     );
   }
 
-  void _handleContinue(BuildContext context) {
+  void _handleContinue(BuildContext context, CheckoutData checkoutData) {
+    final String nextRoute;
+    final Map<String, dynamic>? nextRouteExtra;
     if (checkoutData.streakJustExtended) {
-      context.go(kRouteStreak, extra: {
+      nextRoute = kRouteStreak;
+      nextRouteExtra = {
         'justEarned': true,
         'skipQuestScreen': !checkoutData.questNewlyCompleted,
-      });
+      };
     } else if (checkoutData.questNewlyCompleted) {
-      context.go(kRouteQuest, extra: {'justEarned': true});
+      nextRoute = kRouteQuest;
+      nextRouteExtra = {'justEarned': true};
     } else {
-      context.go(kRouteHome);
+      nextRoute = kRouteHome;
+      nextRouteExtra = null;
     }
+    context.go(nextRoute, extra: nextRouteExtra);
   }
 
-  Widget _buildContinueButton(BuildContext context) {
+  Widget _buildContinueButton(BuildContext context, CheckoutData checkoutData) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () => _handleContinue(context),
+          onPressed: () => _handleContinue(context, checkoutData),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
