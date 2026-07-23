@@ -346,3 +346,28 @@ Login (Google) is only required for social/leaderboard features.
 - Email/password registration and login — removed entirely
 - Guest banner — replaced by silent anonymous approach (no banner needed)
 - S-18 Convert Guest Account screen — replaced by inline login gate on leaderboard
+
+---
+## Amendment — Create Profile / Sign In Split, Deleted-Account Blocklist (appended 2026-07-23)
+
+The single Google Sign-In screen (S-25) originally specified above was split
+into two screens with distinct, non-overlapping semantics once it became
+clear "link my anonymous progress" and "switch to my other existing account"
+are different user intents with different data outcomes. See APP_FLOW.md
+S-25/S-25b and TECH_STACK.md's Auth Flow section for full detail.
+
+| ID | Requirement | Acceptance Criteria |
+|---|---|---|
+| FR-02 (revised) | Create Profile — link anonymous → Google in place | `LinkAccountScreen`, `linkWithCredential`; same UID; all progress preserved; refuses if current user isn't anonymous |
+| FR-69 | Sign In — switch to a different existing Google account | `SignInScreen`, `signInWithCredential`; different UID; only proceeds past a progress-loss warning if the current anonymous account actually has progress |
+| FR-70 | Google account picker always shown fresh | `GoogleSignIn().signOut()` called before every `signIn()` in both flows — no silent reuse of a previously-cached account |
+| FR-71 | Linking an already-linked Google account is rejected clearly | "This Google account is already linked to another profile. Try Sign In instead." |
+| FR-72 | Signing in with an unregistered Google account is treated as "not found," not silently onboarded | Auto-created Firebase user is deleted, anonymous session restored, user told to use Create Profile instead |
+| FR-73 | Deleting an account blocks its Google identity from future Sign In | Recorded in `deletedGoogleAccounts` Firestore collection; does NOT block Create Profile — a deleted Google identity can be freely re-registered as a brand-new profile |
+| FR-74 | Sign Out preserves progress when safe | If the linked account originated from this device's own anonymous session (tracked via a locally-persisted `native_anonymous_uid`), Sign Out unlinks the Google provider instead of fully signing out; otherwise it's a full sign-out into a fresh anonymous session |
+| FR-75 | Profile screen guest/signed-in UI state never goes stale | Driven by live `FirebaseAuth.userChanges()`, not the Firestore user doc, so a Firestore write failure can't leave the Auth-gated UI showing incorrect state |
+
+> Open/unconfirmed as of 2026-07-23: whether Google profile details
+> (name/email/photo) can lag behind immediately after linking is still under
+> investigation — not confirmed as a real bug, no clean repro captured yet.
+> See BUILD_STATUS.md Known Bugs/Issues.

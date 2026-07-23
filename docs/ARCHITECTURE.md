@@ -235,7 +235,10 @@ lib/
 │   ├── leaderboard/
 │   │   └── leaderboard_screen.dart
 │   ├── social/
-│   │   └── social_sign_in_screen.dart         # Google Sign-In (S-25)
+│   │   ├── link_account_screen.dart           # Create Profile — link anonymous → Google (S-25)
+│   │   ├── sign_in_screen.dart                # Sign In — switch to existing Google account (S-25b)
+│   │   └── widgets/
+│   │       └── social_auth_widgets.dart       # Shared GoogleButton, MaybeLaterButton
 │   └── recognition_test/
 │       └── recognition_test_screen.dart       # dev/debug screen — not registered in router.dart
 │

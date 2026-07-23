@@ -33,7 +33,7 @@ Path: `assets/models/3d/{SIGN}.png` (A-Z + 0-9, all 36 signs).
 ### Auth
 | Package | Purpose | Notes |
 |---|---|---|
-| `google_sign_in` | Google OAuth | Only used for social/leaderboard unlock (S-25) |
+| `google_sign_in` | Google OAuth | Used by both `LinkAccountScreen` (S-25, create profile) and `SignInScreen` (S-25b, switch account) |
 
 ### Audio
 | Package | Purpose | Notes |
@@ -53,7 +53,7 @@ Path: `assets/models/3d/{SIGN}.png` (A-Z + 0-9, all 36 signs).
 |---|---|
 | `go_router` | Named routes + navigation (25 routes) |
 | `flutter_riverpod` | State management |
-| `shared_preferences` | Lightweight local cache (also stores quiz best scores) |
+| `shared_preferences` | Lightweight local cache (quiz best scores; `native_anonymous_uid` for Sign Out behaviour — see Auth Flow) |
 
 **Route count:** 30 `GoRoute` entries in `router.dart`.
 Plus 3 orphaned route constants (declared but never registered as a `GoRoute`):
@@ -110,21 +110,119 @@ Used in: `learn_mode_body.dart`, `signs_screen.dart`, `quiz_session_screen.dart`
 
 ## Auth Flow
 
+No email/password auth. No forced login screen. Anonymous-first — all
+learning features work fully signed-out. Google is the only social provider,
+and it's split across **two independent screens** with different
+semantics, both backed by `lib/services/auth_service.dart`
+(`AuthService`, registered as `authServiceProvider`).
+
 ### First launch — silent, no UI
 ```dart
 await FirebaseAuth.instance.signInAnonymously();
 // Create Firestore user doc with isAnonymous: true
 ```
+`AuthService.signInSilently()` also records the resulting UID to
+`SharedPreferences` under `native_anonymous_uid` if not already set — this
+is what Sign Out later uses to decide whether it can safely unlink instead
+of fully signing out (see below).
 
-### Social unlock only (S-25)
+### Create Profile — `LinkAccountScreen` (`/login/link`)
+Upgrades the **current anonymous session in place**. Same UID before and
+after, so all Firestore progress under `users/{uid}/` carries over with zero
+migration.
+
 ```dart
-final googleUser = await GoogleSignIn().signIn();
-final credential = GoogleAuthProvider.credential(...);
-await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
-// Update Firestore: isAnonymous: false, authProvider: "google"
+// AuthService.linkWithGoogle()
+final current = _auth.currentUser;
+if (current == null || !current.isAnonymous) {
+  throw const AuthException("You're already signed in. Sign out first...");
+}
+await GoogleSignIn().signOut();          // force the account picker —
+final googleUser = await GoogleSignIn().signIn();  // never reuse a cached account
+final credential = GoogleAuthProvider.credential(
+  accessToken: googleAuth.accessToken, idToken: googleAuth.idToken);
+final result = await current.linkWithCredential(credential);
+// Returns (user, googleDisplayName, googleEmail, googlePhotoUrl) — the
+// screen writes these straight to Firestore (isAnonymous: false,
+// authProvider: 'google', displayName/email/photoUrl).
 ```
+`credential-already-in-use` (this Google identity is already linked to a
+*different* Firebase user) surfaces as "This Google account is already
+linked to another profile. Try Sign In instead."
 
-No email/password auth. No login screen. Anonymous-first.
+### Sign In — `SignInScreen` (`/login/signin`)
+Switches to a **different, already-existing** account via
+`signInWithCredential` — a different UID, not an upgrade of the current one.
+
+```dart
+// AuthService.signInWithGoogle()
+await GoogleSignIn().signOut();          // force the account picker
+final googleUser = await GoogleSignIn().signIn();
+final blocked = await FirebaseFirestore.instance
+    .collection('deletedGoogleAccounts').doc(googleUser.id).get();
+if (blocked.exists) throw const AuthException('...previously deleted...');
+final result = await _auth.signInWithCredential(credential);
+// Returns (user, isNewUser) — isNewUser == true means this Google identity
+// was never registered before.
+```
+If `isNewUser == true`, the screen treats it as **"account not found"**
+rather than silently onboarding a stranger into a fresh account: it deletes
+the Firebase Auth user `signInWithCredential` just auto-created, calls
+`signInSilently()` to restore an anonymous session, and shows "We couldn't
+find an account for this Google sign-in. Try Create Profile instead." — no
+navigation happens.
+
+Before either sign-in attempt actually proceeds, `SignInScreen` also checks
+whether the *current* anonymous account has progress worth losing
+(`totalXp > 0 || currentStreak > 0 || signAccuracy.isNotEmpty`) and, if so,
+shows a "Switch account?" confirmation dialog first.
+
+### Sign Out
+```dart
+// AuthService.signOut()
+if (current != null && !current.isAnonymous &&
+    nativeUid != null && current.uid == nativeUid) {
+  // This account originated from THIS device's own anonymous session —
+  // unlink instead of full sign-out, so progress survives.
+  await current.unlink('google.com');
+} else {
+  await _auth.signOut();  // true account switch — start fresh anonymous
+}
+```
+`native_anonymous_uid` (SharedPreferences) is what makes this distinction:
+it's set once when a device first creates/reuses an anonymous session, and
+is only ever compared, never re-derived from the live Auth state.
+
+### Delete Account
+Two-step, in this order (see `profile_screen.dart`):
+```dart
+await firestoreService.deleteUserData(uid);   // all subcollections + user doc
+await authService.deleteAccount();            // blocklist write, then user.delete()
+```
+`deleteAccount()` writes the `deletedGoogleAccounts/{googleUid}` blocklist
+record **before** `user.delete()` — not after, since the write requires an
+authenticated `request.auth` which `delete()` clears. On failure (e.g.
+`requires-recent-login`), the blocklist record is rolled back so a still-live
+account isn't incorrectly blocked. Re-authentication (Google re-prompt) is
+attempted once for `requires-recent-login`, then retried.
+
+### Live auth state (Profile screen UI)
+`authStateProvider` (`lib/providers/auth_provider.dart`) uses
+`FirebaseAuth.instance.userChanges()`, not `authStateChanges()` — the latter
+only fires on true sign-in/out transitions and misses provider link/unlink
+events (like the unlink-based Sign Out path above), which would leave
+`isAnonymous`-driven UI stale. The Profile screen's guest-vs-signed-in gating
+is driven by this live stream, not the Firestore user doc — a Firestore
+write failing independently of the Auth-layer change can never leave the UI
+showing a stale state. Displayed profile *details* (name, email, photo) are
+still Firestore-backed, sourced from the Google account data captured at
+link/sign-in time.
+
+> Open/unconfirmed as of 2026-07-23: an investigation into Google profile
+> details (name/email/photo) not always appearing immediately after linking
+> is still unresolved — the linking code has been re-verified correct and a
+> direct Firestore check showed no write-path regression, but a clean
+> isolated repro was never captured. See BUILD_STATUS.md Known Bugs/Issues.
 
 ---
 

@@ -11,8 +11,13 @@ users/
     │   └── {lessonId}/
     ├── practiceResults/            # Subcollection — one doc per session
     │   └── {resultId}/
-    └── dailyQuests/                # Subcollection — one doc per day
-        └── {dateStr}/              # e.g. "2026-04-29"
+    ├── dailyQuests/                # Subcollection — one doc per day
+    │   └── {dateStr}/              # e.g. "2026-04-29"
+    └── calibration/                # Subcollection — one doc per sign label
+        └── {signLabel}/
+
+deletedGoogleAccounts/              # Top-level collection — Google-identity blocklist
+└── {googleUid}/                    # doc ID = the deleted account's Google provider UID
 ```
 
 ---
@@ -24,6 +29,7 @@ users/
   // Profile
   email: String,
   displayName: String,
+  photoUrl: String,             // '' until a Google account is linked/signed in
   createdAt: Timestamp,
   lastActiveDate: String,       // "YYYY-MM-DD"
 
@@ -52,7 +58,6 @@ users/
 }
 ```
 
-> NOTE: `photoUrl` does not exist on `UserModel` — not documented because not implemented.
 > NOTE: `markLessonComplete()` also writes `signsLearned: FieldValue.increment(signCount)`
 > to the user doc, but `UserModel` has no `signsLearned` field — it's written but never
 > read back into the app.
@@ -163,6 +168,37 @@ const kQuestPool = [
 > time, so users can never actually receive this quest. Only `complete_lessons`, `earn_xp`,
 > and `practice_sessions` are ever generated and updated via `updateQuestProgress()`.
 
+---
+
+## deletedGoogleAccounts/{googleUid} — Deleted-Account Blocklist
+
+`googleUid` = the Google auth provider's own UID (not the Firebase UID)
+
+```dart
+{
+  deletedAt: Timestamp,          // FieldValue.serverTimestamp()
+  firebaseUid: String,           // the Firebase Auth uid that was deleted
+}
+```
+
+**Purpose:** when a user with a linked Google account deletes their profile,
+their Google identity is recorded here so `AuthService.signInWithGoogle()`
+can refuse future **Sign In** attempts with that Google account ("This
+Google account was previously deleted from HiASL and can no longer sign
+in."). This only blocks **Sign In** (`signInWithGoogle()` / `SignInScreen`)
+— it does NOT block **Create Profile** (`linkWithGoogle()` /
+`LinkAccountScreen`), so a deleted Google identity can always be freely
+re-registered as a brand-new anonymous profile.
+
+**Write ordering (matters for Firestore rules):** the blocklist record is
+written **before** `user.delete()` in `AuthService.deleteAccount()`, not
+after — writing it after would fail with `PERMISSION_DENIED` because
+`request.auth` becomes null the instant the Firebase Auth user is deleted,
+and the rule requires an authenticated `request.auth.uid` matching
+`firebaseUid`. If `user.delete()` then fails or requires re-authentication,
+the record is rolled back (deleted) so a still-live account isn't
+incorrectly blocklisted.
+
 ### Local Quiz Data (NOT in Firestore)
 
 **QuizSet** (lib/data/quiz_definitions.dart)
@@ -184,6 +220,12 @@ const kQuestPool = [
 
 Quiz best scores stored in SharedPreferences:
 key: `quiz_best_{quizSetId}` → int (correct count out of 10)
+
+**Auth — device-local anonymous UID tracking** (`lib/services/auth_service.dart`):
+key: `native_anonymous_uid` → String (Firebase UID)
+Set the first time this device creates or reuses an anonymous session. Used
+by `AuthService.signOut()` to decide sign-out behaviour — see the Sign Out
+amendment below.
 
 ---
 
@@ -320,15 +362,28 @@ If currentStreak % 7 == 0 → award kXpStreakBonus
 ---
 
 ## Firestore Security Rules
+See `firestore.rules` in the repo root for the authoritative, current rules
+(they're validated/deployed separately from this doc and can drift — always
+check the file itself before relying on this summary).
+
+Current shape, summarised:
 ```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
+users/{uid}                        — read/create/update/delete: owner only
+                                      (create/update also schema-validated)
+users/{uid}/lessons/{lessonId}     — owner only, schema-validated on write
+users/{uid}/practiceResults/{id}   — owner create/read/delete; update: false
+users/{uid}/dailyQuests/{dateStr}  — owner only, dateStr format validated
+users/{uid}/calibration/{sign}     — owner only, schema-validated on write
+
+deletedGoogleAccounts/{googleUid}  — read: any authenticated user
+                                    — create: only by the uid matching
+                                      the doc's own firebaseUid field
+                                    — update: false (immutable once written)
+                                    — delete: only by the uid matching
+                                      the doc's own firebaseUid field
+                                      (used for the rollback path)
+
+{everything else}                  — read, write: false (deny by default)
 ```
 
 ---
@@ -413,3 +468,40 @@ const kStreakGoalXp = {
 
 ### Mascot Name
 The HiASL mascot is named **"Hani"** — used in all speech bubbles throughout onboarding.
+
+---
+## Amendment — Two-Screen Google Auth, Blocklist, Unlink Sign-Out (appended 2026-07-23)
+
+This supersedes the auth behaviour described in the earlier amendments above
+wherever they conflict. See TECH_STACK.md's "Auth Flow" section for the full
+code-level walkthrough; this amendment covers the Firestore/data-model
+implications only.
+
+- **Two separate screens, not one:** `LinkAccountScreen` (Create Profile,
+  `linkWithCredential` — upgrades the current anonymous session in place,
+  same UID, all progress preserved) and `SignInScreen` (Sign In,
+  `signInWithCredential` — switches to a different existing account, a
+  different UID). See DATA_SCHEMA.md's `deletedGoogleAccounts` section and
+  APP_FLOW.md S-25/S-25b for the full behavioural split.
+- **`photoUrl`** is now a real field on `users/{uid}` (see the User Document
+  section above) — populated from the Google account's `photoUrl` at link
+  or sign-in time, `''` for anonymous/unlinked users.
+- **`deletedGoogleAccounts` blocklist** (new top-level collection) — see its
+  own section above.
+- **Sign Out is no longer a single unconditional `signOut()` call.** It now
+  distinguishes two cases via the device-local `native_anonymous_uid`
+  SharedPreferences key (see Local Constants above):
+  - If the currently-linked Google account originated from **this device's
+    own** anonymous session (`current.uid == nativeUid`) → `unlink('google.com')`
+    instead of a full sign-out. The anonymous session (and all its Firestore
+    data) survives; the user just drops back to guest/anonymous state on the
+    same UID.
+  - Otherwise (the account was reached via a true Sign In switch to a
+    different pre-existing account, or this device never held that account
+    natively) → full `FirebaseAuth.signOut()`, which then triggers a fresh
+    anonymous session on next launch.
+- **Delete Account ordering:** `FirestoreService.deleteUserData(uid)` (all
+  subcollections, then the user doc) runs first, then
+  `AuthService.deleteAccount()` (blocklist write, then `user.delete()`) runs
+  second — see `deleteUserData()` in `firestore_service.dart` and
+  `deleteAccount()` in `auth_service.dart`.

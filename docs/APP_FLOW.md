@@ -29,7 +29,8 @@
 | S-22 | Daily Quest Update | `/session/quest` |
 | S-23 | Settings | `/settings` |
 | S-24 | Leaderboard (login-gated) | `/leaderboard` |
-| S-25 | Google Sign-In (social unlock) | `/login/social` |
+| S-25 | Create Profile (Link Google — anonymous → upgraded, progress preserved) | `/login/link` |
+| S-25b | Sign In (Google — switch to a different existing account) | `/login/signin` |
 | S-26 | Quiz Home | `/quiz` | |
 | S-27 | Quiz Session | `/quiz/session` | |
 | S-28 | Quiz Result | `/quiz/result` | |
@@ -76,8 +77,8 @@ HOME FLOW:
   ├── streak icon → [S-14 Streak]
   ├── settings icon → [S-23 Settings]
   ├── leaderboard icon → [S-24 Leaderboard]
-  │     └── "Login to join" → [S-25 Google Sign-In]
-  │           → link anonymous account → back to [S-24]
+  │     └── "Login to join" → [S-25 Create Profile]
+  │           → link anonymous account (progress preserved) → back to [S-24]
   └── tap lesson → [S-15 Mode Select]
         ├── "Learn" → [S-16 Learn Session]
         │     → ends → [S-19 Checkout]
@@ -108,7 +109,7 @@ HOME FLOW:
 - Full screen: HiASL mascot (hand signing) + large logo
 - Tagline: "Learn ASL. For free. Forever."
 - Button: "GET STARTED" → S-03
-- Small link: "I already have an account" → S-25 (Google Sign-In to restore progress)
+- Small link: "I already have an account" → S-25b (Sign In — switch to an existing Google account)
 - No back button
 
 ### S-03 — Welcome: Mascot Intro
@@ -301,23 +302,66 @@ Inspired by Duolingo image 19.
 - Toggle: Sound Effects (default ON)
 - Reminder time picker
 - Streak goal change
-- "Back up my progress" → S-25 (Google Sign-In)
+- "Back up my progress" → S-25 (Create Profile / Link Google)
 - App version
 
 ### S-24 — Leaderboard (Login-Gated)
 - Blurred/locked preview of leaderboard rankings
 - Overlay: "Login to join the leaderboard"
-- Button: "CONTINUE WITH GOOGLE" → S-25
+- Button: "CONTINUE WITH GOOGLE" → S-25 (Create Profile)
 - Back → S-13
 
-### S-25 — Google Sign-In (Social Unlock)
-- Shown only when user wants social features or backup
-- Title: "Save your progress & join the leaderboard"
-- Button: "Continue with Google"
-  - `currentUser.linkWithCredential(GoogleAuthProvider)`
-  - Update Firestore: `isAnonymous: false`, set email + displayName
-  - On success: navigate back to where user came from
-- "Not now" → back
+### S-25 — Create Profile / Link Account (`LinkAccountScreen`, `/login/link`)
+Upgrades the **current anonymous session in place** — the anonymous UID is
+preserved, so all existing progress carries over automatically.
+
+- Reachable from: Leaderboard "Login to join", Settings "Back up my progress",
+  Profile screen "Create Profile" button
+- Title: "Join us!" — "Create your profile to save your progress."
+- Button: "Link Account with Google"
+  - `GoogleSignIn().signOut()` first, then `GoogleSignIn().signIn()` — always
+    forces the account picker instead of silently reusing a cached account
+  - `AuthService.linkWithGoogle()`: throws immediately if the current user is
+    not anonymous (already signed in) — never shows the picker in that case
+  - `currentUser.linkWithCredential(GoogleAuthProvider.credential(...))`
+  - Firestore `updateUser()`: `isAnonymous: false`, `authProvider: 'google'`,
+    `displayName`/`email`/`photoUrl` sourced from the Google account
+  - On success: navigate back to where the user came from
+- Error handling:
+  - `credential-already-in-use` → "This Google account is already linked to
+    another profile. Try Sign In instead."
+  - `PlatformException` (native picker didn't complete) → generic retry message
+- "Maybe later" → back
+
+### S-25b — Sign In (`SignInScreen`, `/login/signin`)
+Switches to a **different, already-existing** account via
+`signInWithCredential` — this does NOT preserve the current anonymous
+session's progress unless the user explicitly confirms.
+
+- Reachable from: Welcome Brand "I already have an account", Profile screen
+  "Sign In" button
+- Title: "Welcome back!" — "Sign in to pick up right where you left off."
+- Button: "Sign In with Google"
+  - If the current anonymous account has progress worth losing (`totalXp > 0`,
+    `currentStreak > 0`, or any `signAccuracy` entries), shows a "Switch
+    account?" confirmation dialog first — skipped entirely if there's nothing
+    to lose
+  - `GoogleSignIn().signOut()` first, then `GoogleSignIn().signIn()` — always
+    forces the account picker
+  - `AuthService.signInWithGoogle()` checks the `deletedGoogleAccounts`
+    blocklist before attempting sign-in (see DATA_SCHEMA.md)
+  - `_auth.signInWithCredential(credential)`
+  - If `isNewUser == true` (no account was ever registered under this Google
+    identity): treated as "account not found" — the auto-created Firebase
+    Auth user is deleted, the anonymous session is restored via
+    `signInSilently()`, and the user is told "We couldn't find an account for
+    this Google sign-in. Try Create Profile instead." — no navigation occurs
+  - On genuine success: navigate back to where the user came from
+- "Maybe later" → back
+
+> Both screens share `widgets/social_auth_widgets.dart` (`GoogleButton`,
+> `MaybeLaterButton`) but keep fully independent `_onGoogleTap()` logic — no
+> shared auth-flow code beyond the button widgets themselves.
 
 ### Quiz Tab (New — Added 2026-07-18)
 
@@ -349,7 +393,7 @@ Inspired by Duolingo image 19.
 
 | State | Provider |
 |---|---|
-| Auth state | `FirebaseAuth.authStateChanges()` top-level |
+| Auth state | `authStateProvider` — `FirebaseAuth.userChanges()` (not `authStateChanges()`, which misses provider link/unlink events like the unlink-based sign-out path) |
 | User profile + settings | `UserProvider` — streams Firestore user doc |
 | Onboarding answers | `OnboardingController` — ephemeral, batch write on S-12 |
 | Lesson list + progress | `LessonProvider` — streams lessons subcollection |

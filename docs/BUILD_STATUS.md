@@ -1,7 +1,7 @@
 # BUILD_STATUS.md
 > Tracks what is actually built vs planned vs changed vs pending.
 > Update this file whenever a feature is completed or scope changes.
-> Last updated: 2026-07-18
+> Last updated: 2026-07-23
 
 ---
 
@@ -20,6 +20,7 @@
 | Quest screen | ✅ Complete |
 | Profile screen | ✅ Complete |
 | Settings screen | ✅ Complete |
+| Auth (Create Profile / Sign In / Sign Out / Delete Account) | ✅ Complete — see TECH_STACK.md Auth Flow section |
 | Firebase backend | ✅ Complete |
 | Firestore security rules | ✅ Deployed |
 | Sign PNG assets (A-Z + 0-9) | ✅ Complete (all 36) |
@@ -58,7 +59,8 @@
 | Profile | profile_screen.dart | /profile |
 | Settings | settings_screen.dart | /settings |
 | Leaderboard (gate only) | leaderboard_screen.dart | /leaderboard |
-| Social Sign In | social_sign_in_screen.dart | /login/social |
+| Create Profile (Link Google) | link_account_screen.dart | /login/link |
+| Sign In (Switch Google account) | sign_in_screen.dart | /login/signin |
 
 ### ⚠️ Orphaned (file exists, not routed)
 
@@ -184,6 +186,24 @@ Used in: learn_mode_body.dart, signs_screen.dart, quiz_session_screen.dart
 
 ## Known Bugs / Issues
 
+- **Google profile data (name/email/photo) not always showing immediately
+  after linking** — UNCONFIRMED / under active investigation as of
+  2026-07-23. Current `LinkAccountScreen`/`AuthService.linkWithGoogle()`
+  code has been re-verified as correct (writes `displayName`/`email`/
+  `photoUrl` from the live `GoogleSignInAccount`, not stale cached data),
+  and a direct Firestore check of one repro's uid showed no regression in
+  the write path itself. The specific complaint has not been cleanly
+  reproduced with an isolated, unambiguous log — remains open pending a
+  clean repro rather than a confirmed bug in the linking code.
+- **"Switch account?" progress-loss warning dialog (`SignInScreen`)** —
+  one investigation thread reported the dialog not appearing under
+  conditions where the current anonymous account should have had progress.
+  Never cleanly resolved — repro attempts were confounded by messy,
+  multi-session device logs. The dialog logic itself
+  (`_confirmSwitchIfProgressAtRisk()` in `sign_in_screen.dart`) checks
+  `totalXp > 0 || currentStreak > 0 || signAccuracy.isNotEmpty` and appears
+  correct on inspection; treat as unconfirmed until a clean isolated repro
+  is captured.
 - **correct_streak quest** — users who draw this daily quest
   can never complete it (no tracking logic exists)
 - **streakGoalAchieved** — never set to true by any code path
