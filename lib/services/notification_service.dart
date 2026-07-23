@@ -29,8 +29,8 @@ class NotificationService {
   Future<void> scheduleDailyReminder(int hour, int minute) async {
     await _plugin.zonedSchedule(
       _reminderNotificationId,
-      'Time to practice!',
-      "Keep your streak going — it's time for your ASL lesson.",
+      'Time for ASL Learning!',
+      "Keep your streak going. It's time for your daily ASL practice.",
       _nextInstanceOf(hour, minute),
       const NotificationDetails(
         android: AndroidNotificationDetails(
