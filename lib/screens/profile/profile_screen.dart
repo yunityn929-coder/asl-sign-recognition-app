@@ -119,12 +119,6 @@ class _ProfileContent extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _BadgesCard(medalsEarned: user?.medalsEarned ?? const {}),
           ),
-          if (confirmedSignedIn) ...[
-            const SizedBox(height: 28),
-            const _SignOutButton(),
-            const SizedBox(height: 12),
-            const _DeleteAccountButton(),
-          ],
           const SizedBox(height: 32),
         ],
       ),
@@ -262,44 +256,57 @@ class _IdCard extends StatelessWidget {
     final firstLetter =
         user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : '?';
 
-    return Row(
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        CircleAvatar(
-          radius: 32,
-          backgroundColor: AppColors.primary,
-          backgroundImage: user.photoUrl.isNotEmpty ? NetworkImage(user.photoUrl) : null,
-          child: user.photoUrl.isEmpty
-              ? Text(
-                  firstLetter,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                )
-              : null,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        Padding(
+          padding: const EdgeInsets.only(right: 28),
+          child: Row(
             children: [
-              Text(
-                user.displayName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: AppColors.primary,
+                backgroundImage: user.photoUrl.isNotEmpty ? NetworkImage(user.photoUrl) : null,
+                child: user.photoUrl.isEmpty
+                    ? Text(
+                        firstLetter,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
               ),
-              const SizedBox(height: 4),
-              Text(
-                user.email,
-                style:
-                    const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.displayName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user.email,
+                      style:
+                          const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
+        ),
+        const Positioned(
+          top: -16,
+          right: -16,
+          child: _AccountMenuButton(),
         ),
       ],
     );
@@ -607,143 +614,114 @@ class _BadgeCircleIcon extends StatelessWidget {
   }
 }
 
-class _SignOutButton extends ConsumerStatefulWidget {
-  const _SignOutButton();
+// Vertical three-dot menu pinned to the ID card's top-right corner —
+// Sign Out / Delete Account, signed-in users only (never rendered for
+// guests, since it's only reachable from _buildSignedInContent()).
+class _AccountMenuButton extends ConsumerStatefulWidget {
+  const _AccountMenuButton();
 
   @override
-  ConsumerState<_SignOutButton> createState() => _SignOutButtonState();
+  ConsumerState<_AccountMenuButton> createState() => _AccountMenuButtonState();
 }
 
-class _SignOutButtonState extends ConsumerState<_SignOutButton> {
+class _AccountMenuButtonState extends ConsumerState<_AccountMenuButton> {
   bool _loading = false;
 
-  Future<void> _onTap() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    try {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Sign Out?'),
-          content: const Text('Are you sure you want to sign out?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('Sign Out'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out?'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
 
-      // Capture before signOut() runs: it flips authStateProvider to null,
-      // which removes this button (and this State) from the tree — router
-      // must not depend on context/ref surviving that.
-      final authService = ref.read(authServiceProvider);
-      // ignore: use_build_context_synchronously
-      final router = GoRouter.of(context);
-      await authService.signOut();
+    // Capture before signOut() runs: it flips authStateProvider to null,
+    // which removes this button (and this State) from the tree — router
+    // must not depend on context/ref surviving that.
+    final authService = ref.read(authServiceProvider);
+    // ignore: use_build_context_synchronously
+    final router = GoRouter.of(context);
+    await authService.signOut();
+    router.go(kRouteSplash);
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account?'),
+        content: const Text(
+          'This permanently deletes your account and progress. '
+          "Action can't be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null) return;
+
+    // Capture everything needed before any operation below runs: deleting
+    // the Firestore doc flips the Profile screen's confirmed-signed-in
+    // check, which removes this button from the tree and disposes this
+    // State mid-flight — ref/context are unusable the instant that
+    // happens, so nothing after this point can depend on them directly.
+    final authService = ref.read(authServiceProvider);
+    final firestoreService = ref.read(firestoreServiceProvider);
+    // ignore: use_build_context_synchronously
+    final router = GoRouter.of(context);
+    // ignore: use_build_context_synchronously
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      debugPrint('[TEMP DEBUG] AccountMenuButton: calling reauthenticateForDeleteIfNeeded');
+      await authService.reauthenticateForDeleteIfNeeded();
+      debugPrint('[TEMP DEBUG] AccountMenuButton: reauthenticateForDeleteIfNeeded done, calling deleteUserData');
+      await firestoreService.deleteUserData(uid);
+      debugPrint('[TEMP DEBUG] AccountMenuButton: deleteUserData done, calling deleteAccount');
+      await authService.deleteAccount();
+      debugPrint('[TEMP DEBUG] AccountMenuButton: deleteAccount done, navigating to splash');
       router.go(kRouteSplash);
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    } catch (e, st) {
+      debugPrint('[TEMP DEBUG] AccountMenuButton: caught error: $e\n$st');
+      messenger.showSnackBar(
+        SnackBar(content: Text('Failed to delete account: $e')),
+      );
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: TextButton(
-        onPressed: _loading ? null : _onTap,
-        child: _loading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.error),
-              )
-            : const Text(
-                'Sign out',
-                style: TextStyle(
-                  color: AppColors.error,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-      ),
-    );
-  }
-}
-
-class _DeleteAccountButton extends ConsumerStatefulWidget {
-  const _DeleteAccountButton();
-
-  @override
-  ConsumerState<_DeleteAccountButton> createState() => _DeleteAccountButtonState();
-}
-
-class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
-  bool _loading = false;
-
-  Future<void> _onTap() async {
+  Future<void> _onSelected(String value) async {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Delete Account?'),
-          content: const Text(
-            'This permanently deletes your account and progress. '
-            "Action can't be undone.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-
-      final uid = ref.read(authStateProvider).value?.uid;
-      if (uid == null) return;
-
-      // Capture everything needed before any operation below runs: deleting
-      // the Firestore doc flips the Profile screen's confirmed-signed-in
-      // check, which removes this button from the tree and disposes this
-      // State mid-flight — ref/context are unusable the instant that
-      // happens, so nothing after this point can depend on them directly.
-      final authService = ref.read(authServiceProvider);
-      final firestoreService = ref.read(firestoreServiceProvider);
-      // ignore: use_build_context_synchronously
-      final router = GoRouter.of(context);
-      // ignore: use_build_context_synchronously
-      final messenger = ScaffoldMessenger.of(context);
-
-      try {
-        debugPrint('[TEMP DEBUG] DeleteAccountButton: calling reauthenticateForDeleteIfNeeded');
-        await authService.reauthenticateForDeleteIfNeeded();
-        debugPrint('[TEMP DEBUG] DeleteAccountButton: reauthenticateForDeleteIfNeeded done, calling deleteUserData');
-        await firestoreService.deleteUserData(uid);
-        debugPrint('[TEMP DEBUG] DeleteAccountButton: deleteUserData done, calling deleteAccount');
-        await authService.deleteAccount();
-        debugPrint('[TEMP DEBUG] DeleteAccountButton: deleteAccount done, navigating to splash');
-        router.go(kRouteSplash);
-      } catch (e, st) {
-        debugPrint('[TEMP DEBUG] DeleteAccountButton: caught error: $e\n$st');
-        messenger.showSnackBar(
-          SnackBar(content: Text('Failed to delete account: $e')),
-        );
+      if (value == 'signout') {
+        await _signOut();
+      } else if (value == 'delete') {
+        await _deleteAccount();
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -752,24 +730,32 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: TextButton(
-        onPressed: _loading ? null : _onTap,
-        child: _loading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.error),
-              )
-            : const Text(
-                'Delete Account',
-                style: TextStyle(
-                  color: AppColors.error,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-      ),
+    if (_loading) {
+      return const SizedBox(
+        width: 36,
+        height: 36,
+        child: Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
+          ),
+        ),
+      );
+    }
+    return PopupMenuButton<String>(
+      padding: EdgeInsets.zero,
+      iconSize: 20,
+      offset: const Offset(0, 40),
+      icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
+      onSelected: _onSelected,
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'signout', child: Text('Sign Out')),
+        PopupMenuItem(
+          value: 'delete',
+          child: Text('Delete Account', style: TextStyle(color: AppColors.error)),
+        ),
+      ],
     );
   }
 }
