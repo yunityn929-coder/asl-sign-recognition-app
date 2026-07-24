@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/errors/app_exception.dart';
 
@@ -13,16 +13,6 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
   bool get isAnonymous => _auth.currentUser?.isAnonymous ?? true;
-
-  // Records the uid of an account that was just linked in-place from THIS
-  // device's own anonymous session (see linkWithGoogle()) — the only case
-  // where signOut() should unlink-and-preserve instead of fully signing out.
-  // Deliberately NOT derived from "the first anonymous uid this device ever
-  // saw": that went stale across sign-in/sign-out cycles and caused signOut()
-  // to guess wrong (e.g. unlinking — and silently keeping the same session —
-  // for an account that was actually reached via signInWithGoogle()'s
-  // swap-to-a-different-existing-account flow, not a same-device link).
-  static const _linkedFromGuestUidKey = 'linked_from_guest_uid';
 
   Future<User> signInSilently() async {
     if (_auth.currentUser != null) {
@@ -38,32 +28,19 @@ class AuthService {
     }
   }
 
+  // Always fully signs out to a brand-new guest session, regardless of how
+  // the account was reached (linked in-place from this device's own guest
+  // session, or signed into a separate existing account). Progress isn't
+  // lost — it stays in Firestore under that account's uid — but this device
+  // doesn't auto-resume it; signing back into the same Google account
+  // recovers it.
   Future<void> signOut() async {
-    final current = _auth.currentUser;
-    final prefs = await SharedPreferences.getInstance();
-    final linkedFromGuestUid = prefs.getString(_linkedFromGuestUidKey);
     // Best-effort only — some environments leave this hanging indefinitely
     // with no exception and no UI (a stale native session with nothing to
     // disconnect), which would otherwise stall the entire sign-out below.
     try {
       await _googleSignIn.disconnect().timeout(const Duration(seconds: 5));
     } catch (_) {}
-
-    if (current != null &&
-        !current.isAnonymous &&
-        linkedFromGuestUid != null &&
-        current.uid == linkedFromGuestUid) {
-      // This account was linked in-place from this device's own anonymous
-      // session — unlink instead of full sign-out to preserve all progress.
-      try {
-        await current.unlink('google.com');
-        await prefs.remove(_linkedFromGuestUidKey);
-        return;
-      } on FirebaseAuthException catch (_) {
-        // Fall through to full sign-out if unlink fails for any reason.
-      }
-    }
-    await prefs.remove(_linkedFromGuestUidKey);
     await _auth.signOut();
   }
 
@@ -92,10 +69,6 @@ class AuthService {
 
       // Link to preserve all Firestore data under this UID.
       final result = await current.linkWithCredential(credential);
-      if (result.user != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_linkedFromGuestUidKey, result.user!.uid);
-      }
       return (
         user: result.user,
         googleDisplayName: googleUser.displayName,
@@ -118,16 +91,6 @@ class AuthService {
     final googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) return (user: null, isNewUser: false); // user dismissed the picker
 
-    final blockedDoc = await FirebaseFirestore.instance
-        .collection('deletedGoogleAccounts')
-        .doc(googleUser.id)
-        .get();
-    if (blockedDoc.exists) {
-      throw const AuthException(
-        'This Google account was previously deleted from HiASL and can no longer sign in. You can create a new profile instead.',
-      );
-    }
-
     try {
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
@@ -136,11 +99,6 @@ class AuthService {
       );
 
       final result = await _auth.signInWithCredential(credential);
-      // This swaps to a different, already-existing account — it is never
-      // "this device's own guest session merged in place", even if that
-      // marker happens to be set from an earlier link on this device.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_linkedFromGuestUidKey);
       return (
         user: result.user,
         isNewUser: result.additionalUserInfo?.isNewUser ?? false,
@@ -160,18 +118,24 @@ class AuthService {
     if (user == null) throw const AuthException('No signed-in user.');
     if (user.isAnonymous) return;
 
+    debugPrint('[TEMP DEBUG] reauthenticateForDeleteIfNeeded: starting GoogleSignIn().signIn()');
     final googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) {
+      debugPrint('[TEMP DEBUG] reauthenticateForDeleteIfNeeded: signIn() returned null (cancelled)');
       throw const AuthException('Re-authentication cancelled.');
     }
+    debugPrint('[TEMP DEBUG] reauthenticateForDeleteIfNeeded: signIn() ok, getting authentication');
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
     try {
+      debugPrint('[TEMP DEBUG] reauthenticateForDeleteIfNeeded: calling reauthenticateWithCredential');
       await user.reauthenticateWithCredential(credential);
+      debugPrint('[TEMP DEBUG] reauthenticateForDeleteIfNeeded: reauthenticateWithCredential SUCCEEDED');
     } on FirebaseAuthException catch (e) {
+      debugPrint('[TEMP DEBUG] reauthenticateForDeleteIfNeeded: FirebaseAuthException code=${e.code}');
       throw AuthException(_friendly(e.code));
     }
   }
@@ -183,50 +147,22 @@ class AuthService {
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) throw const AuthException('No signed-in user.');
+    debugPrint('[TEMP DEBUG] deleteAccount: starting for uid=${user.uid}');
+
+    // This device has been observed to silently hang Firebase network calls
+    // with no exception (see the disconnect() fix above), so this must
+    // surface a real error on timeout rather than fail silently.
     try {
-      await _recordDeletedGoogleAccount(user);
-      await user.delete();
+      debugPrint('[TEMP DEBUG] deleteAccount: calling user.delete()');
+      await user.delete().timeout(const Duration(seconds: 15));
+      debugPrint('[TEMP DEBUG] deleteAccount: user.delete() SUCCEEDED, currentUser now = ${_auth.currentUser?.uid ?? "null"}');
     } on FirebaseAuthException catch (e) {
-      await _rollbackDeletedGoogleAccountRecord(user);
+      debugPrint('[TEMP DEBUG] deleteAccount: user.delete() FirebaseAuthException code=${e.code} message=${e.message}');
       throw AuthException(_friendly(e.code));
-    }
-  }
-
-  // Marks a deleted account's Google identity as blocked so signInWithGoogle()
-  // can refuse it later (see the deletedGoogleAccounts lookup there). Only
-  // recorded for accounts that actually had a linked google.com provider.
-  // Must run BEFORE user.delete() — the write requires an authenticated
-  // request, and delete() clears the session.
-  Future<void> _recordDeletedGoogleAccount(User user) async {
-    final hasGoogleProvider =
-        user.providerData.any((p) => p.providerId == 'google.com');
-    if (!hasGoogleProvider) return;
-    final googleUid = user.providerData
-        .firstWhere((p) => p.providerId == 'google.com')
-        .uid;
-    await FirebaseFirestore.instance
-        .collection('deletedGoogleAccounts')
-        .doc(googleUid)
-        .set({'deletedAt': FieldValue.serverTimestamp(), 'firebaseUid': user.uid});
-  }
-
-  // Best-effort undo of _recordDeletedGoogleAccount() when delete() ends up
-  // failing or being cancelled after the record was already written, so a
-  // still-live account isn't incorrectly blocklisted.
-  Future<void> _rollbackDeletedGoogleAccountRecord(User user) async {
-    try {
-      final hasGoogleProvider =
-          user.providerData.any((p) => p.providerId == 'google.com');
-      if (!hasGoogleProvider) return;
-      final googleUid = user.providerData
-          .firstWhere((p) => p.providerId == 'google.com')
-          .uid;
-      await FirebaseFirestore.instance
-          .collection('deletedGoogleAccounts')
-          .doc(googleUid)
-          .delete();
-    } catch (_) {
-      // Best-effort only — don't let rollback failure mask the original error.
+    } on TimeoutException {
+      debugPrint('[TEMP DEBUG] deleteAccount: user.delete() TIMED OUT after 15s');
+      throw const AuthException(
+          'Deleting your account is taking longer than expected. Please check your connection and try again.');
     }
   }
 

@@ -633,8 +633,15 @@ class _SignOutButtonState extends ConsumerState<_SignOutButton> {
         ),
       );
       if (confirmed != true) return;
-      await ref.read(authServiceProvider).signOut();
-      if (mounted) context.go(kRouteSplash);
+
+      // Capture before signOut() runs: it flips authStateProvider to null,
+      // which removes this button (and this State) from the tree — router
+      // must not depend on context/ref surviving that.
+      final authService = ref.read(authServiceProvider);
+      // ignore: use_build_context_synchronously
+      final router = GoRouter.of(context);
+      await authService.signOut();
+      router.go(kRouteSplash);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -703,17 +710,33 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
 
       final uid = ref.read(authStateProvider).value?.uid;
       if (uid == null) return;
+
+      // Capture everything needed before any operation below runs: deleting
+      // the Firestore doc flips the Profile screen's confirmed-signed-in
+      // check, which removes this button from the tree and disposes this
+      // State mid-flight — ref/context are unusable the instant that
+      // happens, so nothing after this point can depend on them directly.
+      final authService = ref.read(authServiceProvider);
+      final firestoreService = ref.read(firestoreServiceProvider);
+      // ignore: use_build_context_synchronously
+      final router = GoRouter.of(context);
+      // ignore: use_build_context_synchronously
+      final messenger = ScaffoldMessenger.of(context);
+
       try {
-        await ref.read(authServiceProvider).reauthenticateForDeleteIfNeeded();
-        await ref.read(firestoreServiceProvider).deleteUserData(uid);
-        await ref.read(authServiceProvider).deleteAccount();
-        if (mounted) context.go(kRouteSplash);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete account: $e')),
-          );
-        }
+        debugPrint('[TEMP DEBUG] DeleteAccountButton: calling reauthenticateForDeleteIfNeeded');
+        await authService.reauthenticateForDeleteIfNeeded();
+        debugPrint('[TEMP DEBUG] DeleteAccountButton: reauthenticateForDeleteIfNeeded done, calling deleteUserData');
+        await firestoreService.deleteUserData(uid);
+        debugPrint('[TEMP DEBUG] DeleteAccountButton: deleteUserData done, calling deleteAccount');
+        await authService.deleteAccount();
+        debugPrint('[TEMP DEBUG] DeleteAccountButton: deleteAccount done, navigating to splash');
+        router.go(kRouteSplash);
+      } catch (e, st) {
+        debugPrint('[TEMP DEBUG] DeleteAccountButton: caught error: $e\n$st');
+        messenger.showSnackBar(
+          SnackBar(content: Text('Failed to delete account: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
