@@ -80,8 +80,10 @@ class _SignsScreenState extends ConsumerState<SignsScreen> {
           const SizedBox(height: 12),
           TextField(
             onChanged: (v) => setState(() => _query = v),
+            style: const TextStyle(color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Search signs...',
+              hintStyle: const TextStyle(color: AppColors.textSecondary),
               prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
               filled: true,
               fillColor: AppColors.backgroundAccent,

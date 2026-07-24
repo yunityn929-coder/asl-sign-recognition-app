@@ -361,6 +361,79 @@ DATA_SCHEMA.md.
 
 ---
 
+## Security
+
+### Authentication
+Firebase Auth, anonymous-first (see "Auth Flow" above for full detail).
+Account upgrade uses `current.linkWithCredential(credential)` — this
+preserves the existing UID and all Firestore data under it, rather than
+creating a new account and migrating data. Account deletion calls
+`user.reauthenticateWithCredential(credential)` first, unconditionally,
+before any data or the account itself is touched — this satisfies Firebase
+Auth's `requires-recent-login` protection on `user.delete()` and avoids the
+failure mode where a stale session lets Firestore data get wiped before the
+Auth deletion itself is rejected.
+
+### Data access control
+Enforced entirely by `firestore.rules` — there is no custom backend. Every
+document under `users/{uid}` (the user doc itself, plus the `lessons`,
+`practiceResults`, `dailyQuests`, and `calibration` subcollections) requires
+`request.auth.uid == uid` via the shared `isOwner(uid)` function; no user can
+read or write another user's data. Writes are additionally schema/type
+checked with the rules' own `isValid*()` functions (`isValidUserCreate`,
+`isValidUserUpdate`, `isValidLesson`, `isValidPracticeResult`,
+`isValidDailyQuest`, `isValidCalibrationSample`) — e.g. `totalXp` and
+`currentStreak` must be non-negative numbers, `status` must be one of
+`['locked', 'available', 'completed']`. A default-deny fallback
+(`match /{document=**} { allow read, write: if false; }`) covers any path
+not explicitly matched above, so newly added collections are inaccessible
+until rules are written for them.
+
+### Encryption
+Firestore encrypts data in transit (TLS) and at rest by default — this is
+automatic Google Cloud infrastructure behavior, not application code, and
+applies uniformly regardless of what's stored. No field-level or
+application-layer encryption is implemented on top of it: the data this app
+handles (profile info, XP/streak/progress stats, hand-landmark calibration
+samples) doesn't fall into a regulated or highly-sensitive category (e.g.
+health records, payment data) that would call for it.
+
+### Client configuration
+`lib/firebase_options.dart` embeds only the standard public Firebase Android
+client config — `apiKey`, `appId`, `messagingSenderId`, `projectId`,
+`storageBucket`, generated from `google-services.json`. Under Firebase's
+security model this config is expected to be public (it identifies the
+project to Google's servers; it does not grant access on its own — access
+control is delegated entirely to the Firestore rules above). No
+service-account credentials or other server-side secrets exist anywhere in
+the app codebase.
+
+### Known gaps (acknowledged, not yet addressed)
+These are deliberate, tracked trade-offs for the project's current stage,
+not oversights:
+- **No Firebase App Check.** There is no attestation that requests actually
+  originate from the genuine app binary — Firestore Security Rules are the
+  sole defense against a forged or replayed client (e.g. a rebuilt APK, or
+  requests crafted directly against the Firebase REST API using the public
+  client config above). Rules still hold: a forged client still can't read
+  or write another user's data. App Check would add a second layer that
+  rejects unattested clients outright, but it isn't wired in yet.
+- **Release builds are signed with the debug keystore.** `android/app/build.gradle.kts`
+  sets `signingConfig = signingConfigs.getByName("debug")` for the `release`
+  build type, with a `TODO` marking it as a placeholder. A production
+  signing config has not been created.
+- **Code shrinking/obfuscation is off for release builds.** No
+  `minifyEnabled`/`isMinifyEnabled` or `proguardFiles` entry exists in
+  `android/app/build.gradle.kts`, so release APKs ship unminified and
+  unobfuscated (Gradle's default when unspecified).
+- **Debug logging in the auth flow.** `lib/services/auth_service.dart` and
+  the account-menu delete flow contain `debugPrint('[TEMP DEBUG] ...')` calls
+  that log UIDs and auth state transitions. These should be removed or
+  gated behind `kDebugMode` before a production release, since `debugPrint`
+  output is not automatically stripped from release builds.
+
+---
+
 ## Gesture Recognition Pipeline
 
 ### Input
