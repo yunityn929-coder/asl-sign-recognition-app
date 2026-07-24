@@ -14,27 +14,24 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
   bool get isAnonymous => _auth.currentUser?.isAnonymous ?? true;
 
-  static const _nativeAnonymousUidKey = 'native_anonymous_uid';
+  // Records the uid of an account that was just linked in-place from THIS
+  // device's own anonymous session (see linkWithGoogle()) — the only case
+  // where signOut() should unlink-and-preserve instead of fully signing out.
+  // Deliberately NOT derived from "the first anonymous uid this device ever
+  // saw": that went stale across sign-in/sign-out cycles and caused signOut()
+  // to guess wrong (e.g. unlinking — and silently keeping the same session —
+  // for an account that was actually reached via signInWithGoogle()'s
+  // swap-to-a-different-existing-account flow, not a same-device link).
+  static const _linkedFromGuestUidKey = 'linked_from_guest_uid';
 
   Future<User> signInSilently() async {
     if (_auth.currentUser != null) {
       debugPrint('[TEMP DEBUG] signInSilently: reusing existing currentUser uid=${_auth.currentUser!.uid}');
-      final existing = _auth.currentUser!;
-      if (existing.isAnonymous) {
-        final prefs = await SharedPreferences.getInstance();
-        if (!prefs.containsKey(_nativeAnonymousUidKey)) {
-          await prefs.setString(_nativeAnonymousUidKey, existing.uid);
-        }
-      }
-      return existing;
+      return _auth.currentUser!;
     }
     try {
       final cred = await _auth.signInAnonymously();
       debugPrint('[TEMP DEBUG] signInSilently: created NEW anonymous uid=${cred.user!.uid}');
-      final prefs = await SharedPreferences.getInstance();
-      if (!prefs.containsKey(_nativeAnonymousUidKey)) {
-        await prefs.setString(_nativeAnonymousUidKey, cred.user!.uid);
-      }
       return cred.user!;
     } on FirebaseAuthException catch (e) {
       throw AuthException(e.message ?? 'Anonymous sign-in failed');
@@ -44,21 +41,29 @@ class AuthService {
   Future<void> signOut() async {
     final current = _auth.currentUser;
     final prefs = await SharedPreferences.getInstance();
-    final nativeUid = prefs.getString(_nativeAnonymousUidKey);
+    final linkedFromGuestUid = prefs.getString(_linkedFromGuestUidKey);
+    // Best-effort only — some environments leave this hanging indefinitely
+    // with no exception and no UI (a stale native session with nothing to
+    // disconnect), which would otherwise stall the entire sign-out below.
     try {
-      await _googleSignIn.disconnect();
+      await _googleSignIn.disconnect().timeout(const Duration(seconds: 5));
     } catch (_) {}
 
-    if (current != null && !current.isAnonymous && nativeUid != null && current.uid == nativeUid) {
-      // This account originated from this device's own anonymous session —
-      // unlink instead of full sign-out to preserve all progress data.
+    if (current != null &&
+        !current.isAnonymous &&
+        linkedFromGuestUid != null &&
+        current.uid == linkedFromGuestUid) {
+      // This account was linked in-place from this device's own anonymous
+      // session — unlink instead of full sign-out to preserve all progress.
       try {
         await current.unlink('google.com');
+        await prefs.remove(_linkedFromGuestUidKey);
         return;
       } on FirebaseAuthException catch (_) {
         // Fall through to full sign-out if unlink fails for any reason.
       }
     }
+    await prefs.remove(_linkedFromGuestUidKey);
     await _auth.signOut();
   }
 
@@ -87,6 +92,10 @@ class AuthService {
 
       // Link to preserve all Firestore data under this UID.
       final result = await current.linkWithCredential(credential);
+      if (result.user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_linkedFromGuestUidKey, result.user!.uid);
+      }
       return (
         user: result.user,
         googleDisplayName: googleUser.displayName,
@@ -127,6 +136,11 @@ class AuthService {
       );
 
       final result = await _auth.signInWithCredential(credential);
+      // This swaps to a different, already-existing account — it is never
+      // "this device's own guest session merged in place", even if that
+      // marker happens to be set from an earlier link on this device.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_linkedFromGuestUidKey);
       return (
         user: result.user,
         isNewUser: result.additionalUserInfo?.isNewUser ?? false,
@@ -136,38 +150,45 @@ class AuthService {
     }
   }
 
+  // Prompts for a fresh Google credential when the session isn't anonymous,
+  // so a stale session can't cause deleteAccount() to hit requires-recent-login
+  // *after* the caller has already deleted the user's Firestore data. Callers
+  // must run this — and let it succeed — before deleting any Firestore data,
+  // then call deleteAccount() immediately after. No-op for anonymous users.
+  Future<void> reauthenticateForDeleteIfNeeded() async {
+    final user = _auth.currentUser;
+    if (user == null) throw const AuthException('No signed-in user.');
+    if (user.isAnonymous) return;
+
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      throw const AuthException('Re-authentication cancelled.');
+    }
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    try {
+      await user.reauthenticateWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_friendly(e.code));
+    }
+  }
+
+  // Deletes the Firebase Auth account. The local session — and therefore
+  // Firestore write permission for this uid — disappears the instant this
+  // succeeds, so callers must delete Firestore data first and call
+  // reauthenticateForDeleteIfNeeded() before that, not after this.
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) throw const AuthException('No signed-in user.');
     try {
       await _recordDeletedGoogleAccount(user);
       await user.delete();
-      debugPrint('[TEMP DEBUG] deleteAccount: user.delete() succeeded for uid=${user.uid}, currentUser now = ${FirebaseAuth.instance.currentUser?.uid ?? "null"}');
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'requires-recent-login' && !user.isAnonymous) {
-        await _rollbackDeletedGoogleAccountRecord(user);
-        final googleUser = await GoogleSignIn().signIn();
-        if (googleUser == null) {
-          throw const AuthException('Re-authentication cancelled.');
-        }
-        final googleAuth = await googleUser.authentication;
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-        await user.reauthenticateWithCredential(credential);
-        try {
-          await _recordDeletedGoogleAccount(user);
-          await user.delete();
-          debugPrint('[TEMP DEBUG] deleteAccount: user.delete() succeeded for uid=${user.uid}, currentUser now = ${FirebaseAuth.instance.currentUser?.uid ?? "null"}');
-        } catch (e2) {
-          await _rollbackDeletedGoogleAccountRecord(user);
-          rethrow;
-        }
-      } else {
-        await _rollbackDeletedGoogleAccountRecord(user);
-        throw AuthException(_friendly(e.code));
-      }
+      await _rollbackDeletedGoogleAccountRecord(user);
+      throw AuthException(_friendly(e.code));
     }
   }
 

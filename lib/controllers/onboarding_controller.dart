@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/auth_service.dart';
+import '../providers/auth_provider.dart';
 import '../services/firestore_service.dart';
 
 class OnboardingState {
@@ -76,8 +76,14 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   }
 }
 
+// Rebuilds (fresh state + fresh uid) whenever the signed-in uid actually
+// changes — e.g. sign-out/delete-account followed by a new anonymous
+// session — so answers from a previous account can never leak into, or get
+// submitted under, the next one. select() keeps this from also rebuilding
+// on same-uid token refreshes, which would otherwise wipe in-progress
+// answers mid-onboarding.
 final onboardingControllerProvider =
     StateNotifierProvider<OnboardingController, OnboardingState>((ref) {
-  final uid = ref.read(authServiceProvider).currentUser?.uid ?? '';
+  final uid = ref.watch(authStateProvider.select((async) => async.value?.uid)) ?? '';
   return OnboardingController(ref.read(firestoreServiceProvider), uid);
 });

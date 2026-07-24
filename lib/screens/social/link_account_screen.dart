@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,10 +27,7 @@ class _LinkAccountScreenState extends ConsumerState<LinkAccountScreen> {
     if (_loading) return;
     setState(() { _loading = true; _error = null; });
     try {
-      final result = await ref
-          .read(authServiceProvider)
-          .linkWithGoogle()
-          .timeout(const Duration(seconds: 60));
+      final result = await ref.read(authServiceProvider).linkWithGoogle();
 
       final user = result.user;
       if (user == null) return; // user dismissed picker
@@ -52,16 +47,10 @@ class _LinkAccountScreenState extends ConsumerState<LinkAccountScreen> {
         debugPrint('[TEMP DEBUG] updateUser threw: $e');
       }
 
-      if (mounted) {
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go(kRouteHome);
-        }
-      }
-    } on TimeoutException {
-      setState(() => _error =
-          'This is taking longer than expected. If it doesn\'t complete, check your profile before trying again.');
+      // Always proceed forward on success, regardless of entry point — a
+      // completed link should never bounce back to the screen it was
+      // launched from.
+      if (mounted) context.go(kRouteHome);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'credential-already-in-use') {
         setState(() => _error =

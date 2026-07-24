@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,10 +28,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     try {
       if (!await _confirmSwitchIfProgressAtRisk()) return;
 
-      final result = await ref
-          .read(authServiceProvider)
-          .signInWithGoogle()
-          .timeout(const Duration(seconds: 60));
+      final result = await ref.read(authServiceProvider).signInWithGoogle();
 
       if (result.user == null) return; // user dismissed picker
 
@@ -53,16 +48,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         return;
       }
 
-      if (mounted) {
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go(kRouteHome);
-        }
-      }
-    } on TimeoutException {
-      setState(() => _error =
-          'This is taking longer than expected. If it doesn\'t complete, check your profile before trying again.');
+      // Always proceed forward on success, regardless of entry point — a
+      // completed sign-in should never bounce back to the pre-auth screen
+      // it was launched from (e.g. Welcome Brand).
+      if (mounted) context.go(kRouteHome);
     } on PlatformException {
       setState(() => _error = "Google sign-in didn't complete. Please try again.");
     } on AppException catch (e) {

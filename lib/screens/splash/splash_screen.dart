@@ -47,8 +47,37 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     try {
       await firestoreService.createUser(uid);
-      final userModel = await firestoreService.getUserOnce(uid);
+      var userModel = await firestoreService.getUserOnce(uid);
       if (!mounted) return;
+
+      // Self-heal: Firebase Auth can already be linked (e.g. linkWithCredential
+      // completed in the background after a screen gave up waiting on it) while
+      // the Firestore doc's isAnonymous flag never caught up. Backfill it here
+      // so the account isn't stuck showing guest state forever with no way to
+      // sign out or re-link.
+      final authUser = authService.currentUser;
+      if (authUser != null && !authUser.isAnonymous && (userModel?.isAnonymous ?? true)) {
+        // The top-level User.displayName/photoURL/email fields aren't
+        // reliably populated by linkWithCredential() — the real profile
+        // data lives on the provider-specific entry in providerData.
+        final googleProviders =
+            authUser.providerData.where((p) => p.providerId == 'google.com');
+        final googleInfo = googleProviders.isEmpty ? null : googleProviders.first;
+        try {
+          await firestoreService.updateUser(uid, {
+            'isAnonymous': false,
+            'authProvider': googleInfo != null ? 'google' : (userModel?.authProvider ?? 'google'),
+            'displayName': googleInfo?.displayName ?? authUser.displayName ?? userModel?.displayName ?? 'Learner',
+            'email': googleInfo?.email ?? authUser.email ?? userModel?.email ?? '',
+            'photoUrl': googleInfo?.photoURL ?? authUser.photoURL ?? userModel?.photoUrl ?? '',
+          });
+          userModel = await firestoreService.getUserOnce(uid);
+        } catch (e) {
+          debugPrint('[SplashScreen] account-link reconciliation failed: $e');
+        }
+        if (!mounted) return;
+      }
+
       final onboardingComplete = userModel?.onboardingComplete ?? false;
       FlutterNativeSplash.remove();
       context.go(onboardingComplete ? kRouteHome : kRouteWelcomeBrand);

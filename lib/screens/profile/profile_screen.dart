@@ -74,6 +74,13 @@ class _ProfileContent extends ConsumerWidget {
 
     final user = userAsync.asData?.value;
 
+    // Firebase Auth can go non-anonymous (e.g. linkWithCredential succeeding
+    // in the background) before the Firestore user doc's updateUser() call
+    // confirms it — or if that call never completes. Only show the signed-in
+    // ID card once both agree; otherwise treat the state as still-guest
+    // rather than flipping to signed-in on a half-confirmed link.
+    final confirmedSignedIn = !isAnonymous && user?.isAnonymous == false;
+
     final lessonsCompleted = lessonsAsync.maybeWhen(
       data: (lessons) => lessons.where((l) => l.status == 'completed').length,
       orElse: () => 0,
@@ -87,7 +94,7 @@ class _ProfileContent extends ConsumerWidget {
           const SizedBox(height: 16),
           const _SectionLabel('Account'),
           const SizedBox(height: 12),
-          _IdCard(user: user, isAnonymous: isAnonymous),
+          _IdCard(user: user, isAnonymous: !confirmedSignedIn),
           const SizedBox(height: 28),
           const _SectionLabel('Your Progress'),
           const SizedBox(height: 12),
@@ -106,7 +113,7 @@ class _ProfileContent extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _BadgesCard(medalsEarned: user?.medalsEarned ?? const {}),
           ),
-          if (!isAnonymous) ...[
+          if (confirmedSignedIn) ...[
             const SizedBox(height: 28),
             const _SignOutButton(),
             const SizedBox(height: 12),
@@ -697,6 +704,7 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
       final uid = ref.read(authStateProvider).value?.uid;
       if (uid == null) return;
       try {
+        await ref.read(authServiceProvider).reauthenticateForDeleteIfNeeded();
         await ref.read(firestoreServiceProvider).deleteUserData(uid);
         await ref.read(authServiceProvider).deleteAccount();
         if (mounted) context.go(kRouteSplash);
