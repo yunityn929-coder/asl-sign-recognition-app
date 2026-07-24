@@ -316,6 +316,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     String uid,
     List<String> missedSigns,
     int xp,
+    int durationSeconds,
   ) async {
     final firestoreService = ref.read(firestoreServiceProvider);
     final signAccuracy = await firestoreService.savePracticeResult(
@@ -332,6 +333,8 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       firestoreService.updateSignAccuracy(uid: uid, newAccuracy: signAccuracy),
       ref.read(userActionsProvider(uid)).addXp(xp),
       firestoreService.updateQuestProgress(uid, 'earn_xp', xp),
+      firestoreService.updateQuestProgress(uid, 'spend_minutes', durationSeconds),
+      firestoreService.recordDailyActiveSeconds(uid, durationSeconds),
     ]);
   }
 
@@ -382,7 +385,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       ];
       // savePracticeResult must run first (updateSignAccuracy depends on its
       // return value); the rest are independent writes run in parallel.
-      await _saveResultAndAccuracy(uid, missedSigns, xp).catchError((_) {});
+      await _saveResultAndAccuracy(uid, missedSigns, xp, duration).catchError((_) {});
 
       try {
         final afterUser = await firestoreService.getUserOnce(uid);

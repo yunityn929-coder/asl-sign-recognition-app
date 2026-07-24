@@ -39,7 +39,6 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                   _DifficultyCard(
                     label: 'Easy',
                     subtitle: '${kDifficultySeconds['easy']}s per sign',
-                    icon: Icons.directions_walk,
                     selected: _difficulty == 'easy',
                     medalEarned: medalsEarned['${widget.lessonId}_easy'] == true,
                     medalColor: AppColors.medalBronze,
@@ -49,7 +48,6 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                   _DifficultyCard(
                     label: 'Medium',
                     subtitle: '${kDifficultySeconds['medium']}s per sign',
-                    icon: Icons.directions_run,
                     selected: _difficulty == 'medium',
                     medalEarned: medalsEarned['${widget.lessonId}_medium'] == true,
                     medalColor: AppColors.medalSilver,
@@ -59,7 +57,6 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                   _DifficultyCard(
                     label: 'Hard',
                     subtitle: '${kDifficultySeconds['hard']}s per sign',
-                    icon: Icons.bolt,
                     selected: _difficulty == 'hard',
                     medalEarned: medalsEarned['${widget.lessonId}_hard'] == true,
                     medalColor: AppColors.medalGold,
@@ -121,7 +118,6 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
 class _DifficultyCard extends StatelessWidget {
   final String label;
   final String subtitle;
-  final IconData icon;
   final bool selected;
   final bool medalEarned;
   final Color medalColor;
@@ -130,7 +126,6 @@ class _DifficultyCard extends StatelessWidget {
   const _DifficultyCard({
     required this.label,
     required this.subtitle,
-    required this.icon,
     required this.selected,
     required this.medalEarned,
     required this.medalColor,
@@ -154,8 +149,6 @@ class _DifficultyCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 32, color: selected ? AppColors.primary : AppColors.textSecondary),
-            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

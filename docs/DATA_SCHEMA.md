@@ -15,9 +15,6 @@ users/
     │   └── {dateStr}/              # e.g. "2026-04-29"
     └── calibration/                # Subcollection — one doc per sign label
         └── {signLabel}/
-
-deletedGoogleAccounts/              # Top-level collection — Google-identity blocklist
-└── {googleUid}/                    # doc ID = the deleted account's Google provider UID
 ```
 
 ---
@@ -55,6 +52,9 @@ deletedGoogleAccounts/              # Top-level collection — Google-identity b
   // Sign Progress
   signAccuracy: Map<String, double>, // per-sign accuracy, weighted avg (0.0-1.0), keyed by sign label
                                       // — see updateSignAccuracy() in firestore_service.dart
+
+  // Gamification — see GAMIFICATION.md for full behaviour
+  medalsEarned: Map<String, bool>,   // keyed "{lessonId}_{difficulty}", e.g. "s1l1_easy" — see GAMIFICATION.md
 }
 ```
 
@@ -135,8 +135,10 @@ deletedGoogleAccounts/              # Top-level collection — Google-identity b
       description: String,      // e.g. "Complete 2 lessons today"
       target: int,              // e.g. 2
       progress: int,            // current count toward target
-      completed: bool,
-      xpReward: int,            // always 30
+      completed: bool,          // true once progress >= target
+      xpReward: int,            // varies per quest def, see kQuestPool
+      collected: bool,          // true once the user tapped the Quest
+                                 // screen's treasure chest to claim xpReward
     }
   ],
   totalQuestsCompleted: int,
@@ -163,41 +165,49 @@ const kQuestPool = [
 ];
 ```
 
-> NOTE: `correct_streak` exists in `kQuestPool` (`lib/data/quest_pool.dart`) but is excluded
-> from `_kDailyQuestTypes` in `firestore_service.dart` — it is filtered out at generation
-> time, so users can never actually receive this quest. Only `complete_lessons`, `earn_xp`,
-> and `practice_sessions` are ever generated and updated via `updateQuestProgress()`.
+> NOTE (current behaviour, supersedes the spec above): `kQuestPool`
+> (`lib/data/quest_pool.dart`) is a **fixed** set of exactly 3 quests, the
+> same every day — there is no random selection and no `practice_sessions`
+> or `correct_streak` type:
+> ```dart
+> const kQuestPool = [
+>   QuestDefinition(type: 'high_score_lessons', target: 3, description: 'Score 90% or above in 3 lessons', xpReward: 10),
+>   QuestDefinition(type: 'spend_minutes',      target: 0, description: 'Spend time learning',              xpReward: 10),
+>   QuestDefinition(type: 'earn_xp',            target: 100, description: 'Earn 100 XP',                    xpReward: 20),
+> ];
+> ```
+> `spend_minutes`' `target: 0` is a sentinel — its real target is resolved
+> per-user at generation/reconcile time as `user.dailyGoalMinutes * 60`
+> (seconds), where `dailyGoalMinutes` is the answer to the onboarding "daily
+> learning goal" question (5/10/15/20). Its `description` is also generated
+> dynamically, e.g. `"Spend 10 minutes learning"`. `FirestoreService._reconcileQuests()`
+> compares both target and description against the pool, so a text-only
+> change like this still triggers reconciliation instead of waiting for
+> tomorrow's regeneration (progress/collected are only reset when the
+> *target* actually changed, not on a description-only drift).
+>
+> `high_score_lessons` only increments from `exercise_screen.dart`'s
+> `_finishLesson()`, and only when that lesson's `correctCount / totalCount *
+> 100 >= 90` — a learn-mode session finished below 90% doesn't count toward
+> the 3, and practice/quiz sessions never count toward this quest at all.
+>
+> Progress for `spend_minutes` is accumulated in seconds from the wall-clock
+> duration of every learn, practice, and quiz session
+> (`updateQuestProgress(uid, 'spend_minutes', durationSeconds)`), so it's the
+> only quest all three session types feed into — `earn_xp` also counts XP
+> from all three, while `high_score_lessons` is learn-mode only.
+>
+> Quest completion (`progress >= target`) does **not** award XP by itself.
+> Reaching `target` only flips `completed: true`. The Quest screen renders
+> each quest with a treasure-chest button: muted while `!completed`, shows a
+> red "ready" dot once `completed && !collected`. Tapping it while ready
+> calls `FirestoreService.collectQuestReward(uid, questId)`, which — in one
+> Firestore transaction — sets `collected: true` on the quest and increments
+> the user's `totalXp` by that quest's `xpReward`, then shows a short
+> "Reward Collected! +N XP" dialog. The reward amount is never shown on the
+> quest card itself — only in that one-time collection dialog.
 
 ---
-
-## deletedGoogleAccounts/{googleUid} — Deleted-Account Blocklist
-
-`googleUid` = the Google auth provider's own UID (not the Firebase UID)
-
-```dart
-{
-  deletedAt: Timestamp,          // FieldValue.serverTimestamp()
-  firebaseUid: String,           // the Firebase Auth uid that was deleted
-}
-```
-
-**Purpose:** when a user with a linked Google account deletes their profile,
-their Google identity is recorded here so `AuthService.signInWithGoogle()`
-can refuse future **Sign In** attempts with that Google account ("This
-Google account was previously deleted from HiASL and can no longer sign
-in."). This only blocks **Sign In** (`signInWithGoogle()` / `SignInScreen`)
-— it does NOT block **Create Profile** (`linkWithGoogle()` /
-`LinkAccountScreen`), so a deleted Google identity can always be freely
-re-registered as a brand-new anonymous profile.
-
-**Write ordering (matters for Firestore rules):** the blocklist record is
-written **before** `user.delete()` in `AuthService.deleteAccount()`, not
-after — writing it after would fail with `PERMISSION_DENIED` because
-`request.auth` becomes null the instant the Firebase Auth user is deleted,
-and the rule requires an authenticated `request.auth.uid` matching
-`firebaseUid`. If `user.delete()` then fails or requires re-authentication,
-the record is rolled back (deleted) so a still-live account isn't
-incorrectly blocklisted.
 
 ### Local Quiz Data (NOT in Firestore)
 
@@ -220,12 +230,6 @@ incorrectly blocklisted.
 
 Quiz best scores stored in SharedPreferences:
 key: `quiz_best_{quizSetId}` → int (correct count out of 10)
-
-**Auth — device-local anonymous UID tracking** (`lib/services/auth_service.dart`):
-key: `native_anonymous_uid` → String (Firebase UID)
-Set the first time this device creates or reuses an anonymous session. Used
-by `AuthService.signOut()` to decide sign-out behaviour — see the Sign Out
-amendment below.
 
 ---
 
@@ -282,14 +286,21 @@ const kDifficultySeconds = { 'easy': 10, 'medium': 7, 'hard': 5 };
 
 ### XP Awards
 ```dart
-const kXpLearnCorrect   = 10;
-const kXpPracticeEasy   = 15;
-const kXpPracticeMedium = 20;
-const kXpPracticeHard   = 25;
-const kXpPerfectBonus   = 50;
-const kXpStreakBonus     = 100;   // every 7-day milestone
-const kXpQuestBonus     = 30;    // per completed quest
+// lib/core/constants/xp_constants.dart
+const kXpLearnCorrect   = 2;      // per question answered correctly — the
+                                   // only XP source for learn + practice
+                                   // sessions; session XP = correctCount * 2,
+                                   // no flat completion bonus
+const kXpPracticeEasy   = 15;     // defined, never used
+const kXpPracticeMedium = 20;     // defined, never used
+const kXpPracticeHard   = 25;     // defined, never used
+const kXpPerfectBonus   = 50;     // defined, never used
+const kXpStreakBonus     = 100;   // one-time bonus on first 7-day streak
 ```
+There is no `kXpQuestBonus` constant — each quest's XP reward is its own
+per-quest `xpReward` value in `kQuestPool` (`lib/data/quest_pool.dart`,
+currently 5/20/30), credited only on manual collection — see the Daily
+Quests section above.
 
 ### Sign Label Map (TFLite class index → label)
 ```
@@ -374,14 +385,6 @@ users/{uid}/lessons/{lessonId}     — owner only, schema-validated on write
 users/{uid}/practiceResults/{id}   — owner create/read/delete; update: false
 users/{uid}/dailyQuests/{dateStr}  — owner only, dateStr format validated
 users/{uid}/calibration/{sign}     — owner only, schema-validated on write
-
-deletedGoogleAccounts/{googleUid}  — read: any authenticated user
-                                    — create: only by the uid matching
-                                      the doc's own firebaseUid field
-                                    — update: false (immutable once written)
-                                    — delete: only by the uid matching
-                                      the doc's own firebaseUid field
-                                      (used for the rollback path)
 
 {everything else}                  — read, write: false (deny by default)
 ```
@@ -470,38 +473,39 @@ const kStreakGoalXp = {
 The HiASL mascot is named **"Hani"** — used in all speech bubbles throughout onboarding.
 
 ---
-## Amendment — Two-Screen Google Auth, Blocklist, Unlink Sign-Out (appended 2026-07-23)
+## Amendment — Two-Screen Google Auth (current behaviour)
 
 This supersedes the auth behaviour described in the earlier amendments above
 wherever they conflict. See TECH_STACK.md's "Auth Flow" section for the full
-code-level walkthrough; this amendment covers the Firestore/data-model
-implications only.
+code-level walkthrough and rationale; this amendment covers the
+Firestore/data-model implications only.
 
 - **Two separate screens, not one:** `LinkAccountScreen` (Create Profile,
   `linkWithCredential` — upgrades the current anonymous session in place,
   same UID, all progress preserved) and `SignInScreen` (Sign In,
   `signInWithCredential` — switches to a different existing account, a
-  different UID). See DATA_SCHEMA.md's `deletedGoogleAccounts` section and
-  APP_FLOW.md S-25/S-25b for the full behavioural split.
-- **`photoUrl`** is now a real field on `users/{uid}` (see the User Document
+  different UID). See APP_FLOW.md S-25/S-25b for the full behavioural split.
+- **`photoUrl`** is a real field on `users/{uid}` (see the User Document
   section above) — populated from the Google account's `photoUrl` at link
-  or sign-in time, `''` for anonymous/unlinked users.
-- **`deletedGoogleAccounts` blocklist** (new top-level collection) — see its
-  own section above.
-- **Sign Out is no longer a single unconditional `signOut()` call.** It now
-  distinguishes two cases via the device-local `native_anonymous_uid`
-  SharedPreferences key (see Local Constants above):
-  - If the currently-linked Google account originated from **this device's
-    own** anonymous session (`current.uid == nativeUid`) → `unlink('google.com')`
-    instead of a full sign-out. The anonymous session (and all its Firestore
-    data) survives; the user just drops back to guest/anonymous state on the
-    same UID.
-  - Otherwise (the account was reached via a true Sign In switch to a
-    different pre-existing account, or this device never held that account
-    natively) → full `FirebaseAuth.signOut()`, which then triggers a fresh
-    anonymous session on next launch.
-- **Delete Account ordering:** `FirestoreService.deleteUserData(uid)` (all
-  subcollections, then the user doc) runs first, then
-  `AuthService.deleteAccount()` (blocklist write, then `user.delete()`) runs
-  second — see `deleteUserData()` in `firestore_service.dart` and
-  `deleteAccount()` in `auth_service.dart`.
+  or sign-in time, `''` for anonymous/unlinked users. Sourced from
+  `user.providerData`'s `google.com` entry when backfilled by Splash's
+  self-heal reconciliation (see TECH_STACK.md), not from `User.photoURL`.
+- **No deleted-account blocklist.** There is no `deletedGoogleAccounts`
+  collection and no check against one — a deleted account's Google identity
+  can always be freely linked or signed into again as a new profile.
+- **Sign Out always fully signs out**, unconditionally — no device-local
+  heuristic, no `unlink()` special case. See TECH_STACK.md for why the
+  earlier `native_anonymous_uid`-based heuristic was removed.
+- **Delete Account ordering:** `AuthService.reauthenticateForDeleteIfNeeded()`
+  runs first (no-op if already anonymous), then
+  `FirestoreService.deleteUserData(uid)` (all subcollections, then the user
+  doc), then `AuthService.deleteAccount()` (`user.delete()`) — see
+  `deleteUserData()` in `firestore_service.dart` and the "Delete Account"
+  section in TECH_STACK.md for the reauth-ordering and timeout-guard
+  rationale.
+
+## Amendment — Gamification / Medals
+
+`medalsEarned: Map<String, bool>` was added to `users/{uid}` (see the User
+Document section above). Full behaviour — award conditions, tiers, and every
+UI surface — is documented in **GAMIFICATION.md**, not duplicated here.

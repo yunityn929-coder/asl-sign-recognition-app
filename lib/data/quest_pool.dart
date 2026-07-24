@@ -1,5 +1,9 @@
 class QuestDefinition {
   final String type;
+  // For 'spend_minutes' this is a sentinel (0) — its real target is resolved
+  // per-user at generation/reconcile time from user.dailyGoalMinutes (see
+  // FirestoreService._resolveTarget). All other quest types use this value
+  // directly.
   final int target;
   final String description;
   final int xpReward;
@@ -14,7 +18,7 @@ class QuestDefinition {
 
 // Fixed daily quest set — same quests every day, no randomization.
 const List<QuestDefinition> kQuestPool = [
-  QuestDefinition(type: 'complete_lessons', target: 1,   description: 'Complete 1 lesson today', xpReward: 5),
-  QuestDefinition(type: 'play_quiz',        target: 1,   description: 'Play 1 quiz today', xpReward: 20),
-  QuestDefinition(type: 'earn_xp',          target: 300, description: 'Earn 300 XP today', xpReward: 30),
+  QuestDefinition(type: 'high_score_lessons', target: 3, description: 'Score 90% or above in 3 lessons', xpReward: 10),
+  QuestDefinition(type: 'spend_minutes',      target: 0, description: 'Spend time learning', xpReward: 10),
+  QuestDefinition(type: 'earn_xp',            target: 100, description: 'Earn 100 XP', xpReward: 20),
 ];

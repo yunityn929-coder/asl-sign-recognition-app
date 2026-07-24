@@ -460,66 +460,85 @@ class FirestoreService {
     return map;
   }
 
+  // 'spend_minutes' has no fixed target — it's the user's own onboarding
+  // daily-goal minutes, tracked in seconds (progress/target are both in
+  // seconds so short sessions still accumulate precisely).
+  int _resolveTarget(QuestDefinition def, int dailyGoalMinutes) =>
+      def.type == 'spend_minutes' ? dailyGoalMinutes * 60 : def.target;
+
+  String _resolveDescription(QuestDefinition def, int dailyGoalMinutes) =>
+      def.type == 'spend_minutes'
+          ? 'Spend $dailyGoalMinutes minutes learning'
+          : def.description;
+
   Future<DailyQuestModel?> getDailyQuests(String uid) async {
     final today = _today();
     try {
+      final dailyGoalMinutes = (await getUserOnce(uid))?.dailyGoalMinutes ?? 5;
       final ref = _questsRef(uid).doc(today);
       final snap = await ref.get();
       if (snap.exists) {
         final daily = DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!));
-        final reconciled = _reconcileQuests(daily.quests);
+        final reconciled = _reconcileQuests(daily.quests, dailyGoalMinutes);
         if (identical(reconciled, daily.quests)) return daily;
         final updated = daily.copyWith(quests: reconciled);
         await ref.set(updated.toMap(), SetOptions(merge: true));
         return updated;
       }
-      return _generateDailyQuests(uid, today);
+      return _generateDailyQuests(uid, today, dailyGoalMinutes);
     } on FirebaseException catch (_) {
       return null;
     }
   }
 
   // Rebuilds the stored quest list against the current kQuestPool whenever
-  // they've drifted (e.g. the fixed quest set changed after today's doc was
-  // already generated) — preserves progress for quests whose type/target is
-  // unchanged, drops any quest type no longer in the pool. Returns the same
-  // list instance untouched when already up to date.
-  List<QuestModel> _reconcileQuests(List<QuestModel> stored) {
+  // they've drifted (e.g. the fixed quest set changed, or the user's
+  // dailyGoalMinutes changed since today's doc was generated) — preserves
+  // progress for quests whose type/target is unchanged, drops any quest type
+  // no longer in the pool. Returns the same list instance untouched when
+  // already up to date.
+  List<QuestModel> _reconcileQuests(List<QuestModel> stored, int dailyGoalMinutes) {
     final byType = {for (final q in stored) q.type: q};
     final upToDate = stored.length == kQuestPool.length &&
-        kQuestPool.every((def) => byType[def.type]?.target == def.target);
+        kQuestPool.every((def) =>
+            byType[def.type]?.target == _resolveTarget(def, dailyGoalMinutes) &&
+            byType[def.type]?.description == _resolveDescription(def, dailyGoalMinutes));
     if (upToDate) return stored;
 
     return [
       for (var i = 0; i < kQuestPool.length; i++)
-        _reconciledQuest(i, byType),
+        _reconciledQuest(i, byType, dailyGoalMinutes),
     ];
   }
 
-  QuestModel _reconciledQuest(int index, Map<String, QuestModel> byType) {
+  QuestModel _reconciledQuest(
+      int index, Map<String, QuestModel> byType, int dailyGoalMinutes) {
     final def = kQuestPool[index];
+    final target = _resolveTarget(def, dailyGoalMinutes);
     final existing = byType[def.type];
-    final progress =
-        existing != null && existing.target == def.target ? existing.progress : 0;
+    final sameTarget = existing != null && existing.target == target;
+    final progress = sameTarget ? existing.progress : 0;
     return QuestModel(
       id: 'quest_$index',
       type: def.type,
-      description: def.description,
-      target: def.target,
+      description: _resolveDescription(def, dailyGoalMinutes),
+      target: target,
       progress: progress,
-      completed: progress >= def.target,
+      completed: progress >= target,
       xpReward: def.xpReward,
+      collected: sameTarget ? existing.collected : false,
     );
   }
 
-  Future<DailyQuestModel?> _generateDailyQuests(String uid, String dateStr) async {
+  Future<DailyQuestModel?> _generateDailyQuests(
+      String uid, String dateStr, int dailyGoalMinutes) async {
     final quests = [
       for (var i = 0; i < kQuestPool.length; i++)
         QuestModel(
           id: 'quest_$i',
           type: kQuestPool[i].type,
-          description: kQuestPool[i].description,
-          target: kQuestPool[i].target,
+          description: _resolveDescription(kQuestPool[i], dailyGoalMinutes),
+          target: _resolveTarget(kQuestPool[i], dailyGoalMinutes),
           progress: 0,
           completed: false,
           xpReward: kQuestPool[i].xpReward,
@@ -570,6 +589,74 @@ class FirestoreService {
       });
     } on FirebaseException catch (_) {
       return;
+    }
+  }
+
+  // Adds `seconds` to today's entry in the user's dailyActiveSeconds map —
+  // the same per-session duration measured for the 'spend_minutes' quest
+  // (see exercise_screen.dart / practice_session_screen.dart /
+  // quiz_session_screen.dart), just persisted per-day instead of reset
+  // daily. Prunes entries older than a week so the map doesn't grow forever.
+  Future<void> recordDailyActiveSeconds(String uid, int seconds) async {
+    if (seconds <= 0) return;
+    final userRef = _db.collection('users').doc(uid);
+    final today = _today();
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    try {
+      await _db.runTransaction((txn) async {
+        final snap = await txn.get(userRef);
+        final raw = (snap.data()?['dailyActiveSeconds'] as Map?) ?? {};
+        final updated = <String, int>{
+          for (final entry in raw.entries)
+            if (DateTime.tryParse(entry.key as String)?.isAfter(cutoff) ?? false)
+              entry.key as String: (entry.value as num).toInt(),
+        };
+        updated[today] = (updated[today] ?? 0) + seconds;
+        txn.update(userRef, {'dailyActiveSeconds': updated});
+      });
+    } on FirebaseException catch (_) {
+      return;
+    }
+  }
+
+  // Claims a completed quest's XP reward — the treasure-chest "collect" tap
+  // on the Quest screen. Marks the quest `collected` and credits xpReward to
+  // totalXp atomically, so a quest can never be collected twice and the two
+  // writes can never diverge (XP granted without the flag, or vice versa).
+  // Returns true if this call newly collected the reward, false if the
+  // quest wasn't completed yet or was already collected.
+  Future<bool> collectQuestReward(String uid, String questId) async {
+    final questsRef = _questsRef(uid).doc(_today());
+    final userRef = _db.collection('users').doc(uid);
+    try {
+      return await _db.runTransaction<bool>((txn) async {
+        final snap = await txn.get(questsRef);
+        if (!snap.exists) return false;
+        final daily = DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!));
+
+        QuestModel? target;
+        for (final q in daily.quests) {
+          if (q.id == questId) {
+            target = q;
+            break;
+          }
+        }
+        if (target == null || !target.completed || target.collected) {
+          return false;
+        }
+
+        final updatedQuests = daily.quests
+            .map((q) => q.id == questId ? q.copyWith(collected: true) : q)
+            .toList();
+
+        txn.update(questsRef, {
+          'quests': updatedQuests.map((q) => q.toMap()).toList(),
+        });
+        txn.update(userRef, {'totalXp': FieldValue.increment(target.xpReward)});
+        return true;
+      });
+    } on FirebaseException catch (_) {
+      return false;
     }
   }
 

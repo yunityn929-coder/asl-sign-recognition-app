@@ -70,26 +70,21 @@ class ModeSelectScreen extends ConsumerWidget {
             children: [
               const SizedBox(height: 24),
               _ModeCard(
-                icon: Icons.school_outlined,
-                iconColor: AppColors.primary,
                 borderColor: AppColors.primary,
                 title: 'Learn Mode',
                 description:
-                    'Study each sign with demonstrations and camera practice',
+                    'Study each sign with camera practice',
                 onTap: () => context.push('/lesson/$lessonId/exercise'),
               ),
               const SizedBox(height: 16),
               _ModeCard(
-                icon: Icons.fitness_center_outlined,
-                iconColor:
-                    practiceUnlocked ? AppColors.secondary : AppColors.textSecondary,
                 borderColor:
                     practiceUnlocked ? AppColors.secondary : const Color(0xFFE0E0E0),
                 title: 'Practice Mode',
                 description:
-                    'Test yourself against the clock with difficulty settings',
+                    'Test yourself with different difficulty levels',
                 locked: !practiceUnlocked,
-                lockedMessage: 'Complete Learn Mode first',
+                lockedMessage: 'Learn the signs to unlock practice',
                 onTap: practiceUnlocked
                     ? () => context.push('/lesson/$lessonId/practice/setup')
                     : null,
@@ -136,8 +131,6 @@ class _Header extends StatelessWidget {
 }
 
 class _ModeCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
   final Color borderColor;
   final String title;
   final String description;
@@ -146,8 +139,6 @@ class _ModeCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const _ModeCard({
-    required this.icon,
-    required this.iconColor,
     required this.borderColor,
     required this.title,
     required this.description,
@@ -173,8 +164,6 @@ class _ModeCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 36, color: locked ? AppColors.textSecondary : iconColor),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Text(title,
                       style: TextStyle(

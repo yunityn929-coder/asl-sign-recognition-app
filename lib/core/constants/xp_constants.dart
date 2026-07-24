@@ -1,8 +1,8 @@
-const int kXpLearnCorrect   = 10;
+// Awarded per question answered correctly — the only source of XP for
+// both learning (lesson) sessions and practice sessions. No flat
+// completion/base bonus is awarded regardless of correctness.
+const int kXpLearnCorrect   = 2;
 
-// Base XP awarded just for completing a lesson
-// regardless of recognition score
-const int kXpLessonCompletion = 20;
 const int kXpPracticeEasy   = 15;
 const int kXpPracticeMedium = 20;
 const int kXpPracticeHard   = 25;

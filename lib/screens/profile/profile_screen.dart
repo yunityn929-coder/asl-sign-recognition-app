@@ -11,6 +11,7 @@ import '../../providers/lesson_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import 'widgets/weekly_activity_chart.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -105,6 +106,11 @@ class _ProfileContent extends ConsumerWidget {
               lessonsCompleted: lessonsCompleted,
               totalLessons: totalLessons,
             ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: WeeklyActivityChart(dailyActiveSeconds: user?.dailyActiveSeconds ?? const {}),
           ),
           const SizedBox(height: 28),
           const _SectionLabel('Badges'),
@@ -405,6 +411,7 @@ class _BadgesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.backgroundCard,
         borderRadius: BorderRadius.circular(16),
@@ -458,21 +465,21 @@ class _BadgeColumn extends StatelessWidget {
             unlocked: unlocked,
             mastered: mastered,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             kind.title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
               color: unlocked ? AppColors.textPrimary : AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             '$count/$nextThreshold',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textColor),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textColor),
           ),
         ],
       ),
@@ -521,9 +528,9 @@ class _BadgeCircleIcon extends StatelessWidget {
   final bool unlocked;
   final bool mastered;
 
-  static const double _diameter = 52;
-  static const double _border = 4;
-  static const double _padding = 4;
+  static const double _diameter = 72;
+  static const double _border = 5;
+  static const double _padding = 5;
 
   // Standard luminance-weighted greyscale matrix, used to dim the owl
   // artwork when its tier hasn't been unlocked yet.
@@ -581,8 +588,8 @@ class _BadgeCircleIcon extends StatelessWidget {
               right: -2,
               bottom: -2,
               child: Container(
-                width: 18,
-                height: 18,
+                width: 24,
+                height: 24,
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
@@ -591,7 +598,7 @@ class _BadgeCircleIcon extends StatelessWidget {
                   ],
                 ),
                 child: const Icon(Icons.workspace_premium,
-                    size: 13, color: AppColors.medalGold),
+                    size: 17, color: AppColors.medalGold),
               ),
             ),
         ],

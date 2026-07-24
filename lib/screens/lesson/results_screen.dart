@@ -27,7 +27,7 @@ class ResultsScreen extends ConsumerWidget {
     this.questNewlyCompleted = false,
   });
 
-  int get _xpEarned => kXpLessonCompletion + (correctCount * kXpLearnCorrect);
+  int get _xpEarned => correctCount * kXpLearnCorrect;
 
   void _handleContinue(BuildContext context) {
     if (streakJustExtended) {

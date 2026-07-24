@@ -45,6 +45,7 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
   int _timeLeft = 10;
   Timer? _timer;
   bool _finishing = false;
+  late final DateTime _sessionStart;
 
   @override
   void initState() {
@@ -54,6 +55,7 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
       _kQuestionCount,
       kAvailableSigns,
     );
+    _sessionStart = DateTime.now();
     _startTimer();
   }
 
@@ -112,6 +114,7 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
   Future<void> _finishQuiz() async {
     if (mounted) setState(() => _finishing = true);
     final xpEarned = _correctCount * 10;
+    final duration = DateTime.now().difference(_sessionStart).inSeconds;
 
     final uid = ref.read(authStateProvider).value?.uid;
     var streakJustExtended = false;
@@ -145,7 +148,8 @@ class _QuizSessionScreenState extends ConsumerState<QuizSessionScreen> {
         }
         await Future.wait([
           firestoreService.updateQuestProgress(uid, 'earn_xp', xpEarned),
-          firestoreService.updateQuestProgress(uid, 'play_quiz', 1),
+          firestoreService.updateQuestProgress(uid, 'spend_minutes', duration),
+          firestoreService.recordDailyActiveSeconds(uid, duration),
         ]);
       } catch (_) {}
 

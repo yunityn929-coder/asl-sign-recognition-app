@@ -45,6 +45,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   final Map<String, int> _learnAttempts = {};
   bool _showHint = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  late DateTime _sessionStart;
 
   // Camera
   CameraController? _cameraController;
@@ -92,6 +93,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
           const LessonDefinition(id: '', section: 0, title: '', signs: []),
     );
     _questions = LessonQuestionGenerator.generate(_def, userName: _fallbackName);
+    _sessionStart = DateTime.now();
     _resumeFromLastQuestionIndex();
     _resultSub = ref
         .read(recognitionControllerProvider)
@@ -367,7 +369,10 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     ];
     final correctCount = _correctQuestions.length;
     final totalCount = _questions.length;
-    final xpEarned = kXpLessonCompletion + (correctCount * kXpLearnCorrect);
+    final xpEarned = correctCount * kXpLearnCorrect;
+    final duration = DateTime.now().difference(_sessionStart).inSeconds;
+    final accuracyPercent =
+        totalCount == 0 ? 0.0 : correctCount / totalCount * 100;
 
     final uid = ref.read(authStateProvider).value?.uid;
     var streakJustExtended = false;
@@ -401,8 +406,11 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         firestoreService.unlockPractice(uid, widget.lessonId),
         firestoreService.saveSignProgress(uid, widget.lessonId, 0),
         _savePracticeAndAccuracy(uid, correctCount, totalCount, missed, xpEarned),
-        firestoreService.updateQuestProgress(uid, 'complete_lessons', 1),
         firestoreService.updateQuestProgress(uid, 'earn_xp', xpEarned),
+        firestoreService.updateQuestProgress(uid, 'spend_minutes', duration),
+        firestoreService.recordDailyActiveSeconds(uid, duration),
+        if (accuracyPercent >= 90)
+          firestoreService.updateQuestProgress(uid, 'high_score_lessons', 1),
       ]).catchError((_) => <void>[]);
 
       try {

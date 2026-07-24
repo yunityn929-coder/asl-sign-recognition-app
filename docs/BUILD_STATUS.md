@@ -1,7 +1,7 @@
 # BUILD_STATUS.md
 > Tracks what is actually built vs planned vs changed vs pending.
 > Update this file whenever a feature is completed or scope changes.
-> Last updated: 2026-07-23
+> Last updated: 2026-07-24
 
 ---
 
@@ -21,6 +21,7 @@
 | Profile screen | ✅ Complete |
 | Settings screen | ✅ Complete |
 | Auth (Create Profile / Sign In / Sign Out / Delete Account) | ✅ Complete — see TECH_STACK.md Auth Flow section |
+| Gamification (medals/badges) | ✅ Complete — see GAMIFICATION.md |
 | Firebase backend | ✅ Complete |
 | Firestore security rules | ✅ Deployed |
 | Sign PNG assets (A-Z + 0-9) | ✅ Complete (all 36) |
@@ -49,7 +50,6 @@
 | Practice Session | practice_session_screen.dart | /lesson/:id/practice/session |
 | Checkout | checkout_screen.dart | /session/checkout |
 | Streak Born | streak_born_screen.dart | /session/streak |
-| Quest Update | quest_update_screen.dart | /session/quest |
 | Quiz Home | quiz_screen.dart | /quiz |
 | Quiz Session | quiz_session_screen.dart | /quiz/session |
 | Quiz Result | quiz_result_screen.dart | /quiz/result |
@@ -137,23 +137,39 @@ Level → startLessonId mapping:
 
 | Constant | Value | Wired? |
 |----------|-------|--------|
-| kXpLearnCorrect | 10 | ✅ Used in exercise + practice |
-| kXpQuestBonus | 30 | ✅ Used per quest completion |
-| kXpPracticeEasy/Medium/Hard | 15/20/25 | ❌ Defined but never used — flat 10 used instead |
+| kXpLearnCorrect | 2 | ✅ Per correct answer — the only XP source for both learn and practice sessions (no flat completion bonus) |
+| kXpPracticeEasy/Medium/Hard | 15/20/25 | ❌ Defined but never used |
 | kXpPerfectBonus | ? | ❌ Never awarded |
-| kXpStreakBonus | ? | ❌ Never awarded |
+| kXpStreakBonus | 100 | ✅ Used — one-time bonus on first reaching a 7-day streak |
 | kStreakGoalXp | 100/250/500/1000 | ❌ Never awarded |
+
+Session XP = `correctAnswers * kXpLearnCorrect`. A 5-question, all-correct
+session awards exactly 10 XP. `kXpLessonCompletion` (a flat per-completion
+bonus regardless of correctness) has been removed entirely.
 
 ---
 
-## Quest Types
+## Quest Types (lib/data/quest_pool.dart — kQuestPool)
 
-| Type | Tracked | Notes |
-|------|---------|-------|
-| complete_lessons | ✅ | Updated in results_screen + practice_session |
-| earn_xp | ✅ | Updated in results_screen + practice_session |
-| practice_sessions | ✅ | Updated in results_screen + practice_session |
-| correct_streak | ❌ | In kQuestPool but never tracked — users who draw this quest cannot complete it |
+| Type | Target | xpReward | Tracked in |
+|------|--------|----------|------------|
+| high_score_lessons | 3 lessons scored ≥90% | 10 | exercise_screen.dart (`_finishLesson`) only — practice sessions don't count. Progress only increments when that lesson's `correctCount / totalCount * 100 >= 90`; lessons finished below 90% don't count toward the 3 |
+| spend_minutes | `user.dailyGoalMinutes` (the onboarding daily-goal answer), in seconds | 10 | exercise_screen.dart, practice_session_screen.dart, quiz_session_screen.dart — every session type accumulates its wall-clock duration |
+| earn_xp | 100 XP | 20 | exercise_screen.dart, practice_session_screen.dart, quiz_session_screen.dart |
+
+`spend_minutes`'s target/progress are stored in **seconds** internally (so
+short sessions still accumulate precisely) and formatted as whole minutes on
+the Quest screen. Its target is resolved per-user from `dailyGoalMinutes`
+(5/10/15/20, set on the onboarding "daily learning goal" screen) at
+generation and reconciliation time — `FirestoreService._resolveTarget()`.
+
+Quests use a tap-to-collect model: reaching `target` sets `completed: true`
+but does **not** credit XP. The Quest screen shows a treasure-chest button
+per quest (muted while in progress, a red dot once `completed`); tapping it
+while ready calls `FirestoreService.collectQuestReward()`, which atomically
+sets `collected: true` and increments `totalXp` by the quest's `xpReward` in
+a single transaction, then shows a short "Reward Collected! +N XP" dialog.
+No XP value is shown on the quest cards themselves — only on collection.
 
 ---
 
@@ -186,15 +202,6 @@ Used in: learn_mode_body.dart, signs_screen.dart, quiz_session_screen.dart
 
 ## Known Bugs / Issues
 
-- **Google profile data (name/email/photo) not always showing immediately
-  after linking** — UNCONFIRMED / under active investigation as of
-  2026-07-23. Current `LinkAccountScreen`/`AuthService.linkWithGoogle()`
-  code has been re-verified as correct (writes `displayName`/`email`/
-  `photoUrl` from the live `GoogleSignInAccount`, not stale cached data),
-  and a direct Firestore check of one repro's uid showed no regression in
-  the write path itself. The specific complaint has not been cleanly
-  reproduced with an isolated, unambiguous log — remains open pending a
-  clean repro rather than a confirmed bug in the linking code.
 - **"Switch account?" progress-loss warning dialog (`SignInScreen`)** —
   one investigation thread reported the dialog not appearing under
   conditions where the current anonymous account should have had progress.
@@ -204,12 +211,10 @@ Used in: learn_mode_body.dart, signs_screen.dart, quiz_session_screen.dart
   `totalXp > 0 || currentStreak > 0 || signAccuracy.isNotEmpty` and appears
   correct on inspection; treat as unconfirmed until a clean isolated repro
   is captured.
-- **correct_streak quest** — users who draw this daily quest
-  can never complete it (no tracking logic exists)
 - **streakGoalAchieved** — never set to true by any code path
   (updateStreakIfNeeded does not flip it)
 - **difficulty-tiered XP** — kXpPracticeEasy/Medium/Hard defined
-  but flat kXpLearnCorrect (10) used in practice session instead
+  but flat kXpLearnCorrect used in practice session instead
 - **practiceResults items array** — always written as [],
   per-sign timing never tracked
 - **SoundService** — audioplayers package in pubspec but zero
@@ -229,4 +234,3 @@ Used in: learn_mode_body.dart, signs_screen.dart, quiz_session_screen.dart
 - [ ] Wire push notifications (flutter_local_notifications)
 - [ ] Difficulty-tiered XP in practice session
 - [ ] streakGoalAchieved flip logic
-- [ ] correct_streak quest tracking

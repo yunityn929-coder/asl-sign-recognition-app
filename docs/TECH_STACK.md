@@ -53,7 +53,7 @@ Path: `assets/models/3d/{SIGN}.png` (A-Z + 0-9, all 36 signs).
 |---|---|
 | `go_router` | Named routes + navigation (25 routes) |
 | `flutter_riverpod` | State management |
-| `shared_preferences` | Lightweight local cache (quiz best scores; `native_anonymous_uid` for Sign Out behaviour — see Auth Flow) |
+| `shared_preferences` | Lightweight local cache (quiz best scores) |
 
 **Route count:** 30 `GoRoute` entries in `router.dart`.
 Plus 3 orphaned route constants (declared but never registered as a `GoRoute`):
@@ -118,13 +118,26 @@ semantics, both backed by `lib/services/auth_service.dart`
 
 ### First launch — silent, no UI
 ```dart
-await FirebaseAuth.instance.signInAnonymously();
-// Create Firestore user doc with isAnonymous: true
+// AuthService.signInSilently()
+if (_auth.currentUser != null) return _auth.currentUser!;
+final cred = await _auth.signInAnonymously();
+return cred.user!;
 ```
-`AuthService.signInSilently()` also records the resulting UID to
-`SharedPreferences` under `native_anonymous_uid` if not already set — this
-is what Sign Out later uses to decide whether it can safely unlink instead
-of fully signing out (see below).
+`SplashScreen` calls this, then `FirestoreService.createUser(uid)` (no-op if
+the doc already exists), then routes to Welcome Brand or Home depending on
+`onboardingComplete`.
+
+**Self-healing reconciliation (also in `SplashScreen._init()`):** if
+`FirebaseAuth`'s current user is non-anonymous but the Firestore doc is
+still `isAnonymous: true` (or missing/just-recreated) — e.g. a link
+succeeded in Firebase Auth but the app was killed before the Firestore write
+landed — Splash detects the mismatch and backfills the Firestore doc from
+the live `User`: `isAnonymous: false`, `authProvider: 'google'`, and
+`displayName`/`email`/`photoUrl` read from the `google.com` entry in
+`user.providerData` (see "Profile display fields" below — **not** the
+top-level `User.displayName`/`photoURL`, which aren't reliably populated by
+`linkWithCredential()`). This runs on every launch but is a no-op once the
+Firestore doc already agrees with Auth.
 
 ### Create Profile — `LinkAccountScreen` (`/login/link`)
 Upgrades the **current anonymous session in place**. Same UID before and
@@ -144,8 +157,20 @@ final credential = GoogleAuthProvider.credential(
 final result = await current.linkWithCredential(credential);
 // Returns (user, googleDisplayName, googleEmail, googlePhotoUrl) — the
 // screen writes these straight to Firestore (isAnonymous: false,
-// authProvider: 'google', displayName/email/photoUrl).
+// authProvider: 'google', displayName/email/photoUrl), preferring the
+// GoogleSignInAccount's own fields over the FirebaseAuth User's.
 ```
+There is **no client-side timeout** wrapping this call — an earlier version
+wrapped it in `.timeout(60s)`, which doesn't cancel the underlying Firebase
+call; if linking took longer than the timeout, the screen showed a false
+"taking longer than expected" error while the link silently succeeded
+moments later, leaving the UI out of sync with reality. Removed entirely —
+if the call is slow, the screen just keeps waiting.
+
+On success, the screen navigates straight to Home (`context.go(kRouteHome)`)
+regardless of which screen launched it — success is always "move forward,"
+never "go back to where you came from" (see Navigation notes below).
+
 `credential-already-in-use` (this Google identity is already linked to a
 *different* Firebase user) surfaces as "This Google account is already
 linked to another profile. Try Sign In instead."
@@ -158,13 +183,13 @@ Switches to a **different, already-existing** account via
 // AuthService.signInWithGoogle()
 await GoogleSignIn().signOut();          // force the account picker
 final googleUser = await GoogleSignIn().signIn();
-final blocked = await FirebaseFirestore.instance
-    .collection('deletedGoogleAccounts').doc(googleUser.id).get();
-if (blocked.exists) throw const AuthException('...previously deleted...');
 final result = await _auth.signInWithCredential(credential);
 // Returns (user, isNewUser) — isNewUser == true means this Google identity
 // was never registered before.
 ```
+There is no blocklist check — a previously-deleted Google identity can sign
+in / link again freely (see "Deleted-account blocklist removed" below).
+
 If `isNewUser == true`, the screen treats it as **"account not found"**
 rather than silently onboarding a stranger into a fresh account: it deletes
 the Firebase Auth user `signInWithCredential` just auto-created, calls
@@ -177,52 +202,162 @@ whether the *current* anonymous account has progress worth losing
 (`totalXp > 0 || currentStreak > 0 || signAccuracy.isNotEmpty`) and, if so,
 shows a "Switch account?" confirmation dialog first.
 
+On success, the screen navigates straight to Home, same as Create Profile
+above — never back to the launching screen.
+
+### Profile display fields (name / email / photo)
+Both `LinkAccountScreen` and the Splash self-heal reconciliation prefer the
+Google-specific source over `FirebaseAuth.User`'s own top-level fields:
+`LinkAccountScreen` uses the live `GoogleSignInAccount`'s
+`displayName`/`email`/`photoUrl` (captured at the moment of linking);
+Splash's reconciliation reads the `google.com` entry in `user.providerData`.
+`User.displayName`/`User.photoURL` themselves are **not** a reliable source
+after `linkWithCredential()` — Firebase Auth doesn't always populate the
+top-level profile fields on link, even though the provider-specific entry in
+`providerData` always carries the linked account's real profile data.
+
 ### Sign Out
 ```dart
 // AuthService.signOut()
-if (current != null && !current.isAnonymous &&
-    nativeUid != null && current.uid == nativeUid) {
-  // This account originated from THIS device's own anonymous session —
-  // unlink instead of full sign-out, so progress survives.
-  await current.unlink('google.com');
-} else {
-  await _auth.signOut();  // true account switch — start fresh anonymous
+Future<void> signOut() async {
+  try {
+    await _googleSignIn.disconnect().timeout(const Duration(seconds: 5));
+  } catch (_) {}
+  await _auth.signOut();
 }
 ```
-`native_anonymous_uid` (SharedPreferences) is what makes this distinction:
-it's set once when a device first creates/reuses an anonymous session, and
-is only ever compared, never re-derived from the live Auth state.
+**Always fully signs out**, unconditionally, regardless of how the current
+account was reached (linked in-place from this device's own guest session,
+or signed into a separate existing account via Sign In). The next app launch
+creates a brand-new anonymous session and lands on Welcome Brand. The signed-
+out account's data is not lost — it stays in Firestore under that account's
+uid — this device just doesn't auto-resume it; signing back into the same
+Google account (via Sign In) recovers it.
+
+This replaced an earlier heuristic that tried to distinguish "this device's
+own guest session, upgraded in place" (which unlinked instead of fully
+signing out, to auto-preserve that session) from a true account switch,
+using a `native_anonymous_uid` value cached in `SharedPreferences`. That
+heuristic went stale across repeated sign-in/out cycles — because it was set
+once, permanently, the first time a device ever created any anonymous
+session — and could pick the wrong behavior (e.g. quietly keeping the same
+session alive on "sign out" instead of actually signing out, or performing a
+full sign-out that abandoned a device-original guest session by mistake).
+Simplified to always fully sign out per product decision — consistent,
+predictable behavior beats an automatic-preserve heuristic that couldn't be
+made reliable.
+
+`_googleSignIn.disconnect()` is wrapped in a 5-second timeout because it has
+been observed to hang indefinitely with no exception and no UI on some
+devices/network conditions (a stale native session with nothing to actually
+disconnect) — without the timeout, that silently stalls the entire sign-out
+with no feedback to the user.
 
 ### Delete Account
-Two-step, in this order (see `profile_screen.dart`):
+Three steps, in this exact order (see `_DeleteAccountButtonState._onTap()`
+in `profile_screen.dart`):
 ```dart
-await firestoreService.deleteUserData(uid);   // all subcollections + user doc
-await authService.deleteAccount();            // blocklist write, then user.delete()
+await authService.reauthenticateForDeleteIfNeeded();  // no-op if already anonymous
+await firestoreService.deleteUserData(uid);           // all subcollections + user doc
+await authService.deleteAccount();                    // user.delete()
 ```
-`deleteAccount()` writes the `deletedGoogleAccounts/{googleUid}` blocklist
-record **before** `user.delete()` — not after, since the write requires an
-authenticated `request.auth` which `delete()` clears. On failure (e.g.
-`requires-recent-login`), the blocklist record is rolled back so a still-live
-account isn't incorrectly blocked. Re-authentication (Google re-prompt) is
-attempted once for `requires-recent-login`, then retried.
+Reauthentication happens **first**, before any data is touched — deleting a
+Firebase Auth account can fail with `requires-recent-login` if the session
+isn't fresh, and if that happened *after* Firestore data was already wiped,
+the account would be stuck alive with no data and no way to recover except
+by manually retrying (this was a real, previously-hit failure mode).
+Reauthenticating up front means the subsequent `deleteUserData()` +
+`deleteAccount()` sequence isn't at risk of failing partway through for that
+reason.
+
+There is no anti-re-registration blocklist anymore — a deleted account's
+Google identity can be freely linked or signed into again afterward as a
+brand-new profile (see "Deleted-account blocklist removed" below).
+
+**Timeout guards:** on the device(s) this was tested on, `user.delete()`
+itself has been observed to hang indefinitely with no exception — a genuine
+device/network-flakiness issue (confirmed via a `SocketTimeoutException` in
+the platform logs from an unrelated concurrent network call at the same
+moment). `user.delete()` is wrapped in a 15-second timeout that surfaces a
+real, user-visible error ("Deleting your account is taking longer than
+expected...") on timeout, rather than leaving the button silently stuck
+forever with no feedback.
+
+**Root-cause fix — widget disposal mid-operation:** the Profile screen's
+signed-in gating (see below) depends on the Firestore user doc. The instant
+`deleteUserData()` wipes that doc, the live stream backing it emits `null`,
+which flips the gate to "not confirmed signed in" and removes
+`_DeleteAccountButton` (and `_SignOutButton`) from the widget tree —
+disposing their `State` **while their own tap handler is still running**.
+Any `ref.read(...)` or `context`-derived object used *after* that point
+throws (`Bad state: Cannot use "ref" after the widget was disposed`) and, if
+naively guarded with `if (mounted)`, gets silently swallowed — the operation
+appears to just do nothing, with no error shown, because the button itself
+is gone by the time it would have shown one. Fixed by capturing everything
+needed — the `AuthService`/`FirestoreService` instances, plus
+`GoRouter.of(context)` and `ScaffoldMessenger.of(context)` — **before**
+`deleteUserData()` runs, and using only those captured references
+afterward, never `ref`/`context` directly. `_SignOutButtonState` captures
+`GoRouter.of(context)` the same way, before `signOut()` runs, for the same
+reason (signing out flips `authStateProvider` to `null`, which similarly
+removes the button from the tree).
 
 ### Live auth state (Profile screen UI)
 `authStateProvider` (`lib/providers/auth_provider.dart`) uses
 `FirebaseAuth.instance.userChanges()`, not `authStateChanges()` — the latter
 only fires on true sign-in/out transitions and misses provider link/unlink
-events (like the unlink-based Sign Out path above), which would leave
-`isAnonymous`-driven UI stale. The Profile screen's guest-vs-signed-in gating
-is driven by this live stream, not the Firestore user doc — a Firestore
-write failing independently of the Auth-layer change can never leave the UI
-showing a stale state. Displayed profile *details* (name, email, photo) are
-still Firestore-backed, sourced from the Google account data captured at
-link/sign-in time.
+events, which would leave `isAnonymous`-driven UI stale.
 
-> Open/unconfirmed as of 2026-07-23: an investigation into Google profile
-> details (name/email/photo) not always appearing immediately after linking
-> is still unresolved — the linking code has been re-verified correct and a
-> direct Firestore check showed no write-path regression, but a clean
-> isolated repro was never captured. See BUILD_STATUS.md Known Bugs/Issues.
+**Safety-net gating:** the Profile screen does not treat the account as
+signed-in based on Firebase Auth alone. `_ProfileContent` computes
+```dart
+final confirmedSignedIn = !isAnonymous && user?.isAnonymous == false;
+```
+— `isAnonymous` from the live `authStateProvider`, `user` from the
+Firestore-backed `userProvider(uid)` stream. The signed-in ID card, Sign Out
+button, and Delete Account button only appear once **both** sources agree
+the account is non-anonymous. This guards against the window where Firebase
+Auth has already gone non-anonymous (e.g. `linkWithCredential` succeeding)
+but the Firestore `updateUser()` write hasn't landed yet, or failed —
+without it, the UI could briefly (or permanently, if the Firestore write
+never completes) show a signed-in state with no corresponding confirmed
+account data. Any ambiguity resolves to showing the guest UI, never a
+premature signed-in one.
+
+### Navigation notes
+- **Welcome Brand → Sign In uses `push()`, not `go()`.** `go()` replaces the
+  navigation stack, which left `context.canPop()` false on the Sign In
+  screen — so its "Maybe Later" button and back icon (which pop if possible,
+  else fall back to Home) always fell through to Home instead of back to
+  Welcome Brand. `push()` fixes this; Profile screen's own entry points into
+  Create Profile / Sign In already used `push()` and were unaffected.
+- **Success always navigates forward** (`context.go(kRouteHome)`),
+  independent of entry point — this is deliberately *not* symmetric with the
+  cancel/"Maybe Later" behavior above. A completed link or sign-in should
+  never bounce back to the pre-auth screen it was launched from; only
+  explicitly cancelling should do that.
+
+### Onboarding controller — per-uid, not a stale singleton
+`onboardingControllerProvider` (`lib/controllers/onboarding_controller.dart`)
+watches the live signed-in uid via
+`ref.watch(authStateProvider.select((async) => async.value?.uid))` rather
+than reading it once. This makes the controller (and its `OnboardingState`)
+rebuild fresh whenever the uid actually changes — e.g. Delete Account or
+Sign Out followed by a new anonymous session — so answers entered under a
+previous account can never leak into, or get submitted under, the next one.
+`select()` specifically avoids rebuilding on same-uid token refreshes, which
+would otherwise wipe in-progress answers mid-onboarding.
+
+### Deleted-account blocklist — removed
+An earlier version recorded a deleted account's Google identity in a
+`deletedGoogleAccounts` Firestore collection so `signInWithGoogle()` could
+refuse future Sign In attempts with that identity. This has been removed
+entirely (`_recordDeletedGoogleAccount`/`_rollbackDeletedGoogleAccountRecord`
+in `AuthService`, the `deletedGoogleAccounts` check in `signInWithGoogle()`,
+and the corresponding Firestore rules) — a deleted Google identity can now
+always be freely re-linked or re-signed-in as a new profile. Do not
+reference `deletedGoogleAccounts` as an active collection; see
+DATA_SCHEMA.md.
 
 ---
 

@@ -26,7 +26,7 @@
 | S-19 | Session Checkout | `/session/checkout` |
 | S-20 | Learn Completion | `/lesson/:lessonId/complete` | ORPHANED (results_screen used) |
 | S-21 | Post-Checkout Streak Born | `/session/streak` |
-| S-22 | Daily Quest Update | `/session/quest` |
+| S-22 | Daily Quest Update | `/quest` | Not a separate route — same `QuestScreen`/route as the Quest tab (S-13's Daily Quests card), reached with `extra: {'justEarned': true}` to trigger the progress-bar fill animation |
 | S-23 | Settings | `/settings` |
 | S-24 | Leaderboard (login-gated) | `/leaderboard` |
 | S-25 | Create Profile (Link Google — anonymous → upgraded, progress preserved) | `/login/link` |
@@ -288,14 +288,29 @@ Inspired by Duolingo image 17.
          OR "🔥 Keep it up! You're on a roll." (day 2+)
 - Button: "I'M COMMITTED" → S-22
 
-### S-22 — Daily Quest Update
-Inspired by Duolingo image 19.
+### S-22 — Daily Quest Update (`QuestScreen`, `/quest`)
+> NOTE: supersedes the original Duolingo-inspired spec below — no separate
+> route, no "CONTINUE" button, no TTS. See `docs/DATA_SCHEMA.md`'s Daily
+> Quests NOTE and `docs/BUILD_STATUS.md`'s Quest Types table for the full
+> current data model.
 
-- Title: "Daily Quest update!" (in accent colour)
-- Shows updated quest card with progress bar
-- e.g. "Complete your next 2 lessons — 1/2 ●●○"
-- If quest just completed → show completion badge + TTS "Quest complete!"
-- Button: "CONTINUE" → S-20 (from learn) or S-13 (from practice)
+- Title: "Daily Quests", one card per quest in `kQuestPool` (currently 3:
+  `high_score_lessons`, `spend_minutes`, `earn_xp`)
+- Each card: bold description text, then a gold-filled progress bar showing
+  `current/target` (formatted as whole minutes for `spend_minutes`, raw
+  numbers for the others), with a treasure-chest button at the bar's right
+  end
+- Chest states: muted/inert while `!completed`; gains a red "ready" dot once
+  `completed && !collected` (tappable); becomes a dimmed checkmark once
+  `collected`
+- Tapping the chest while ready calls `collectQuestReward()` (credits
+  `xpReward` to `totalXp`, atomically) and pops a short "Reward Collected!
+  +N XP" dialog — this is the *only* place any XP number appears on this
+  screen; the cards themselves never show the reward amount
+- Reached via the Home screen's Daily Quests card, or automatically after
+  Checkout/Streak with `extra: {'justEarned': true}` (animates the progress
+  fill on entry) when a quest was newly completed that session — no explicit
+  "Continue" action, the bottom nav (or back) returns to Home
 
 ### S-23 — Settings
 - Toggle: TTS (default ON)
@@ -323,10 +338,13 @@ preserved, so all existing progress carries over automatically.
     forces the account picker instead of silently reusing a cached account
   - `AuthService.linkWithGoogle()`: throws immediately if the current user is
     not anonymous (already signed in) — never shows the picker in that case
-  - `currentUser.linkWithCredential(GoogleAuthProvider.credential(...))`
+  - `currentUser.linkWithCredential(GoogleAuthProvider.credential(...))` — no
+    client-side timeout wraps this call; a slow link is left to complete
+    rather than surfacing a false failure while it's still in flight
   - Firestore `updateUser()`: `isAnonymous: false`, `authProvider: 'google'`,
     `displayName`/`email`/`photoUrl` sourced from the Google account
-  - On success: navigate back to where the user came from
+  - On success: always navigate to Home, regardless of which screen this was
+    reached from — never back to the launching screen
 - Error handling:
   - `credential-already-in-use` → "This Google account is already linked to
     another profile. Try Sign In instead."
@@ -338,8 +356,9 @@ Switches to a **different, already-existing** account via
 `signInWithCredential` — this does NOT preserve the current anonymous
 session's progress unless the user explicitly confirms.
 
-- Reachable from: Welcome Brand "I already have an account", Profile screen
-  "Sign In" button
+- Reachable from: Welcome Brand "I already have an account" (uses `push()`,
+  so "Maybe later"/back correctly returns to Welcome Brand instead of falling
+  through to Home), Profile screen "Sign In" button
 - Title: "Welcome back!" — "Sign in to pick up right where you left off."
 - Button: "Sign In with Google"
   - If the current anonymous account has progress worth losing (`totalXp > 0`,
@@ -348,15 +367,16 @@ session's progress unless the user explicitly confirms.
     to lose
   - `GoogleSignIn().signOut()` first, then `GoogleSignIn().signIn()` — always
     forces the account picker
-  - `AuthService.signInWithGoogle()` checks the `deletedGoogleAccounts`
-    blocklist before attempting sign-in (see DATA_SCHEMA.md)
+  - `AuthService.signInWithGoogle()` does not check any blocklist — a
+    previously-deleted account's Google identity can sign in freely
   - `_auth.signInWithCredential(credential)`
   - If `isNewUser == true` (no account was ever registered under this Google
     identity): treated as "account not found" — the auto-created Firebase
     Auth user is deleted, the anonymous session is restored via
     `signInSilently()`, and the user is told "We couldn't find an account for
     this Google sign-in. Try Create Profile instead." — no navigation occurs
-  - On genuine success: navigate back to where the user came from
+  - On genuine success: always navigate to Home, regardless of which screen
+    this was reached from — never back to the launching screen
 - "Maybe later" → back
 
 > Both screens share `widgets/social_auth_widgets.dart` (`GoogleButton`,
@@ -393,7 +413,7 @@ session's progress unless the user explicitly confirms.
 
 | State | Provider |
 |---|---|
-| Auth state | `authStateProvider` — `FirebaseAuth.userChanges()` (not `authStateChanges()`, which misses provider link/unlink events like the unlink-based sign-out path) |
+| Auth state | `authStateProvider` — `FirebaseAuth.userChanges()` (not `authStateChanges()`, which misses provider link/unlink events) |
 | User profile + settings | `UserProvider` — streams Firestore user doc |
 | Onboarding answers | `OnboardingController` — ephemeral, batch write on S-12 |
 | Lesson list + progress | `LessonProvider` — streams lessons subcollection |

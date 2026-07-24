@@ -48,6 +48,10 @@ class QuestModel {
   final int progress;
   final bool completed;
   final int xpReward;
+  // True once the user has tapped the treasure chest to claim xpReward for
+  // this quest. Distinct from `completed` (target reached) — a quest can be
+  // completed and awaiting collection, or completed and collected.
+  final bool collected;
 
   const QuestModel({
     required this.id,
@@ -57,9 +61,11 @@ class QuestModel {
     required this.progress,
     required this.completed,
     required this.xpReward,
+    this.collected = false,
   });
 
-  QuestModel copyWith({int? progress, bool? completed}) => QuestModel(
+  QuestModel copyWith({int? progress, bool? completed, bool? collected}) =>
+      QuestModel(
         id: id,
         type: type,
         description: description,
@@ -67,6 +73,7 @@ class QuestModel {
         progress: progress ?? this.progress,
         completed: completed ?? this.completed,
         xpReward: xpReward,
+        collected: collected ?? this.collected,
       );
 
   factory QuestModel.fromMap(Map<String, dynamic> map) => QuestModel(
@@ -77,6 +84,7 @@ class QuestModel {
         progress: (map['progress'] as num?)?.toInt() ?? 0,
         completed: map['completed'] as bool? ?? false,
         xpReward: (map['xpReward'] as num?)?.toInt() ?? 30,
+        collected: map['collected'] as bool? ?? false,
       );
 
   Map<String, dynamic> toMap() => {
@@ -87,5 +95,6 @@ class QuestModel {
         'progress': progress,
         'completed': completed,
         'xpReward': xpReward,
+        'collected': collected,
       };
 }
