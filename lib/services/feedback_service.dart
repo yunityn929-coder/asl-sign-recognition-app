@@ -48,6 +48,15 @@ class FeedbackService {
   String? _lastTarget;
   FeedbackResult _lastResult = FeedbackResult.initial;
 
+  bool _matchesTarget(String predictedLabel, String targetLetter) {
+    // Special case: accept "4" as "B"
+    if (targetLetter == 'B') {
+      return predictedLabel == 'B' || predictedLabel == '4';
+    }
+
+    return predictedLabel == targetLetter;
+  }
+
   /// Evaluate one frame's prediction against [targetLetter].
   ///
   /// [topLabel]/[topConfidence] should be the ungated raw prediction
@@ -109,7 +118,7 @@ class FeedbackService {
               'Show your hand to the camera',
             )
           : _lastResult;
-    } else if (topLabel == targetLetter) {
+    } else if (_matchesTarget(topLabel, targetLetter)) {
       next = topConfidence >= _highConfidence
           ? FeedbackResult(
               FeedbackState.correct,
@@ -119,7 +128,8 @@ class FeedbackService {
               FeedbackState.correctHeld,
               'Hold still...',
             );
-    } else if (secondLabel == targetLetter && secondConfidence >= _secondPlaceFloor) {
+    } else if (_matchesTarget(secondLabel, targetLetter) &&
+           secondConfidence >= _secondPlaceFloor) {
       next = FeedbackResult(
         FeedbackState.correct,
         "That's $targetLetter!",

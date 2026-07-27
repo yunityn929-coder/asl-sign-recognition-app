@@ -23,9 +23,7 @@ class QuizResultScreen extends StatelessWidget {
     super.key,
   });
 
-  int get _xpEarned => score * 10;
-
-  int get _accuracyPercent => total == 0 ? 0 : ((score / total) * 100).round();
+  int get _xpEarned => score * 2;
 
   String get _trophyEmoji {
     if (total == 0) return '💪';
@@ -100,12 +98,7 @@ class QuizResultScreen extends StatelessWidget {
             '$score / $total',
             style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: AppColors.primary),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '$_accuracyPercent% accuracy',
-            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -132,25 +125,17 @@ class QuizResultScreen extends StatelessWidget {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final sign in uniqueWrongSigns) _WeakSignBadge(sign: sign),
-          ],
-        ),
-        const SizedBox(height: 16),
         SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: () => context.go(kRouteSigns),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            child: const Text('Practice these signs', style: TextStyle(fontWeight: FontWeight.w700)),
+          height: 48,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: uniqueWrongSigns.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              return _WeakSignBadge(
+                sign: uniqueWrongSigns[index],
+              );
+            },
           ),
         ),
       ],

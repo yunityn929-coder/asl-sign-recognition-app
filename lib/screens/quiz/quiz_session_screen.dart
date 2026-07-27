@@ -19,7 +19,7 @@ const _kOptionColors = [
   AppColors.primary,     // blue
   AppColors.secondary,   // green
   AppColors.xpGold,      // gold
-  AppColors.primarySoft, // soft blue
+  AppColors.warning,     // orange
 ];
 
 const _kOptionTextIsDark = [false, false, false, true];

@@ -206,7 +206,7 @@ class _QuestProgressBar extends StatelessWidget {
                 child: FractionallySizedBox(
                   widthFactor: clamped == 0 ? 0.0001 : clamped,
                   heightFactor: 1.0,
-                  child: const ColoredBox(color: AppColors.xpGold),
+                  child: const ColoredBox(color: AppColors.primary),
                 ),
               ),
             ),
@@ -273,13 +273,12 @@ class _ChestButtonState extends State<_ChestButton> {
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.emoji_events_rounded, color: AppColors.xpGold, size: 30),
           title: const Text('Reward Collected!'),
           content: Text('+${widget.xpReward} XP'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Nice!'),
+              child: const Text('Nice'),
             ),
           ],
         ),
