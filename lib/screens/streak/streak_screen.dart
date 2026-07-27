@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -153,6 +155,13 @@ class _WeeklyCalendarCard extends StatelessWidget {
       for (var i = 0; i < currentStreak; i++) _isoDate(lastDate.subtract(Duration(days: i))),
     };
 
+    // The current streak run started this many days back from lastStreakDate.
+    // Days in this week's row that fall before that date (and before today)
+    // belonged to a prior, now-broken streak and should render as "missed".
+    final streakStartStr = currentStreak > 0
+        ? _isoDate(lastDate.subtract(Duration(days: currentStreak - 1)))
+        : null;
+
     final monday = today.subtract(Duration(days: today.weekday - 1));
 
     return Container(
@@ -174,6 +183,9 @@ class _WeeklyCalendarCard extends StatelessWidget {
                   weekdayLabel: _kWeekdayLabels[i],
                   isToday: _isoDate(monday.add(Duration(days: i))) == todayStr,
                   isActive: activeDays.contains(_isoDate(monday.add(Duration(days: i)))),
+                  isMissed: streakStartStr != null &&
+                      _isoDate(monday.add(Duration(days: i))).compareTo(streakStartStr) < 0 &&
+                      _isoDate(monday.add(Duration(days: i))).compareTo(todayStr) < 0,
                   animate: animateToday &&
                       _isoDate(monday.add(Duration(days: i))) == todayStr,
                 ),
@@ -189,31 +201,42 @@ class _DayCircle extends StatelessWidget {
   final String weekdayLabel;
   final bool isToday;
   final bool isActive;
+  final bool isMissed;
   final bool animate;
 
   const _DayCircle({
     required this.weekdayLabel,
     required this.isToday,
     required this.isActive,
+    this.isMissed = false,
     this.animate = false,
   });
 
   @override
   Widget build(BuildContext context) {
 
-    final circle = Container(
+    final circleFill = Container(
       width: 36,
       height: 36,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFFFFA757) : Colors.transparent,
+        color: isMissed
+            ? const Color(0xFFE0E0E0)
+            : (isActive ? const Color(0xFFFFA757) : Colors.transparent),
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFFe6e6e6), width: 1.5),
+        border: isMissed ? null : Border.all(color: const Color(0xFFe6e6e6), width: 1.5),
       ),
       child: isActive
           ? const Icon(Icons.local_fire_department_rounded, size: 18, color: Colors.white)
           : null,
     );
+
+    final circle = isMissed
+        ? CustomPaint(
+            painter: const _DashedCircleBorderPainter(color: Color(0xFFBDBDBD)),
+            child: circleFill,
+          )
+        : circleFill;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -236,4 +259,46 @@ class _DayCircle extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Draws a dashed circular outline, used for missed-day circles since
+/// BoxDecoration/Border has no built-in dashed style.
+class _DashedCircleBorderPainter extends CustomPainter {
+  final Color color;
+  static const double _strokeWidth = 1.5;
+  static const double _dashLength = 4;
+  static const double _gapLength = 3;
+
+  const _DashedCircleBorderPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _strokeWidth;
+
+    final radius = (size.shortestSide - _strokeWidth) / 2;
+    final center = Offset(size.width / 2, size.height / 2);
+    final circumference = 2 * math.pi * radius;
+    final dashCount = (circumference / (_dashLength + _gapLength)).floor();
+    final dashAngle = _dashLength / radius;
+    final gapAngle = _gapLength / radius;
+
+    var startAngle = -math.pi / 2;
+    for (var i = 0; i < dashCount; i++) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        dashAngle,
+        false,
+        paint,
+      );
+      startAngle += dashAngle + gapAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedCircleBorderPainter oldDelegate) =>
+      color != oldDelegate.color;
 }

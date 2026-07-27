@@ -9,6 +9,8 @@
 ///     previously emitted state is held.
 library;
 
+import '../models/recognition_result.dart';
+
 enum FeedbackState {
   noHand,
   correctHeld,
@@ -59,21 +61,23 @@ class FeedbackService {
 
   /// Evaluate one frame's prediction against [targetLetter].
   ///
-  /// [topLabel]/[topConfidence] should be the ungated raw prediction
-  /// (RecognitionResult.topLabel/topConfidence), not the 0.85-gated
-  /// label/confidence — this service needs the full 0.60+ range itself.
+  /// [result].topLabel/topConfidence should be the ungated raw prediction,
+  /// not the 0.85-gated label/confidence — this service needs the full
+  /// 0.60+ range itself.
   FeedbackResult evaluate({
-    required String topLabel,
-    required double topConfidence,
-    required String secondLabel,
-    required double secondConfidence,
+    required RecognitionResult result,
     required String targetLetter,
-    bool isTooDark = false,
-    bool isTooBright = false,
-    bool handTooClose = false,
-    bool handTooFar = false,
-    bool noHandTimeout = false,
   }) {
+    final String topLabel = result.topLabel;
+    final double topConfidence = result.topConfidence;
+    final String secondLabel = result.secondLabel;
+    final double secondConfidence = result.secondConfidence;
+    final bool isTooDark = result.isTooDark;
+    final bool isTooBright = result.isTooBright;
+    final bool handTooClose = result.handTooClose;
+    final bool handTooFar = result.handTooFar;
+    final bool noHandTimeout = result.noHandTimeout;
+
     if (targetLetter != _lastTarget) {
       _buffer.clear();
       _envBuffer.clear();

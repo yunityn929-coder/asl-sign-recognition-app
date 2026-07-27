@@ -43,7 +43,7 @@ class QuizResultScreen extends StatelessWidget {
     } else if (questNewlyCompleted) {
       context.go(kRouteQuest, extra: {'justEarned': true});
     } else {
-      context.go(kRouteHome);
+      context.go(kRouteQuiz);
     }
   }
 
@@ -102,7 +102,7 @@ class QuizResultScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.bolt, color: AppColors.xpGold, size: 20),
+              const Text('✦', style: TextStyle(color: AppColors.xpGold, fontSize: 15)),
               const SizedBox(width: 4),
               Text(
                 '+$_xpEarned XP',

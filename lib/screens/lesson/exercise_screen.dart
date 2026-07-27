@@ -229,16 +229,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     if (_questions.isEmpty) return;
 
     final feedback = _feedbackService.evaluate(
-      topLabel: result.topLabel,
-      topConfidence: result.topConfidence,
-      secondLabel: result.secondLabel,
-      secondConfidence: result.secondConfidence,
+      result: result,
       targetLetter: _currentTargetSign,
-      isTooDark: result.isTooDark,
-      isTooBright: result.isTooBright,
-      handTooClose: result.handTooClose,
-      handTooFar: result.handTooFar,
-      noHandTimeout: result.noHandTimeout,
     );
 
     setState(() {

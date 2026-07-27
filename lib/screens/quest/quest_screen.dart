@@ -187,8 +187,15 @@ class _QuestProgressBar extends StatelessWidget {
     this.animate = false,
   });
 
+  // The label sits at dead center, so once the fill passes the midpoint of
+  // the bar it's sitting over the filled color rather than the unfilled
+  // background — switch to white (with a shadow for legibility at the
+  // fill/background edge) only once that's actually true.
+  static const double _fillTextSwitchThreshold = 0.45;
+
   Widget _fillBar(double value) {
     final clamped = value.clamp(0.0, 1.0);
+    final textOverFill = clamped > _fillTextSwitchThreshold;
     return ClipRRect(
       borderRadius: BorderRadius.circular(11),
       child: SizedBox(
@@ -212,10 +219,13 @@ class _QuestProgressBar extends StatelessWidget {
             ),
             Text(
               _progressLabel(quest),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+                color: textOverFill ? AppColors.textOnDark : AppColors.textSecondary,
+                shadows: textOverFill
+                    ? const [Shadow(color: Colors.black38, blurRadius: 2)]
+                    : null,
               ),
             ),
           ],

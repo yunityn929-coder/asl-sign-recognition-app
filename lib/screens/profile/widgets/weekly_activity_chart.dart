@@ -38,10 +38,21 @@ class WeeklyActivityChart extends StatelessWidget {
       for (final d in weekDates) ((dailyActiveSeconds[_isoDate(d)] ?? 0) / 60).round(),
     ];
     final maxMinutes = minutesByDay.reduce((a, b) => a > b ? a : b);
-    // Averaged over all 7 days (not just days with data) so this reads as
-    // "your typical day this week", including rest days as zeros.
-    final averageMinutes =
-        (minutesByDay.reduce((a, b) => a + b) / minutesByDay.length).round();
+    // Averaged only over days with an actual entry this week.
+    // recordDailyActiveSeconds() early-returns for seconds <= 0, so a
+    // missing key means no data point (day hasn't happened yet, or the
+    // user didn't open the app) — not a zero-minute day — and shouldn't
+    // be averaged in.
+    final secondsWithDataThisWeek = [
+      for (final d in weekDates)
+        if (dailyActiveSeconds.containsKey(_isoDate(d))) dailyActiveSeconds[_isoDate(d)]!,
+    ];
+    final averageMinutes = secondsWithDataThisWeek.isEmpty
+        ? 0
+        : (secondsWithDataThisWeek.reduce((a, b) => a + b) /
+                secondsWithDataThisWeek.length /
+                60)
+            .round();
 
     return Container(
       padding: const EdgeInsets.all(20),

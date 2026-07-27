@@ -118,16 +118,6 @@ class _NavTab extends StatelessWidget {
                 color: color,
               ),
             ),
-            const SizedBox(height: 4),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: selected ? 4 : 0,
-              height: selected ? 4 : 0,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-            ),
           ],
         ),
       ),
