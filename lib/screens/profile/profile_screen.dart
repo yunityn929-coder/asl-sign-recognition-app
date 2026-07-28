@@ -500,6 +500,7 @@ class _BadgeColumn extends StatelessWidget {
     int nextThreshold,
   ) {
     final medalWord = kind.medalName.toLowerCase();
+    final currentTier = _kBadgeTiers.where((t) => count >= t).length;
     final message = mastered
         ? "You've collected $count $medalWord medals and fully mastered the "
             '${kind.title} badge!'
@@ -511,7 +512,18 @@ class _BadgeColumn extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(kind.title),
-        content: Text(message),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Current tier: Tier $currentTier',
+              style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(message),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
