@@ -53,6 +53,7 @@ import 'screens/social/sign_in_screen.dart';
 
 // Debug / diagnostics (not part of learner-facing flow)
 import 'screens/debug/recognition_test_screen.dart';
+import 'screens/debug/data_collection_screen.dart';
 
 // Calibration (optional per-user tuning, reached from Settings)
 import 'screens/calibration/calibration_screen.dart';
@@ -324,6 +325,16 @@ final GoRouter appRouter = GoRouter(
       name: kRouteNameDebugRecognitionTest,
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const RecognitionTestScreen(),
+    ),
+
+    // Debug — feature-vector capture for fine-tuning dataset collection
+    // (kDebugMode-gated entry point in Settings; see
+    // docs/superpowers/specs/2026-07-31-debug-data-collection-design.md)
+    GoRoute(
+      path: kRouteDebugDataCollection,
+      name: kRouteNameDebugDataCollection,
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const DataCollectionScreen(),
     ),
 
     // Calibration — optional per-user sign calibration (entry point in
