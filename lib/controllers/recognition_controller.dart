@@ -22,13 +22,19 @@
 //
 // 4. INFERENCE (_infer)
 //    Input tensor:  shape [1, 80] — one sample of 63 raw + 17 engineered floats.
-//    Model:         assets/models/mlp_model_v2.tflite
-//                   Converted from the Keras MLP trained in
-//                   asl-gesture-recognition-model/static/model/mlp_model.h5
-//                   via tf.lite.TFLiteConverter. The accompanying
-//                   label_encoder.pkl is not bundled — its class order
-//                   (0-9 then A-Z, alphabetical) is reproduced by hand as
-//                   kSignLabels in sign_label_map.dart.
+//    Model:         assets/models/mlp_model_v4.tflite
+//                   Fine-tuned on personal capture data from the stage-1
+//                   base model (mlp_model_v2_candidate.h5), converted via
+//                   tf.lite.TFLiteConverter from
+//                   asl-gesture-recognition-model/static/model/mlp_model_v4_personal.h5.
+//                   86.67% accuracy on a true held-out personal test set
+//                   (see summary_v4_personal.json in that repo), clearing
+//                   NFR-02's 85% target. Same [1,80]->[1,36] architecture
+//                   and label order as the prior mlp_model_v2.tflite, which
+//                   remains bundled as a rollback fallback (not loaded).
+//                   The accompanying label_encoder.pkl is not bundled — its
+//                   class order (0-9 then A-Z, alphabetical) is reproduced
+//                   by hand as kSignLabels in sign_label_map.dart.
 //    Output tensor: shape [1, 36] — softmax probabilities for 36 classes.
 //    Post-process:  argmax → index → label lookup in kSignLabels
 //                   confidence < kRecognitionConfidenceThreshold → emit label='' (triggers no-detection hint)
@@ -206,7 +212,7 @@ class RecognitionControllerImpl implements RecognitionController {
   Future<void> _ensureModelLoaded() async {
     if (_interpreter == null) {
       _interpreter =
-          await Interpreter.fromAsset('assets/models/mlp_model_v2.tflite');
+          await Interpreter.fromAsset('assets/models/mlp_model_v4.tflite');
       print('[DIAG] Input shape:  ${_interpreter!.getInputTensor(0).shape}');
       print('[DIAG] Output shape: ${_interpreter!.getOutputTensor(0).shape}');
     }
