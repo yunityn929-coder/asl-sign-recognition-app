@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../controllers/recognition_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../data/lesson_definitions.dart';
@@ -35,6 +36,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     _scroll = ScrollController();
     _scroll.addListener(_onScroll);
+    // Fire-and-forget: warm up the TFLite interpreter and the GPU-delegate
+    // hand detector while the user browses the home screen, so the first
+    // lesson opened doesn't pay MediaPipe's GPU-shader-compile cost.
+    ref.read(recognitionControllerProvider).warmUp();
   }
 
   @override

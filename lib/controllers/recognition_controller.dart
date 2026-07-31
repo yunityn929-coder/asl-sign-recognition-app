@@ -67,6 +67,12 @@ abstract class RecognitionController {
   void stopSession();
   Future<void> switchCamera(CameraLensDirection direction);
   Future<void> processFrame(CameraImage image, [int rotationDegrees = 0]);
+
+  /// Best-effort warm-up of the TFLite interpreter and the native
+  /// GPU-delegate hand detector, callable independently of [startSession]
+  /// so the expensive first-time init can happen before the user opens a
+  /// lesson. Safe to call multiple times; safe to ignore its result.
+  Future<void> warmUp();
 }
 
 // ---------------------------------------------------------------------------
@@ -209,12 +215,31 @@ class RecognitionControllerImpl implements RecognitionController {
     _channel.invokeMethod('stopSession').catchError((_) {});
   }
 
-  Future<void> _ensureModelLoaded() async {
-    if (_interpreter == null) {
-      _interpreter =
-          await Interpreter.fromAsset('assets/models/mlp_model_v4.tflite');
-      print('[DIAG] Input shape:  ${_interpreter!.getInputTensor(0).shape}');
-      print('[DIAG] Output shape: ${_interpreter!.getOutputTensor(0).shape}');
+  // Caches the in-progress load itself (not just the result) so a warm-up
+  // call and a lesson-open call racing each other await the same load
+  // instead of each starting their own Interpreter.fromAsset.
+  Future<void>? _modelLoadFuture;
+
+  Future<void> _ensureModelLoaded() {
+    return _modelLoadFuture ??= _loadModel();
+  }
+
+  Future<void> _loadModel() async {
+    _interpreter =
+        await Interpreter.fromAsset('assets/models/mlp_model_v4.tflite');
+    print('[DIAG] Input shape:  ${_interpreter!.getInputTensor(0).shape}');
+    print('[DIAG] Output shape: ${_interpreter!.getOutputTensor(0).shape}');
+  }
+
+  @override
+  Future<void> warmUp() async {
+    try {
+      await Future.wait([
+        _ensureModelLoaded(),
+        _channel.invokeMethod('warmUpDetector'),
+      ]);
+    } catch (e) {
+      debugPrint('[Recognition] warmUp error: $e');
     }
   }
 
