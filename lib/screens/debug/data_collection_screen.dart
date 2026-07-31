@@ -41,6 +41,8 @@ class _DataCollectionScreenState extends ConsumerState<DataCollectionScreen> {
   StreamSubscription<RecognitionResult>? _resultSub;
   RecognitionResult? _lastResult;
 
+  bool _capturing = false;
+
   CaptureMode _activeMode = CaptureMode.train;
   final Map<CaptureMode, int> _currentIndex = {CaptureMode.train: 0, CaptureMode.test: 0};
   final Map<CaptureMode, Map<String, int>> _capturedCounts = {
@@ -130,33 +132,44 @@ class _DataCollectionScreenState extends ConsumerState<DataCollectionScreen> {
   }
 
   Future<void> _capture() async {
-    final result = _lastResult;
-    if (result == null || !result.handDetected || result.landmarks.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hold the sign steady, then try again.')),
-      );
-      return;
-    }
-    final features = [...result.landmarks, ...computeEngineeredFeatures(result.landmarks)];
-    final mode = _activeMode;
-    final label = _currentLabel;
+    if (_capturing) return;
+    setState(() => _capturing = true);
     try {
-      await _exportService.appendSample(mode: mode, label: label, features: features);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Capture failed: $e')),
-      );
-      return;
-    }
-    if (!mounted) return;
-    setState(() {
-      final counts = _capturedCounts[mode]!;
-      counts[label] = (counts[label] ?? 0) + 1;
-      if (counts[label]! >= _targetPerSign[mode]!) {
-        _goToIndex(mode, _currentIndex[mode]! + 1);
+      final result = _lastResult;
+      if (result == null || !result.handDetected || result.landmarks.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Hold the sign steady, then try again.')),
+        );
+        return;
       }
-    });
+      final features = [...result.landmarks, ...computeEngineeredFeatures(result.landmarks)];
+      final mode = _activeMode;
+      final label = _currentLabel;
+      try {
+        await _exportService.appendSample(mode: mode, label: label, features: features);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Capture failed: $e')),
+        );
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        final counts = _capturedCounts[mode]!;
+        counts[label] = (counts[label] ?? 0) + 1;
+        if (counts[label]! >= _targetPerSign[mode]!) {
+          _goToIndex(mode, _currentIndex[mode]! + 1);
+        }
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _capturing = false);
+      } else {
+        _capturing = false;
+      }
+    }
   }
 
   void _goToIndex(CaptureMode mode, int index) {
@@ -345,7 +358,7 @@ class _DataCollectionScreenState extends ConsumerState<DataCollectionScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: ElevatedButton(
-              onPressed: _sessionComplete ? null : _capture,
+              onPressed: _sessionComplete || _capturing ? null : _capture,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
