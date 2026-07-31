@@ -41,7 +41,6 @@ class FeedbackService {
   static const int _consensusThreshold = 4;
   static const double _highConfidence = 0.85; // matches kRecognitionConfidenceThreshold
   static const double _lowConfidence = 0.60;
-  static const double _secondPlaceFloor = 0.15;
   static const int _envBufferSize = 3; // ~300ms at 10fps
   static const int _envConsensusThreshold = 3;
 
@@ -51,11 +50,6 @@ class FeedbackService {
   FeedbackResult _lastResult = FeedbackResult.initial;
 
   bool _matchesTarget(String predictedLabel, String targetLetter) {
-    // Special case: accept "4" as "B"
-    if (targetLetter == 'B') {
-      return predictedLabel == 'B' || predictedLabel == '4';
-    }
-
     return predictedLabel == targetLetter;
   }
 
@@ -70,8 +64,6 @@ class FeedbackService {
   }) {
     final String topLabel = result.topLabel;
     final double topConfidence = result.topConfidence;
-    final String secondLabel = result.secondLabel;
-    final double secondConfidence = result.secondConfidence;
     final bool isTooDark = result.isTooDark;
     final bool isTooBright = result.isTooBright;
     final bool handTooClose = result.handTooClose;
@@ -132,12 +124,6 @@ class FeedbackService {
               FeedbackState.correctHeld,
               'Hold still...',
             );
-    } else if (_matchesTarget(secondLabel, targetLetter) &&
-           secondConfidence >= _secondPlaceFloor) {
-      next = FeedbackResult(
-        FeedbackState.correct,
-        "Correct! That's $targetLetter!",
-      );
     } else if (topConfidence < _lowConfidence) {
       next = const FeedbackResult(
         FeedbackState.wrongUnclear,
