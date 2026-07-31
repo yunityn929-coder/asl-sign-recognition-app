@@ -7,6 +7,7 @@ import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
@@ -21,6 +22,7 @@ class HandLandmarkDetector(context: Context) {
     init {
         val baseOptions = BaseOptions.builder()
             .setModelAssetPath("hand_landmarker.task")
+            .setDelegate(Delegate.GPU)
             .build()
         val options = HandLandmarkerOptions.builder()
             .setBaseOptions(baseOptions)
