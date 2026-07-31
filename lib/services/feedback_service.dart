@@ -136,7 +136,7 @@ class FeedbackService {
            secondConfidence >= _secondPlaceFloor) {
       next = FeedbackResult(
         FeedbackState.correct,
-        "That's $targetLetter!",
+        "Correct! That's $targetLetter!",
       );
     } else if (topConfidence < _lowConfidence) {
       next = const FeedbackResult(

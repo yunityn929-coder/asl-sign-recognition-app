@@ -10,6 +10,7 @@ import '../../controllers/recognition_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/xp_constants.dart';
 import '../../data/lesson_definitions.dart';
+import '../../data/sign_label_map.dart';
 import '../../models/lesson_model.dart';
 import '../../models/recognition_result.dart';
 import '../../providers/auth_provider.dart';
@@ -60,6 +61,11 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   bool _autoAdvancing = false;
   bool _finishing = false;
   StreamSubscription<RecognitionResult>? _resultSub;
+  // TEMP: response time logging for FYP testing, remove before final release.
+  DateTime? _handFirstDetectedAt;
+  String? _rtLastTarget;
+  bool _rtLoggedThisAttempt = false;
+  bool _rtFirstReactionLogged = false;
 
   bool get _ttsEnabled {
     final uid = ref.read(authStateProvider).value?.uid;
@@ -85,7 +91,17 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     super.initState();
     final uid = ref.read(authStateProvider).value?.uid;
     if (uid != null) {
-      CalibrationService.instance.ensureLoaded(uid);
+      CalibrationService.instance.ensureLoaded(uid).then((_) {
+        // TEMP: calibration diagnosis, remove after.
+        debugPrint(
+            '[CALIB_CHECK] hasAnyCalibration=${CalibrationService.instance.hasAnyCalibration}');
+        for (final label in kSignLabels) {
+          final count = CalibrationService.instance.samplesFor(label).length;
+          if (count > 0) {
+            debugPrint('[CALIB_CHECK] $label has $count samples');
+          }
+        }
+      });
     }
     _def = kLessons.firstWhere(
       (l) => l.id == widget.lessonId,
@@ -228,6 +244,19 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     if (_autoAdvancing) return;
     if (_questions.isEmpty) return;
 
+    // TEMP: response time logging for FYP testing, remove before final release.
+    if (_currentTargetSign != _rtLastTarget) {
+      _rtLastTarget = _currentTargetSign;
+      _handFirstDetectedAt = null;
+      _rtLoggedThisAttempt = false;
+      _rtFirstReactionLogged = false;
+    }
+    if (result.handDetected) {
+      _handFirstDetectedAt ??= DateTime.now();
+    } else {
+      _handFirstDetectedAt = null;
+    }
+
     final feedback = _feedbackService.evaluate(
       result: result,
       targetLetter: _currentTargetSign,
@@ -236,6 +265,30 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     setState(() {
       _feedbackResult = feedback;
     });
+
+    // TEMP: response time logging for FYP testing, remove before final release.
+    if (!_rtFirstReactionLogged &&
+        _handFirstDetectedAt != null &&
+        feedback.state != FeedbackState.noHand &&
+        feedback.state != FeedbackState.noHandTimeout) {
+      final elapsedMs = DateTime.now().difference(_handFirstDetectedAt!).inMilliseconds;
+      debugPrint(
+          '[FIRST_REACTION] ${elapsedMs}ms for target $_currentTargetSign, state ${feedback.state}');
+      _rtFirstReactionLogged = true;
+    }
+
+    // TEMP: response time logging for FYP testing, remove before final release.
+    if (!_rtLoggedThisAttempt &&
+        _handFirstDetectedAt != null &&
+        (feedback.state == FeedbackState.correct ||
+            feedback.state == FeedbackState.wrongClear ||
+            feedback.state == FeedbackState.wrongUnclear)) {
+      final elapsedMs = DateTime.now().difference(_handFirstDetectedAt!).inMilliseconds;
+      debugPrint(
+          '[RESPONSE_TIME] ${elapsedMs}ms for target $_currentTargetSign, state ${feedback.state}, '
+          'predicted ${result.topLabel} (${result.topConfidence})');
+      _rtLoggedThisAttempt = true;
+    }
 
     if (feedback.state != FeedbackState.correct || _autoAdvancing) return;
 
@@ -377,11 +430,15 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       var wasStreakAlreadyUpdatedToday = true;
       var beforeCompletedIds = <String>{};
       try {
-        final beforeUser = await firestoreService.getUserOnce(uid);
+        final beforeUser = await firestoreService
+            .getUserOnce(uid)
+            .timeout(const Duration(seconds: 3), onTimeout: () => null);
         wasStreakAlreadyUpdatedToday = beforeUser?.lastStreakDate == today;
       } catch (_) {}
       try {
-        final beforeQuests = await firestoreService.getDailyQuests(uid);
+        final beforeQuests = await firestoreService
+            .getDailyQuests(uid)
+            .timeout(const Duration(seconds: 3), onTimeout: () => null);
         beforeCompletedIds = beforeQuests?.quests
                 .where((q) => q.completed)
                 .map((q) => q.id)
@@ -403,15 +460,19 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         firestoreService.recordDailyActiveSeconds(uid, duration),
         if (accuracyPercent >= 90)
           firestoreService.updateQuestProgress(uid, 'high_score_lessons', 1),
-      ]).catchError((_) => <void>[]);
+      ]).timeout(const Duration(seconds: 3), onTimeout: () => <void>[]).catchError((_) => <void>[]);
 
       try {
-        final afterUser = await firestoreService.getUserOnce(uid);
+        final afterUser = await firestoreService
+            .getUserOnce(uid)
+            .timeout(const Duration(seconds: 3), onTimeout: () => null);
         streakJustExtended =
             !wasStreakAlreadyUpdatedToday && afterUser?.lastStreakDate == today;
       } catch (_) {}
       try {
-        final afterQuests = await firestoreService.getDailyQuests(uid);
+        final afterQuests = await firestoreService
+            .getDailyQuests(uid)
+            .timeout(const Duration(seconds: 3), onTimeout: () => null);
         questNewlyCompleted = afterQuests?.quests.any(
                 (q) => q.completed && !beforeCompletedIds.contains(q.id)) ??
             false;
@@ -473,6 +534,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     final uid = ref.read(authStateProvider).value?.uid;
     final user = uid != null ? ref.watch(userProvider(uid)).value : null;
     CalibrationService.instance.enabled = user?.calibrationEnabled ?? true;
+    // TEMP: calibration diagnosis, remove after.
+    debugPrint('[CALIB_CHECK] enabled=${CalibrationService.instance.enabled}');
     final ttsEnabled = user?.ttsEnabled ?? true;
     final soundEnabled = user?.soundEnabled ?? true;
     final speakerOn = ttsEnabled && soundEnabled;

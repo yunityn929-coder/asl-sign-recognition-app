@@ -59,6 +59,15 @@ class CalibrationService {
     await write;
   }
 
+  /// Awaits any in-flight Firestore writes queued by [addSample], so callers
+  /// can be sure captured samples have actually reached Firestore before
+  /// e.g. exiting the app.
+  Future<void> flushPendingWrites() async {
+    await Future.wait(
+      _pendingWrites.values.map((w) => w.catchError((_) {})).toList(),
+    );
+  }
+
   Future<void> clearClass(String uid, String label) async {
     if (_loadedUid != uid) {
       await ensureLoaded(uid);

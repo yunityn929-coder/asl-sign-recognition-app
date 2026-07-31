@@ -94,8 +94,11 @@ class _PathBodyState extends State<PathBody> {
     }
   }
 
+  // TEMP: unlocked for FYP testing, revert before final release.
+  static const _tempUnlockedLessonIds = {'s1l6', 's1l7'}; // Numbers 0-4, Numbers 5-9
+
   LessonModel _modelFor(String id, int sectionNumber) {
-    return widget.lessons.firstWhere(
+    final model = widget.lessons.firstWhere(
       (l) => l.lessonId == id,
       orElse: () => LessonModel(
         lessonId: id,
@@ -106,6 +109,11 @@ class _PathBodyState extends State<PathBody> {
         totalXpEarned: 0,
       ),
     );
+    // TEMP: unlocked for FYP testing, revert before final release.
+    if (_tempUnlockedLessonIds.contains(id) && model.status == 'locked') {
+      return model.copyWith(status: 'available');
+    }
+    return model;
   }
 
   double _xForIndex(int i, double width) {

@@ -106,6 +106,7 @@ double _dist(List<double> n, int a, int b) {
 // ---------------------------------------------------------------------------
 
 const double kCalibrationWeight = 2.0;
+const double kCalibrationOverrideThreshold = 0.5;
 
 double _euclideanDistance(List<double> a, List<double> b) {
   double sum = 0;
@@ -450,7 +451,11 @@ class RecognitionControllerImpl implements RecognitionController {
     print('[DIAG] Input length: ${normalised.length}');
     print('[DIAG] Model input:  $normalised');
 
+    // TEMP: response time logging for FYP testing, remove before final release.
+    final inferenceStopwatch = Stopwatch()..start();
     _interpreter!.run(input, output);
+    inferenceStopwatch.stop();
+    debugPrint('[INFERENCE_TIME] ${inferenceStopwatch.elapsedMicroseconds}us');
 
     // DIAG — raw model output
     print('[DIAG] Raw output:   ${output[0]}');
@@ -458,6 +463,8 @@ class RecognitionControllerImpl implements RecognitionController {
     final probs = List<double>.from(output[0]);
     if (CalibrationService.instance.hasAnyCalibration && CalibrationService.instance.enabled) {
       double sumProbs = 0;
+      int overrideIdx = -1;
+      double overrideSim = 0;
       for (var i = 0; i < probs.length; i++) {
         final calibSamples = CalibrationService.instance.samplesFor(kSignLabels[i]);
         if (calibSamples.isNotEmpty) {
@@ -465,6 +472,15 @@ class RecognitionControllerImpl implements RecognitionController {
           for (final sample in calibSamples) {
             final sim = 1.0 / (1.0 + _euclideanDistance(normalised, sample));
             if (sim > bestSim) bestSim = sim;
+          }
+          // TEMP: calibration diagnosis, remove after.
+          if (bestSim > 0) {
+            debugPrint(
+                '[CALIB_CHECK] label=${kSignLabels[i]} rawProb=${probs[i]} bestSim=$bestSim');
+          }
+          if (bestSim > overrideSim) {
+            overrideSim = bestSim;
+            overrideIdx = i;
           }
           probs[i] = probs[i] * (1.0 + kCalibrationWeight * bestSim);
         }
@@ -474,6 +490,12 @@ class RecognitionControllerImpl implements RecognitionController {
         for (var i = 0; i < probs.length; i++) {
           probs[i] /= sumProbs;
         }
+      }
+      if (overrideSim >= kCalibrationOverrideThreshold) {
+        for (var i = 0; i < probs.length; i++) {
+          probs[i] = 0.0;
+        }
+        probs[overrideIdx] = 1.0;
       }
     }
 
