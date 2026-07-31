@@ -117,7 +117,7 @@ double _euclideanDistance(List<double> a, List<double> b) {
   return sqrt(sum);
 }
 
-List<double> _computeEngineeredFeatures(List<double> n) {
+List<double> computeEngineeredFeatures(List<double> n) {
   double pcx = 0, pcy = 0, pcz = 0;
   for (final m in _kPalmMcps) {
     pcx += n[m * 3];
@@ -442,7 +442,7 @@ class RecognitionControllerImpl implements RecognitionController {
   }
 
   RecognitionResult _infer(List<double> normalised) {
-    final engineered = _computeEngineeredFeatures(normalised);
+    final engineered = computeEngineeredFeatures(normalised);
     final combined = [...normalised, ...engineered];
     final input = [combined]; // [1, 80]
     final output = [List<double>.filled(36, 0.0)]; // [1, 36]

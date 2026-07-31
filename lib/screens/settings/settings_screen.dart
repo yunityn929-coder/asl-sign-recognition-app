@@ -177,6 +177,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         color: AppColors.textSecondary),
                     onTap: () => context.push(kRouteDebugRecognitionTest),
                   ),
+                  ListTile(
+                    title: const Text(
+                      'Data Collection',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                    ),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: AppColors.textSecondary),
+                    onTap: () => context.push(kRouteDebugDataCollection),
+                  ),
                 ],
               ),
             ],
