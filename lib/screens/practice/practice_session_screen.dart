@@ -11,6 +11,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/difficulty_constants.dart';
 import '../../core/constants/route_constants.dart';
 import '../../core/constants/xp_constants.dart';
+import '../../data/badge_tiers.dart';
 import '../../data/lesson_definitions.dart';
 import '../../models/checkout_data.dart';
 import '../../models/recognition_result.dart';
@@ -351,6 +352,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
     var questNewlyCompleted = false;
     var streakJustExtended = false;
     var medalNewlyEarned = false;
+    int? badgeTierJustReached;
 
     if (uid != null) {
       final firestoreService = ref.read(firestoreServiceProvider);
@@ -379,10 +381,13 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       // return value); the rest are independent writes run in parallel.
       await _saveResultAndAccuracy(uid, missedSigns, xp, duration).catchError((_) {});
 
+      var badgeCountBeforeAward = 0;
       try {
         final afterUser = await firestoreService.getUserOnce(uid);
         streakJustExtended =
             !wasStreakAlreadyUpdatedToday && afterUser?.lastStreakDate == today;
+        badgeCountBeforeAward =
+            medalCountForDifficulty(afterUser?.medalsEarned ?? {}, widget.difficulty);
       } catch (_) {}
       try {
         final afterQuests = await firestoreService.getDailyQuests(uid);
@@ -397,6 +402,11 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
           difficulty: widget.difficulty,
           allCorrect: _correctCount == _questions.length && _questions.isNotEmpty,
         );
+        if (medalNewlyEarned) {
+          final beforeTier = badgeTierForCount(badgeCountBeforeAward);
+          final afterTier = badgeTierForCount(badgeCountBeforeAward + 1);
+          if (afterTier > beforeTier) badgeTierJustReached = afterTier;
+        }
       } catch (_) {}
     }
 
@@ -412,6 +422,7 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
       correctCount: _correctCount,
       totalCount: _questions.length,
       medalNewlyEarned: medalNewlyEarned,
+      badgeTierJustReached: badgeTierJustReached,
     );
 
     if (mounted) {

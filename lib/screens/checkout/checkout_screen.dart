@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
+import '../../data/badge_tiers.dart';
 import '../../data/lesson_definitions.dart';
 import '../../models/checkout_data.dart';
 
@@ -29,12 +30,18 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _medalDialogShown = false;
+  bool _badgeDialogShown = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.checkoutData.medalNewlyEarned) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _showMedalDialog());
+    } else if (widget.checkoutData.badgeTierJustReached != null) {
+      // Defensive: a tier crossing is only ever set alongside a newly
+      // earned medal (see practice_session_screen.dart), but don't assume
+      // that invariant holds here — fall back to showing it on its own.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showBadgeTierDialog());
     }
   }
 
@@ -50,6 +57,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         content: Text(
           "Congratulations! You've earned a "
           '${spec.label.split(' ').first.toLowerCase()} medal.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // A badge tier can only be reached in the same session a
+              // medal is earned, so chain it after this dialog closes
+              // rather than trying to show both at once.
+              if (widget.checkoutData.badgeTierJustReached != null) {
+                _showBadgeTierDialog();
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            child: const Text('Continue', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBadgeTierDialog() {
+    if (_badgeDialogShown || !mounted) return;
+    final tier = widget.checkoutData.badgeTierJustReached;
+    if (tier == null) return;
+    _badgeDialogShown = true;
+
+    final kind = badgeKindForDifficulty(widget.checkoutData.difficulty);
+    final title = kind?.title ?? 'Badge';
+    final isNewUnlock = tier == 1;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: kind == null
+            ? const Icon(Icons.workspace_premium_rounded, size: 30)
+            : Image.asset('assets/images/${kind.owlAsset}.png', width: 56, height: 56),
+        title: Text(title, textAlign: TextAlign.center),
+        content: Text(
+          isNewUnlock
+              ? "New badge unlocked! You've earned the $title badge."
+              : 'Badge upgraded! Your $title badge is now Tier $tier.',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,

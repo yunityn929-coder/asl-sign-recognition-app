@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
+import '../../data/badge_tiers.dart';
 import '../../data/lesson_definitions.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
@@ -390,30 +391,9 @@ class _StatItem extends StatelessWidget {
   }
 }
 
-const List<int> _kBadgeTiers = [5, 10, 20];
-
-class _MedalKind {
-  final String difficulty;
-  final Color color;
-  final String title;
-  final String owlAsset;
-  final String medalName;
-  const _MedalKind(this.difficulty, this.color, this.title, this.owlAsset, this.medalName);
-}
-
-const List<_MedalKind> _kMedalKinds = [
-  _MedalKind('easy', AppColors.medalBronze, 'Skilled Signer', 'owl_student', 'Bronze'),
-  _MedalKind('medium', AppColors.medalSilver, 'Expert Signer', 'owl_expert', 'Silver'),
-  _MedalKind('hard', AppColors.medalGold, 'Master Signer', 'owl_master', 'Gold'),
-];
-
 class _BadgesCard extends StatelessWidget {
   const _BadgesCard({required this.medalsEarned});
   final Map<String, bool> medalsEarned;
-
-  int _countFor(String difficulty) => medalsEarned.entries
-      .where((e) => e.value && e.key.endsWith('_$difficulty'))
-      .length;
 
   @override
   Widget build(BuildContext context) {
@@ -425,9 +405,12 @@ class _BadgesCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (final kind in _kMedalKinds)
+          for (final kind in kBadgeKinds)
             Expanded(
-              child: _BadgeColumn(kind: kind, count: _countFor(kind.difficulty)),
+              child: _BadgeColumn(
+                kind: kind,
+                count: medalCountForDifficulty(medalsEarned, kind.difficulty),
+              ),
             ),
         ],
       ),
@@ -437,7 +420,7 @@ class _BadgesCard extends StatelessWidget {
 
 class _BadgeColumn extends StatelessWidget {
   const _BadgeColumn({required this.kind, required this.count});
-  final _MedalKind kind;
+  final BadgeKind kind;
   final int count;
 
   static const _lockedColor = Color(0xFFD0D0D0);
@@ -454,10 +437,10 @@ class _BadgeColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unlocked = count >= _kBadgeTiers.first;
-    final mastered = count >= _kBadgeTiers.last;
+    final unlocked = count >= kBadgeTiers.first;
+    final mastered = count >= kBadgeTiers.last;
     final nextThreshold =
-        _kBadgeTiers.firstWhere((t) => count < t, orElse: () => _kBadgeTiers.last);
+        kBadgeTiers.firstWhere((t) => count < t, orElse: () => kBadgeTiers.last);
     final textColor = unlocked ? kind.color : _lockedColor;
     final bgColor = _tierBackground(count);
 
@@ -500,7 +483,7 @@ class _BadgeColumn extends StatelessWidget {
     int nextThreshold,
   ) {
     final medalWord = kind.medalName.toLowerCase();
-    final currentTier = _kBadgeTiers.where((t) => count >= t).length;
+    final currentTier = badgeTierForCount(count);
     final message = mastered
         ? "You've collected $count $medalWord medals and fully mastered the "
             '${kind.title} badge!'
