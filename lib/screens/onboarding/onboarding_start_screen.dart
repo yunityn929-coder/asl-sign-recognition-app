@@ -9,7 +9,6 @@ import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/speech_bubble.dart';
 
-// S-09 — Onboarding Q4: Starting Point
 class OnboardingStartScreen extends ConsumerStatefulWidget {
   const OnboardingStartScreen({super.key});
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-// Displays a mascot asset from assets/images/<assetName>.png with an icon fallback.
 class MascotImage extends StatelessWidget {
   final String assetName;
   final double size;

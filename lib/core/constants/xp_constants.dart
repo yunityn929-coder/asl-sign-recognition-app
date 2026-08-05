@@ -1,6 +1,4 @@
-// Awarded per question answered correctly — the only source of XP for
-// both learning (lesson) sessions and practice sessions. No flat
-// completion/base bonus is awarded regardless of correctness.
+// Only source of XP for lesson and practice sessions — no flat completion bonus.
 const int kXpLearnCorrect   = 2;
 
 const int kXpPracticeEasy   = 15;

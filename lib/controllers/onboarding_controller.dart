@@ -76,12 +76,9 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   }
 }
 
-// Rebuilds (fresh state + fresh uid) whenever the signed-in uid actually
-// changes — e.g. sign-out/delete-account followed by a new anonymous
-// session — so answers from a previous account can never leak into, or get
-// submitted under, the next one. select() keeps this from also rebuilding
-// on same-uid token refreshes, which would otherwise wipe in-progress
-// answers mid-onboarding.
+// Rebuilds on uid change (sign-out, new anonymous session) so answers can't
+// leak between accounts. select() avoids rebuilding on same-uid token
+// refreshes, which would otherwise wipe in-progress answers.
 final onboardingControllerProvider =
     StateNotifierProvider<OnboardingController, OnboardingState>((ref) {
   final uid = ref.watch(authStateProvider.select((async) => async.value?.uid)) ?? '';

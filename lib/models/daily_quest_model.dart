@@ -39,7 +39,7 @@ class DailyQuestModel {
       };
 }
 
-// Inline here to keep daily_quest_model.dart self-contained; QuestModel has its own file too.
+// Inlined here to keep this file self-contained; QuestModel also has its own file.
 class QuestModel {
   final String id;
   final String type;

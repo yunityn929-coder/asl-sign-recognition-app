@@ -11,12 +11,12 @@ import '../../models/lesson_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/lesson_provider.dart';
+import '../../providers/quest_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/firestore_service.dart';
 import 'widgets/path_body.dart';
 import 'widgets/unit_banner.dart';
 
-// S-13 — Home
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -205,7 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Positioned(
           top: 16,
           left: 20,
-          child: _QuestButton(onTap: () => context.push(kRouteQuest)),
+          child: _QuestButton(onTap: () => context.push(kRouteQuest), uid: uid),
         ),
         Positioned(
           right: 16,
@@ -408,43 +408,70 @@ class _StreakBadge extends StatelessWidget {
   }
 }
 
-class _QuestButton extends StatelessWidget {
+class _QuestButton extends ConsumerWidget {
   final VoidCallback onTap;
-  const _QuestButton({required this.onTap});
+  final String uid;
+  const _QuestButton({required this.onTap, required this.uid});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        color: AppColors.bannerGold,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.bannerGold.withValues(alpha: 0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset('assets/images/treasure.png', width: 35, height: 35),
-              const Text(
-                'Quests',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Same provider quest_screen.dart watches for its treasure-chest dots —
+    // reading it here just adds a second watcher, no state to lift.
+    final daily = ref.watch(questStreamProvider(uid)).value;
+    final hasUncollectedReward =
+        daily?.quests.any((q) => q.completed && !q.collected) ?? false;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: AppColors.bannerGold,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.bannerGold.withValues(alpha: 0.4),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: onTap,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset('assets/images/treasure.png', width: 35, height: 35),
+                  const Text(
+                    'Quests',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
+        // Matches _ChestButton's "ready" dot in quest_screen.dart.
+        if (hasUncollectedReward)
+          Positioned(
+            top: -2,
+            right: -2,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -35,11 +35,8 @@ class HandLandmarkDetector(context: Context) {
         handLandmarker = HandLandmarker.createFromOptions(context, options)
     }
 
-    /**
-     * Process a YUV_420_888 camera frame and return a map with "landmarks" (63 doubles:
-     * x,y,z for each of 21 landmarks) and "handedness" (category name or null), or null
-     * when no hand is detected.
-     */
+    // Returns a map with "landmarks" (63 doubles: x,y,z for each of 21 landmarks) and
+    // "handedness" (category name or null), or null when no hand is detected.
     fun processFrame(
         yBytes: ByteArray,
         uBytes: ByteArray,

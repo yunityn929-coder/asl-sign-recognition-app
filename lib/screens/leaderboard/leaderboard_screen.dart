@@ -6,7 +6,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../providers/auth_provider.dart';
 
-// S-24 — Leaderboard (login-gated)
 class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});
 

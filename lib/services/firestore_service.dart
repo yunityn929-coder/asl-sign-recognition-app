@@ -94,12 +94,10 @@ class FirestoreService {
             },
           );
 
-  // Corrects data corrupted by a pre-fix markLessonComplete bug where
-  // replaying an already-completed lesson could regress a later lesson from
-  // 'completed' back to 'available', leaving two lessons simultaneously
-  // 'available'. The highest-index 'available' lesson is the true frontier —
-  // anything before it must have been genuinely completed at some point,
-  // since that's the only way a later lesson could have been unlocked.
+  // Fixes an old bug where replaying a completed lesson could regress a
+  // later one back to 'available', leaving two lessons available at once.
+  // The highest-index 'available' lesson is the true frontier; anything
+  // before it must have been completed already.
   Future<List<LessonModel>> _reconcileLessons(
     String uid,
     List<LessonModel> lessons,
@@ -146,8 +144,6 @@ class FirestoreService {
     return map;
   }
 
-  // Writes lesson docs for all lessons; marks lessons before startLessonId as
-  // completed and the startLessonId lesson as available. All others are locked.
   Future<void> initLessons(String uid, String startLessonId) async {
     final batch = _db.batch();
     final lessonsRef = _db.collection('users').doc(uid).collection('lessons');
@@ -176,7 +172,6 @@ class FirestoreService {
     }
   }
 
-  // Converts Firestore Timestamp fields to ISO date strings before deserialization.
   Map<String, dynamic> _normalise(Map<String, dynamic> raw) {
     final map = Map<String, dynamic>.from(raw);
     if (map['createdAt'] is Timestamp) {
@@ -189,10 +184,8 @@ class FirestoreService {
   Future<void> markLessonComplete(String uid, String lessonId) async {
     final lessonsRef = _db.collection('users').doc(uid).collection('lessons');
 
-    // A replay of an already-completed lesson must not re-advance the next
-    // lesson to 'available' — that would regress it from 'completed' back to
-    // 'available' if the user has since progressed past it, producing two
-    // simultaneously-available (tooltip-showing) lessons.
+    // Replaying an already-completed lesson must not re-advance the next one
+    // to 'available' — that could regress it back from 'completed'.
     bool alreadyCompleted = false;
     try {
       final existing = await lessonsRef.doc(lessonId).get();
@@ -460,9 +453,8 @@ class FirestoreService {
     return map;
   }
 
-  // 'spend_minutes' has no fixed target — it's the user's own onboarding
-  // daily-goal minutes, tracked in seconds (progress/target are both in
-  // seconds so short sessions still accumulate precisely).
+  // 'spend_minutes' has no fixed target — it's the user's own daily-goal
+  // minutes, tracked in seconds so short sessions still accumulate precisely.
   int _resolveTarget(QuestDefinition def, int dailyGoalMinutes) =>
       def.type == 'spend_minutes' ? dailyGoalMinutes * 60 : def.target;
 
@@ -491,12 +483,9 @@ class FirestoreService {
     }
   }
 
-  // Rebuilds the stored quest list against the current kQuestPool whenever
-  // they've drifted (e.g. the fixed quest set changed, or the user's
-  // dailyGoalMinutes changed since today's doc was generated) — preserves
-  // progress for quests whose type/target is unchanged, drops any quest type
-  // no longer in the pool. Returns the same list instance untouched when
-  // already up to date.
+  // Rebuilds the stored quest list against kQuestPool when they've drifted
+  // (pool changed, or dailyGoalMinutes changed since generation) — keeps
+  // progress for unchanged quests, drops any no longer in the pool.
   List<QuestModel> _reconcileQuests(List<QuestModel> stored, int dailyGoalMinutes) {
     final byType = {for (final q in stored) q.type: q};
     final upToDate = stored.length == kQuestPool.length &&
@@ -592,11 +581,9 @@ class FirestoreService {
     }
   }
 
-  // Adds `seconds` to today's entry in the user's dailyActiveSeconds map —
-  // the same per-session duration measured for the 'spend_minutes' quest
-  // (see exercise_screen.dart / practice_session_screen.dart /
-  // quiz_session_screen.dart), just persisted per-day instead of reset
-  // daily. Prunes entries older than a week so the map doesn't grow forever.
+  // Adds seconds to today's entry in dailyActiveSeconds — same measurement
+  // as the spend_minutes quest, but persisted per-day. Drops entries older
+  // than a week so the map doesn't grow forever.
   Future<void> recordDailyActiveSeconds(String uid, int seconds) async {
     if (seconds <= 0) return;
     final userRef = _db.collection('users').doc(uid);
@@ -619,12 +606,9 @@ class FirestoreService {
     }
   }
 
-  // Claims a completed quest's XP reward — the treasure-chest "collect" tap
-  // on the Quest screen. Marks the quest `collected` and credits xpReward to
-  // totalXp atomically, so a quest can never be collected twice and the two
-  // writes can never diverge (XP granted without the flag, or vice versa).
-  // Returns true if this call newly collected the reward, false if the
-  // quest wasn't completed yet or was already collected.
+  // Marks the quest collected and credits xpReward atomically, so it can
+  // never be collected twice and the two writes can't diverge. Returns
+  // false if the quest wasn't completed yet or was already collected.
   Future<bool> collectQuestReward(String uid, String questId) async {
     final questsRef = _questsRef(uid).doc(_today());
     final userRef = _db.collection('users').doc(uid);
@@ -665,10 +649,8 @@ class FirestoreService {
         snap.exists ? DailyQuestModel.fromMap(_normaliseDailyQuest(snap.data()!)) : null);
   }
 
-  // Awards a medal the first time a user gets every question correct for a
-  // given lesson+difficulty combination. Returns true if this call newly
-  // awarded a medal (caller should show the reward screen), false if no
-  // medal was awarded (either not all-correct, or already earned before).
+  // Awards a medal the first time every question is correct for a given
+  // lesson+difficulty. Returns false if not all-correct or already earned.
   Future<bool> awardMedalIfEligible({
     required String uid,
     required String lessonId,

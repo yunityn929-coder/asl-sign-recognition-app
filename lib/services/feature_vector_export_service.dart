@@ -1,8 +1,5 @@
-/// Appends captured feature-vector samples to per-mode JSON Lines files for
-/// the debug data-collection tool
-/// (lib/screens/debug/data_collection_screen.dart). NOT used by any
-/// production screen. See
-/// docs/superpowers/specs/2026-07-31-debug-data-collection-design.md.
+// Appends captured feature-vector samples to per-mode JSON Lines files, for
+// the debug data-collection tool only — not used by any production screen.
 library;
 
 import 'dart:convert';
@@ -25,8 +22,8 @@ class FeatureVectorExportService {
   final int sessionTimestampMs;
   final Map<CaptureMode, File> _files = {};
 
-  /// Files created so far this session, keyed by mode. A mode with zero
-  /// captures has no entry — files are created lazily on first capture.
+  // Files created so far this session, keyed by mode. A mode with zero
+  // captures has no entry — files are created lazily on first capture.
   Map<CaptureMode, File> get files => Map.unmodifiable(_files);
 
   String fileNameFor(CaptureMode mode) =>
@@ -54,9 +51,8 @@ class FeatureVectorExportService {
     return file;
   }
 
-  /// Appends one sample as a JSON line. [features] must have exactly 80
-  /// elements (63 normalized landmarks + 17 engineered features, matching
-  /// RecognitionControllerImpl._infer's input layout exactly).
+  // features must have exactly 80 elements — 63 normalized landmarks plus
+  // 17 engineered features.
   Future<File> appendSample({
     required CaptureMode mode,
     required String label,

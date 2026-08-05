@@ -28,25 +28,20 @@ class AuthService {
     }
   }
 
-  // Always fully signs out to a brand-new guest session, regardless of how
-  // the account was reached (linked in-place from this device's own guest
-  // session, or signed into a separate existing account). Progress isn't
-  // lost — it stays in Firestore under that account's uid — but this device
-  // doesn't auto-resume it; signing back into the same Google account
-  // recovers it.
+  // Always signs out to a brand-new guest session. Progress isn't lost, it
+  // stays in Firestore under the old uid, but this device won't auto-resume
+  // it until signing back into the same Google account.
   Future<void> signOut() async {
-    // Best-effort only — some environments leave this hanging indefinitely
-    // with no exception and no UI (a stale native session with nothing to
-    // disconnect), which would otherwise stall the entire sign-out below.
+    // Best-effort — some environments leave this hanging with no exception,
+    // which would otherwise stall the whole sign-out.
     try {
       await _googleSignIn.disconnect().timeout(const Duration(seconds: 5));
     } catch (_) {}
     await _auth.signOut();
   }
 
-  // Returns the signed-in User (plus the Google account's own display name,
-  // email, and photo URL), or nulls if the user cancelled the picker. Throws
-  // AuthException on actual failures.
+  // Returns nulls if the user cancelled the picker, otherwise the linked
+  // user plus their Google display name/email/photo. Throws on real failures.
   Future<({User? user, String? googleDisplayName, String? googleEmail, String? googlePhotoUrl})> linkWithGoogle() async {
     final current = _auth.currentUser;
     if (current == null || !current.isAnonymous) {
@@ -81,11 +76,9 @@ class AuthService {
     }
   }
 
-  // Signs directly into the target Google account, swapping the active
-  // session rather than merging into the current anonymous user (contrast
-  // with linkWithGoogle()'s upgrade-in-place behaviour). Returns whether the
-  // account was genuinely new to Firebase so callers can decide whether a
-  // Firestore user doc needs bootstrapping.
+  // Swaps to the target Google account instead of merging into the current
+  // anonymous user like linkWithGoogle() does. isNewUser tells the caller
+  // whether a Firestore user doc still needs bootstrapping.
   Future<({User? user, bool isNewUser})> signInWithGoogle() async {
     await GoogleSignIn().signOut();
     final googleUser = await GoogleSignIn().signIn();
@@ -108,11 +101,9 @@ class AuthService {
     }
   }
 
-  // Prompts for a fresh Google credential when the session isn't anonymous,
-  // so a stale session can't cause deleteAccount() to hit requires-recent-login
-  // *after* the caller has already deleted the user's Firestore data. Callers
-  // must run this — and let it succeed — before deleting any Firestore data,
-  // then call deleteAccount() immediately after. No-op for anonymous users.
+  // Gets a fresh Google credential before deleteAccount(), so a stale session
+  // can't hit requires-recent-login after Firestore data is already deleted.
+  // Must succeed before deleting Firestore data. No-op for anonymous users.
   Future<void> reauthenticateForDeleteIfNeeded() async {
     final user = _auth.currentUser;
     if (user == null) throw const AuthException('No signed-in user.');
@@ -140,18 +131,15 @@ class AuthService {
     }
   }
 
-  // Deletes the Firebase Auth account. The local session — and therefore
-  // Firestore write permission for this uid — disappears the instant this
-  // succeeds, so callers must delete Firestore data first and call
-  // reauthenticateForDeleteIfNeeded() before that, not after this.
+  // Firestore write permission for this uid dies the instant this succeeds,
+  // so callers must delete Firestore data first, and reauthenticate before that.
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) throw const AuthException('No signed-in user.');
     debugPrint('[TEMP DEBUG] deleteAccount: starting for uid=${user.uid}');
 
-    // This device has been observed to silently hang Firebase network calls
-    // with no exception (see the disconnect() fix above), so this must
-    // surface a real error on timeout rather than fail silently.
+    // This device has been seen to silently hang here with no exception, so
+    // surface a real error on timeout instead of failing silently.
     try {
       debugPrint('[TEMP DEBUG] deleteAccount: calling user.delete()');
       await user.delete().timeout(const Duration(seconds: 15));

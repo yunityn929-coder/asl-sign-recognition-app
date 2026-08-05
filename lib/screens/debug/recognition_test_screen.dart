@@ -1,15 +1,11 @@
 // Physical-device diagnostic screen for evaluating real-world gesture
-// recognition performance. NOT part of the learner-facing app flow — reached
-// only from a kDebugMode-gated entry in Settings (see settings_screen.dart).
+// recognition performance. Reached only from a kDebugMode-gated entry in
+// Settings, not part of the learner-facing app flow.
 //
-// How it's used: the tester selects the letter/digit they are ABOUT TO SIGN
-// (ground truth), holds the sign in front of the camera for a few seconds,
-// then taps the next target. Every processed frame while a session is
-// active is logged with (ground truth, model prediction, confidence,
-// latency). "Export CSV" writes the buffered session to disk for the
-// analysis script in docs/analysis/analyze_recognition_log.py.
-//
-// See docs/GESTURE_TESTING_PROTOCOL.md for the full test procedure.
+// The tester selects the letter/digit they're about to sign (ground truth),
+// holds it in front of the camera, then taps the next target. Every
+// processed frame while a session is active is logged with ground truth,
+// prediction, confidence, and latency.
 
 import 'dart:async';
 
@@ -64,10 +60,8 @@ class _RecognitionTestScreenState extends ConsumerState<RecognitionTestScreen> {
   @override
   void dispose() {
     _resultSub?.cancel();
-    // Chains completion onto the real async teardown (rather than firing
-    // stopImageStream/dispose and forgetting about them) so the shared
-    // CameraGate never unblocks the next screen's camera-open before this
-    // screen's camera hardware is actually closed.
+    // Chains onto the real teardown so the shared CameraGate doesn't unblock
+    // the next screen's camera-open before this camera is actually closed.
     final controller = _cameraController;
     _cameraController = null;
     if (controller != null) {

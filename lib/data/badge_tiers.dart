@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
 
-/// Medal counts (per difficulty, across all lessons) required to reach each
-/// badge tier. Shared between profile_screen.dart's badge display and
-/// practice_session_screen.dart's tier-crossing detection so the two can't
-/// drift out of sync.
+// Medal counts required per badge tier. Shared by the badge display and the
+// tier-crossing detection so the two can't drift out of sync.
 const List<int> kBadgeTiers = [5, 10, 20];
 
 int medalCountForDifficulty(Map<String, bool> medalsEarned, String difficulty) =>

@@ -19,7 +19,6 @@ const Map<String, _MedalSpec> _kMedalSpecs = {
   'hard': _MedalSpec('Gold Medal', AppColors.medalGold),
 };
 
-// S-19 — Session Checkout
 class CheckoutScreen extends StatefulWidget {
   final CheckoutData checkoutData;
   const CheckoutScreen({required this.checkoutData, super.key});
@@ -38,9 +37,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (widget.checkoutData.medalNewlyEarned) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _showMedalDialog());
     } else if (widget.checkoutData.badgeTierJustReached != null) {
-      // Defensive: a tier crossing is only ever set alongside a newly
-      // earned medal (see practice_session_screen.dart), but don't assume
-      // that invariant holds here — fall back to showing it on its own.
+      // Defensive: a tier crossing should only happen alongside a newly
+      // earned medal, but don't assume that here — show it on its own too.
       WidgetsBinding.instance.addPostFrameCallback((_) => _showBadgeTierDialog());
     }
   }

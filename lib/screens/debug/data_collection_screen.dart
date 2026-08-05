@@ -1,8 +1,6 @@
 // Debug-only tool for capturing real feature vectors to fine-tune the
-// gesture recognition model. NOT part of the learner-facing app flow —
-// reached only from a kDebugMode-gated entry in Settings (see
-// settings_screen.dart). See
-// docs/superpowers/specs/2026-07-31-debug-data-collection-design.md.
+// gesture recognition model. Reached only from a kDebugMode-gated entry
+// in Settings, not part of the learner-facing app flow.
 
 import 'dart:async';
 

@@ -4,10 +4,9 @@ class RecognitionResult {
   final bool handDetected;
   final List<double> landmarks; // 63 floats (21 landmarks × x,y,z, normalised)
 
-  // Ungated top-2 predictions. Unlike label/confidence (blanked to '' / 0
-  // below kRecognitionConfidenceThreshold for backward compatibility),
-  // these always reflect the raw softmax argmax/runner-up whenever a hand
-  // is detected — needed by FeedbackService's finer-grained thresholds.
+  // Ungated top-2 predictions — unlike label/confidence (blanked below the
+  // threshold), these always reflect the raw prediction when a hand is
+  // detected, needed by FeedbackService's finer-grained thresholds.
   final String topLabel;
   final double topConfidence;
   final String secondLabel;
@@ -15,15 +14,11 @@ class RecognitionResult {
   final bool isConfident; // topConfidence >= kRecognitionConfidenceThreshold
 
   // Round-trip time in ms for the processFrame() call that produced this
-  // result (MethodChannel → MediaPipe landmark detection → normalise →
-  // TFLite inference). -1 if not measured. Added for physical-device
-  // performance testing (see lib/screens/debug/recognition_test_screen.dart);
-  // not used by production screens.
+  // result. -1 if not measured — only used by debug/testing screens.
   final int latencyMs;
 
-  // Environment-condition signals, computed from the raw (pre-normalisation)
-  // frame in RecognitionControllerImpl.processFrame(). Only meaningful when
-  // handDetected is true, except noHandTimeout which only applies when it's false.
+  // Only meaningful when handDetected is true, except noHandTimeout which
+  // only applies when it's false.
   final bool isTooDark;
   final bool isTooBright;
   final bool handTooClose;

@@ -16,7 +16,6 @@ const _kLevelLabels = {
   'conversational': 'I can have a basic ASL conversation',
 };
 
-// S-11 — Placement Result
 // Receives startLessonId and correctCount via route extra Map.
 class PlacementResultScreen extends ConsumerStatefulWidget {
   final String startLessonId;

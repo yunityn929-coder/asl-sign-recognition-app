@@ -3,9 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_colors.dart';
 
-/// Prompts for a name to fingerspell in the "Spell Your Name" lesson.
-/// Returns the sanitized (letters-only, uppercased) name, or null if the
-/// user cancelled — callers should fall back to a default in that case.
+// Returns the sanitized (letters-only, uppercased) name, or null if
+// cancelled — callers should fall back to a default in that case.
 class NameEntryDialog extends StatefulWidget {
   final String initialName;
   const NameEntryDialog({super.key, required this.initialName});

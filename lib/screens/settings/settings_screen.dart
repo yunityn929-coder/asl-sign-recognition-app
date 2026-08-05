@@ -9,7 +9,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/firestore_service.dart';
 
-// S-17 — Settings
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 

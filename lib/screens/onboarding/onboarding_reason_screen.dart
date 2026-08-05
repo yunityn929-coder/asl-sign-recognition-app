@@ -19,7 +19,6 @@ const _kReasons = [
   ('fun', 'For fun!', Icons.auto_awesome_rounded, Color(0xFFFF6B6B)),
 ];
 
-// Onboarding: Reason for learning ASL
 class OnboardingReasonScreen extends ConsumerStatefulWidget {
   const OnboardingReasonScreen({super.key});
 

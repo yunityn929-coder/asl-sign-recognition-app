@@ -10,7 +10,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/lesson_provider.dart';
 import '../../providers/user_provider.dart';
 
-// S-11 — Mode Select
 class ModeSelectScreen extends ConsumerWidget {
   final String lessonId;
   const ModeSelectScreen({required this.lessonId, super.key});

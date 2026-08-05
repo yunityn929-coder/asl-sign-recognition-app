@@ -76,11 +76,9 @@ class _ProfileContent extends ConsumerWidget {
 
     final user = userAsync.asData?.value;
 
-    // Firebase Auth can go non-anonymous (e.g. linkWithCredential succeeding
-    // in the background) before the Firestore user doc's updateUser() call
-    // confirms it — or if that call never completes. Only show the signed-in
-    // ID card once both agree; otherwise treat the state as still-guest
-    // rather than flipping to signed-in on a half-confirmed link.
+    // Firebase Auth can go non-anonymous before the Firestore user doc's
+    // updateUser() call confirms it, or if that call never completes. Only
+    // show signed-in once both agree, rather than on a half-confirmed link.
     final confirmedSignedIn = !isAnonymous && user?.isAnonymous == false;
 
     final lessonsCompleted = lessonsAsync.maybeWhen(
@@ -609,9 +607,8 @@ class _BadgeCircleIcon extends StatelessWidget {
   }
 }
 
-// Vertical three-dot menu pinned to the ID card's top-right corner —
-// Sign Out / Delete Account, signed-in users only (never rendered for
-// guests, since it's only reachable from _buildSignedInContent()).
+// Sign Out / Delete Account menu — never rendered for guests, since it's
+// only reachable from _buildSignedInContent().
 class _AccountMenuButton extends ConsumerStatefulWidget {
   const _AccountMenuButton();
 
@@ -680,11 +677,9 @@ class _AccountMenuButtonState extends ConsumerState<_AccountMenuButton> {
     final uid = ref.read(authStateProvider).value?.uid;
     if (uid == null) return;
 
-    // Capture everything needed before any operation below runs: deleting
-    // the Firestore doc flips the Profile screen's confirmed-signed-in
-    // check, which removes this button from the tree and disposes this
-    // State mid-flight — ref/context are unusable the instant that
-    // happens, so nothing after this point can depend on them directly.
+    // Capture everything before any operation below runs: deleting the
+    // Firestore doc disposes this State mid-flight, so ref/context are
+    // unusable after that point.
     final authService = ref.read(authServiceProvider);
     final firestoreService = ref.read(firestoreServiceProvider);
     // ignore: use_build_context_synchronously

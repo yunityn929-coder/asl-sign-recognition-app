@@ -31,7 +31,6 @@ String _startLessonIdForLevel(String level) {
   }
 }
 
-// S-05 — Onboarding Q1: ASL Level
 class OnboardingLevelScreen extends ConsumerStatefulWidget {
   const OnboardingLevelScreen({super.key});
 

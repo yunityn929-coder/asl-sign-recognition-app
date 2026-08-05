@@ -1,12 +1,6 @@
-/// Classifies live MLP predictions into a stable, user-facing feedback
-/// state while the learner is holding a sign in front of the camera.
-///
-/// Wraps two concerns:
-///  1. Thresholding topLabel/topConfidence against the target letter.
-///  2. Debouncing — a 5-frame rolling window requires 4/5 agreement on the
-///     current frame's topLabel before a new state is emitted, so a single
-///     noisy frame doesn't flip the UI. Until consensus is reached, the
-///     previously emitted state is held.
+// Classifies live MLP predictions into a stable feedback state while the
+// learner holds a sign. A 5-frame window needs 4/5 agreement before the
+// state changes, so one noisy frame doesn't flip the UI.
 library;
 
 import '../models/recognition_result.dart';
@@ -53,11 +47,8 @@ class FeedbackService {
     return predictedLabel == targetLetter;
   }
 
-  /// Evaluate one frame's prediction against [targetLetter].
-  ///
-  /// [result].topLabel/topConfidence should be the ungated raw prediction,
-  /// not the 0.85-gated label/confidence — this service needs the full
-  /// 0.60+ range itself.
+  // result.topLabel/topConfidence should be the ungated raw prediction, not
+  // the 0.85-gated label/confidence — this needs the full 0.60+ range.
   FeedbackResult evaluate({
     required RecognitionResult result,
     required String targetLetter,
@@ -140,10 +131,9 @@ class FeedbackService {
     return next;
   }
 
-  /// Debounces environment-condition flags over a small frame window so a
-  /// single noisy frame doesn't flicker the message. Returns null when no
-  /// condition applies or consensus hasn't been reached yet (caller should
-  /// fall through to sign-correctness logic in that case).
+  // Debounces environment flags over a small window so one noisy frame
+  // doesn't flicker the message. Null means no condition applies yet, or
+  // consensus isn't reached — caller should fall through to sign-correctness.
   FeedbackResult? _evaluateEnvironment(
     bool isTooDark,
     bool isTooBright,
@@ -181,7 +171,7 @@ class FeedbackService {
     }
   }
 
-  /// Clears buffered state — call when leaving learn mode / disposing.
+  // Call when leaving learn mode / disposing.
   void reset() {
     _buffer.clear();
     _envBuffer.clear();

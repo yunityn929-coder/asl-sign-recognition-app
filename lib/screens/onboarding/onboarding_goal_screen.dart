@@ -17,7 +17,6 @@ const _kGoals = [
   (20, 'Intense'),
 ];
 
-// S-06 — Onboarding Q2: Daily Goal
 class OnboardingGoalScreen extends ConsumerStatefulWidget {
   const OnboardingGoalScreen({super.key});
 

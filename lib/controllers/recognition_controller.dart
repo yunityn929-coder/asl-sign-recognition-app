@@ -1,48 +1,3 @@
-// =============================================================================
-// RECOGNITION PIPELINE — DATA FLOW
-//
-// 1. CAPTURE
-//    CameraController streams CameraImage frames at ~10 fps (100 ms gate).
-//    Format: YUV420 (3 planes: Y, U, V).
-//
-// 2. NATIVE HAND DETECTION (MethodChannel → Android)
-//    Raw YUV planes + dimensions are sent to the Android side via:
-//      MethodChannel('com.hiasl.app/recognition').invokeMethod('processFrame', {...})
-//    The Android implementation runs MediaPipe Hands, detects a single hand,
-//    and returns 21 landmarks × 3 coords (x, y, z) = 63 doubles.
-//    If no hand is detected the channel returns null or an empty list.
-//
-// 3. NORMALISATION (_normalise)
-//    Input:  List<double> of length 63 — raw x,y,z landmark coords.
-//    Step a: Centre — subtract wrist (landmark 0) x,y,z from all landmarks.
-//    Step b: Scale  — divide all values by the Euclidean norm of the
-//            (already-centred) landmark 9, matching training-time
-//            normalisation (asl-gesture-recognition-model/static/preprocessing.py).
-//    Output: List<double> of length 63.
-//
-// 4. INFERENCE (_infer)
-//    Input tensor:  shape [1, 80] — one sample of 63 raw + 17 engineered floats.
-//    Model:         assets/models/mlp_model_v4.tflite
-//                   Fine-tuned on personal capture data from the stage-1
-//                   base model (mlp_model_v2_candidate.h5), converted via
-//                   tf.lite.TFLiteConverter from
-//                   asl-gesture-recognition-model/static/model/mlp_model_v4_personal.h5.
-//                   86.67% accuracy on a true held-out personal test set
-//                   (see summary_v4_personal.json in that repo), clearing
-//                   NFR-02's 85% target. Same [1,80]->[1,36] architecture
-//                   and label order as the prior mlp_model_v2.tflite, which
-//                   remains bundled as a rollback fallback (not loaded).
-//                   The accompanying label_encoder.pkl is not bundled — its
-//                   class order (0-9 then A-Z, alphabetical) is reproduced
-//                   by hand as kSignLabels in sign_label_map.dart.
-//    Output tensor: shape [1, 36] — softmax probabilities for 36 classes.
-//    Post-process:  argmax → index → label lookup in kSignLabels
-//                   confidence < kRecognitionConfidenceThreshold → emit label='' (triggers no-detection hint)
-//
-// 5. LABELS
-//    kSignLabels (lib/data/sign_label_map.dart) — 36 entries, 0-9 then A-Z.
-// =============================================================================
-
 import 'dart:async';
 import 'dart:math';
 
@@ -56,10 +11,6 @@ import '../data/sign_label_map.dart';
 import '../models/recognition_result.dart';
 import '../services/calibration_service.dart';
 
-// ---------------------------------------------------------------------------
-// Abstract interface (matches APP_FLOW.md spec)
-// ---------------------------------------------------------------------------
-
 abstract class RecognitionController {
   Stream<RecognitionResult> get results;
   CameraController? get cameraController;
@@ -68,20 +19,13 @@ abstract class RecognitionController {
   Future<void> switchCamera(CameraLensDirection direction);
   Future<void> processFrame(CameraImage image, [int rotationDegrees = 0]);
 
-  /// Best-effort warm-up of the TFLite interpreter and the native
-  /// GPU-delegate hand detector, callable independently of [startSession]
-  /// so the expensive first-time init can happen before the user opens a
-  /// lesson. Safe to call multiple times; safe to ignore its result.
+  // Warms up the TFLite interpreter and GPU detector early, independent of
+  // startSession, so the first lesson opened isn't slow. Safe to call more than once.
   Future<void> warmUp();
 }
 
-// ---------------------------------------------------------------------------
-// Engineered features (mlp_model_v2) — mirrors
-// asl-gesture-recognition-model/static/landmark_features.py's
-// compute_engineered_features(): 10 finger-curl angles + 5 fingertip-to-palm
-// distances + 2 thumb-to-fingertip distances, appended after the raw 63.
-// ---------------------------------------------------------------------------
-
+// Extra features appended to the 63 raw landmark coords before classification:
+// finger curl angles, fingertip-to-palm distances, thumb-to-fingertip distances.
 const List<List<int>> _kFingerJoints = [
   [1, 2, 3, 4], // thumb
   [5, 6, 7, 8], // index
@@ -111,12 +55,8 @@ double _dist(List<double> n, int a, int b) {
   return sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
-// ---------------------------------------------------------------------------
-// Calibration blending — boosts a class's probability when the current
-// frame's landmarks closely match a user-captured calibration sample for
-// that class (see CalibrationService, CalibrationScreen).
-// ---------------------------------------------------------------------------
-
+// Boosts a class's probability when this frame's landmarks are close to a
+// calibration sample the user captured for it (see CalibrationService).
 const double kCalibrationWeight = 2.0;
 const double kCalibrationOverrideThreshold = 0.5;
 
@@ -157,10 +97,6 @@ List<double> computeEngineeredFeatures(List<double> n) {
   return [...curlFeats, ...tipDists, _dist(n, 4, 8), _dist(n, 4, 12)];
 }
 
-// ---------------------------------------------------------------------------
-// Environment-condition classification (lighting / hand distance)
-// ---------------------------------------------------------------------------
-
 class _EnvFlags {
   final bool isTooDark;
   final bool isTooBright;
@@ -168,10 +104,6 @@ class _EnvFlags {
   final bool handTooFar;
   const _EnvFlags(this.isTooDark, this.isTooBright, this.handTooClose, this.handTooFar);
 }
-
-// ---------------------------------------------------------------------------
-// Implementation
-// ---------------------------------------------------------------------------
 
 class RecognitionControllerImpl implements RecognitionController {
   static const _channel = MethodChannel('com.hiasl.app/recognition');
@@ -215,9 +147,8 @@ class RecognitionControllerImpl implements RecognitionController {
     _channel.invokeMethod('stopSession').catchError((_) {});
   }
 
-  // Caches the in-progress load itself (not just the result) so a warm-up
-  // call and a lesson-open call racing each other await the same load
-  // instead of each starting their own Interpreter.fromAsset.
+  // Caches the in-progress load itself, not just the result, so a warm-up and a
+  // lesson-open racing each other share one Interpreter.fromAsset call, not two.
   Future<void>? _modelLoadFuture;
 
   Future<void> _ensureModelLoaded() {
@@ -344,8 +275,12 @@ class RecognitionControllerImpl implements RecognitionController {
         }
       }
       final result = _infer(normalised);
+      // Per-frame pipeline latency: detect() + feature engineering + TFLite classification.
+      // Different from [RESPONSE_TIME], which is per-attempt, not per-frame.
+      final frameLatencyMs = stopwatch.elapsedMilliseconds;
+      debugPrint('[FRAME_LATENCY] ${frameLatencyMs}ms');
       _emit(result.copyWith(
-        latencyMs: stopwatch.elapsedMilliseconds,
+        latencyMs: frameLatencyMs,
         isTooDark: envFlags.isTooDark,
         isTooBright: envFlags.isTooBright,
         handTooClose: envFlags.handTooClose,
@@ -429,8 +364,8 @@ class RecognitionControllerImpl implements RecognitionController {
     final isTooDark = meanLuma < _kDarkLumaThreshold;
     final isTooBright = meanLuma > _kBrightLumaThreshold;
 
-    // x,y at indices i, i+1 for each of 21 landmarks (raw, pre-normalise —
-    // already normalised [0,1] fractions of image width/height).
+    // x,y here are MediaPipe's own [0,1] normalised coords, not yet run through
+    // our _normalise below.
     double minX = 1, maxX = 0, minY = 1, maxY = 0;
     for (var i = 0; i < landmarksRaw.length; i += 3) {
       final x = landmarksRaw[i];
@@ -478,17 +413,14 @@ class RecognitionControllerImpl implements RecognitionController {
     final input = [combined]; // [1, 80]
     final output = [List<double>.filled(36, 0.0)]; // [1, 36]
 
-    // DIAG — model input
     print('[DIAG] Input length: ${normalised.length}');
     print('[DIAG] Model input:  $normalised');
 
-    // TEMP: response time logging for FYP testing, remove before final release.
     final inferenceStopwatch = Stopwatch()..start();
     _interpreter!.run(input, output);
     inferenceStopwatch.stop();
     debugPrint('[INFERENCE_TIME] ${inferenceStopwatch.elapsedMicroseconds}us');
 
-    // DIAG — raw model output
     print('[DIAG] Raw output:   ${output[0]}');
 
     final probs = List<double>.from(output[0]);
@@ -504,7 +436,6 @@ class RecognitionControllerImpl implements RecognitionController {
             final sim = 1.0 / (1.0 + _euclideanDistance(normalised, sample));
             if (sim > bestSim) bestSim = sim;
           }
-          // TEMP: calibration diagnosis, remove after.
           if (bestSim > 0) {
             debugPrint(
                 '[CALIB_CHECK] label=${kSignLabels[i]} rawProb=${probs[i]} bestSim=$bestSim');
@@ -569,10 +500,6 @@ class RecognitionControllerImpl implements RecognitionController {
     if (!_streamController.isClosed) _streamController.add(result);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Riverpod provider
-// ---------------------------------------------------------------------------
 
 final recognitionControllerProvider = Provider<RecognitionController>((ref) {
   final controller = RecognitionControllerImpl();

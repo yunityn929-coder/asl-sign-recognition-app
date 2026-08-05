@@ -165,7 +165,23 @@
       "mcp__plugin_firebase_firebase__firestore_list_collections",
       "Bash(firebase deploy *)",
       "mcp__plugin_firebase_firebase__firestore_update_document",
-      "Bash(/c/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe *)"
+      "Bash(/c/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe *)",
+      "Bash(python -c \"import pandas; print\\(pandas.__version__\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(/c/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe install *)",
+      "Bash(/c/Users/Yuni/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat *)",
+      "Bash(git commit *)",
+      "Bash(flutter test *)",
+      "Bash(git reset *)",
+      "Bash(git status *)",
+      "Bash(mkdir -p docs/testing_logs/raw_logcat)",
+      "Bash(mv -v frame_and_attempt_log_1785540411552.txt frame_and_attempt_log_1785571984475.txt frame_and_attempt_log_1785573017977.txt frame_and_attempt_log_1785574436887.txt frame_and_attempt_log_1785575634938.txt frame_and_attempt_log_1785576556534.txt frame_and_attempt_log_1785579561588.txt frame_and_attempt_log_1785585482180.txt full_log_1785585482180.txt full_log_1785586447107.txt full_log_1785588198829.txt full_log_1785589323131.txt full_log_1785590598344.txt full_log_1785590802886.txt full_log_1785591744783.txt response_log.txt response_log_calibration.txt response_log_digits.txt docs/testing_logs/raw_logcat/)",
+      "Bash(mkdir -p training_data)",
+      "Bash(mv -v hiasl_datacollect_test_1785512257823.jsonl hiasl_datacollect_train_1785512257823.jsonl hiasl_datacollect_train_1785512257823_origin.jsonl training_data/)",
+      "Bash(python -c \"from train_personal_finetune import PERSONAL_TRAIN_PATH, PERSONAL_TEST_PATH; import os; print\\(PERSONAL_TRAIN_PATH\\); print\\(PERSONAL_TEST_PATH\\); print\\(os.path.exists\\(PERSONAL_TRAIN_PATH\\), os.path.exists\\(PERSONAL_TEST_PATH\\)\\)\")",
+      "Bash(grep -n \"^\\\\s*//\" lib/screens/lesson/exercise_screen.dart)",
+      "Bash(tasklist //FI \"IMAGENAME eq git.exe\")"
     ]
   }
 }

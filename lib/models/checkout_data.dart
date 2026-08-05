@@ -10,9 +10,8 @@ class CheckoutData {
   final int correctCount;
   final int totalCount;
   final bool medalNewlyEarned;
-  // Set to the tier (1, 2, or 3) reached this session, when earning a medal
-  // pushed the medal count for [difficulty] across a badge-tier threshold.
-  // Null when no tier was newly reached.
+  // Tier (1, 2, or 3) reached this session, if a medal pushed the count
+  // across a badge-tier threshold. Null if no tier was newly reached.
   final int? badgeTierJustReached;
 
   const CheckoutData({

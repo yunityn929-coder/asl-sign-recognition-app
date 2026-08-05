@@ -4,9 +4,8 @@ import '../../../core/constants/app_colors.dart';
 
 // Displays combined active minutes (lessons + practice + quiz) for the
 // current calendar week (Monday-start, matching the streak screen's week
-// convention). Reads from UserModel.dailyActiveSeconds, a date-keyed map
-// fed by the same per-session duration timer used for the daily
-// 'spend_minutes' quest — see FirestoreService.recordDailyActiveSeconds.
+// convention), from UserModel.dailyActiveSeconds — a date-keyed map fed by
+// the same per-session duration timer used for the daily 'spend_minutes' quest.
 class WeeklyActivityChart extends StatelessWidget {
   const WeeklyActivityChart({required this.dailyActiveSeconds, super.key});
 
@@ -38,11 +37,9 @@ class WeeklyActivityChart extends StatelessWidget {
       for (final d in weekDates) ((dailyActiveSeconds[_isoDate(d)] ?? 0) / 60).round(),
     ];
     final maxMinutes = minutesByDay.reduce((a, b) => a > b ? a : b);
-    // Averaged only over days with an actual entry this week.
-    // recordDailyActiveSeconds() early-returns for seconds <= 0, so a
-    // missing key means no data point (day hasn't happened yet, or the
-    // user didn't open the app) — not a zero-minute day — and shouldn't
-    // be averaged in.
+    // Averaged only over days with an actual entry — a missing key means no
+    // data point (day hasn't happened, or the app wasn't opened), not a
+    // zero-minute day, and shouldn't be averaged in.
     final secondsWithDataThisWeek = [
       for (final d in weekDates)
         if (dailyActiveSeconds.containsKey(_isoDate(d))) dailyActiveSeconds[_isoDate(d)]!,

@@ -29,32 +29,44 @@ class LessonQuestionGenerator {
         return [LessonQuestion(signSequence: name.split(''), displayText: name)];
 
       case LessonContentType.randomSingle:
-        return List.generate(5, (_) {
-          final d = _rng.nextInt(10).toString();
-          return LessonQuestion(signSequence: [d]);
-        });
+        // Pool of 10 digits, shuffled once and the first 5 taken — sampling
+        // without replacement, so no digit repeats within a session.
+        final singlePool = List.generate(10, (d) => d.toString())..shuffle(_rng);
+        return singlePool
+            .take(5)
+            .map((d) => LessonQuestion(signSequence: [d]))
+            .toList();
 
       case LessonContentType.randomPair:
-        return List.generate(5, (_) {
-          final a = _rng.nextInt(10);
-          final b = _rng.nextInt(10);
-          return LessonQuestion(
-            signSequence: [a.toString(), b.toString()],
-            displayText: '$a  →  $b',
-          );
-        });
+        // Pool of all 100 ordered (a, b) digit pairs, shuffled once and the
+        // first 5 taken — no pair repeats within a session.
+        final pairPool = <List<int>>[
+          for (var a = 0; a < 10; a++)
+            for (var b = 0; b < 10; b++) [a, b],
+        ]..shuffle(_rng);
+        return pairPool
+            .take(5)
+            .map((pair) => LessonQuestion(
+                  signSequence: [pair[0].toString(), pair[1].toString()],
+                  displayText: '${pair[0]}  →  ${pair[1]}',
+                ))
+            .toList();
 
       case LessonContentType.randomExpression:
-        return List.generate(5, (_) {
-          final a = _rng.nextInt(10);
-          // b is bounded so a + b never exceeds 9 (single-digit target sign).
-          final b = _rng.nextInt(10 - a);
-          final sum = a + b;
+        // Pool of all 55 valid (a, b) pairs where a + b <= 9 (so the target
+        // sign stays single-digit), shuffled once and the first 5 taken —
+        // no expression repeats within a session.
+        final expressionPool = <List<int>>[
+          for (var a = 0; a < 10; a++)
+            for (var b = 0; b < 10 - a; b++) [a, b],
+        ]..shuffle(_rng);
+        return expressionPool.take(5).map((pair) {
+          final sum = pair[0] + pair[1];
           return LessonQuestion(
             signSequence: [sum.toString()],
-            displayText: '$a + $b = ?',
+            displayText: '${pair[0]} + ${pair[1]} = ?',
           );
-        });
+        }).toList();
 
       case LessonContentType.signs:
         return lesson.signs.map((s) => LessonQuestion(signSequence: [s])).toList();

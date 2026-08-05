@@ -1,9 +1,6 @@
-/// Firestore-backed storage for per-user sign calibration samples.
-///
-/// Stores a few normalized landmark vectors per class label, captured by
-/// the user during an optional calibration flow. Used to boost recognition
-/// confidence for signs where the generic model's decision boundary
-/// doesn't match this specific user's hand/camera/lighting.
+// Firestore-backed storage for per-user sign calibration samples, used to
+// boost recognition confidence for hands/lighting the generic model doesn't
+// fit well.
 library;
 
 import 'firestore_service.dart';
@@ -36,9 +33,8 @@ class CalibrationService {
         ..addAll(loaded);
       _loadedUid = uid;
     } catch (_) {
-      // Leave any samples already captured this session intact; only
-      // treat this as "loaded" once a real fetch succeeds, so we keep
-      // retrying, but don't destroy in-progress capture work in the meantime.
+      // Keep samples already captured this session; only mark "loaded" once
+      // a real fetch succeeds, so this keeps retrying without losing work.
     }
   }
 
@@ -59,9 +55,8 @@ class CalibrationService {
     await write;
   }
 
-  /// Awaits any in-flight Firestore writes queued by [addSample], so callers
-  /// can be sure captured samples have actually reached Firestore before
-  /// e.g. exiting the app.
+  // Awaits in-flight Firestore writes queued by addSample, so callers can be
+  // sure samples actually reached Firestore before e.g. exiting the app.
   Future<void> flushPendingWrites() async {
     await Future.wait(
       _pendingWrites.values.map((w) => w.catchError((_) {})).toList(),

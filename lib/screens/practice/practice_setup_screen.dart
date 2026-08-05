@@ -8,7 +8,6 @@ import '../../core/constants/route_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 
-// S-17 — Practice Setup
 class PracticeSetupScreen extends ConsumerStatefulWidget {
   final String lessonId;
   const PracticeSetupScreen({required this.lessonId, super.key});

@@ -27,7 +27,6 @@ import '../lesson/widgets/feedback_widget.dart';
 import '../lesson/widgets/name_entry_dialog.dart';
 import '../lesson/widgets/question_text_card.dart';
 
-// S-18 — Practice Session
 class PracticeSessionScreen extends ConsumerStatefulWidget {
   final String lessonId;
   final String difficulty;
@@ -117,10 +116,8 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   void dispose() {
     _resultSub?.cancel();
     _countdownTimer?.cancel();
-    // Chains completion onto the real async teardown (rather than firing
-    // stopImageStream/dispose and forgetting about them) so the shared
-    // CameraGate never unblocks the next screen's camera-open before this
-    // screen's camera hardware is actually closed.
+    // Chains onto the real teardown so the shared CameraGate doesn't unblock
+    // the next screen's camera-open before this camera is actually closed.
     final controller = _cameraController;
     _cameraController = null;
     if (controller != null) {
@@ -332,13 +329,10 @@ class _PracticeSessionScreenState extends ConsumerState<PracticeSessionScreen> {
   }
 
   Future<void> _finishSession() async {
-    // Stop accepting recognition results immediately — otherwise a frame
-    // already in flight through the pipeline can still emit one more
-    // RecognitionResult after this point (stopImageStream() below doesn't
-    // cancel work already dispatched), and since the user is very likely
-    // still holding the same correct hand shape a moment after their last
-    // answer, that stray frame would re-enter the correct-answer branch and
-    // double-count _correctCount (and re-trigger _finishSession itself).
+    // Stop accepting results immediately — a frame already in flight can
+    // still emit one more result after this point, and since the user is
+    // likely still holding the same correct shape, that could double-count
+    // _correctCount and re-trigger this method.
     await _resultSub?.cancel();
     _resultSub = null;
     if (mounted) setState(() => _finishing = true);

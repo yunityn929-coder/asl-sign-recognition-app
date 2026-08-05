@@ -1,9 +1,7 @@
 class QuestDefinition {
   final String type;
-  // For 'spend_minutes' this is a sentinel (0) — its real target is resolved
-  // per-user at generation/reconcile time from user.dailyGoalMinutes (see
-  // FirestoreService._resolveTarget). All other quest types use this value
-  // directly.
+  // For 'spend_minutes' this is a sentinel (0) — the real target is resolved
+  // per-user from dailyGoalMinutes. Other quest types use this value directly.
   final int target;
   final String description;
   final int xpReward;

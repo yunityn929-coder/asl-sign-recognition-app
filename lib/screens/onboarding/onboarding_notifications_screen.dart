@@ -11,7 +11,6 @@ import '../../widgets/mascot_image.dart';
 import '../../widgets/progress_step_indicator.dart';
 import '../../widgets/speech_bubble.dart';
 
-// S-07 — Onboarding Q3: Notifications
 class OnboardingNotificationsScreen extends ConsumerStatefulWidget {
   const OnboardingNotificationsScreen({super.key});
 

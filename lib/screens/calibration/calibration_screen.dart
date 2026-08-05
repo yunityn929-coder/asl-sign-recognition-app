@@ -1,7 +1,6 @@
-// Optional per-user calibration flow — captures a handful of normalized
-// landmark samples per sign class to help CalibrationService boost
-// recognition confidence for this user's hand/camera/lighting. Reached
-// from Settings ("Calibrate my signs").
+// Optional per-user calibration flow — captures a few landmark samples per
+// sign to help CalibrationService boost recognition confidence for this
+// user. Reached from Settings ("Calibrate my signs").
 
 import 'dart:async';
 
@@ -62,12 +61,10 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
   @override
   void dispose() {
     _resultSub?.cancel();
-    // Normal exits (see _advance/PopScope below) already await _releaseCamera()
-    // before navigating, so _cameraController is usually null here already —
-    // this is only a safety net for disposal paths that bypass those (hot
-    // reload, forced disposal, etc). Chains completion onto the real teardown
-    // instead of firing-and-forgetting, so the shared gate never unblocks the
-    // next camera user before the hardware is actually closed.
+    // Normal exits already await _releaseCamera(), so this is just a safety
+    // net for disposal paths that bypass that (hot reload, forced disposal).
+    // Chains onto the real teardown so the shared camera gate doesn't
+    // unblock the next user before the hardware is actually closed.
     final controller = _cameraController;
     _cameraController = null;
     if (controller != null) {
@@ -80,9 +77,7 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     super.dispose();
   }
 
-  // Guards against completing an already-completed Completer, which throws
-  // — can otherwise happen if _releaseCamera() runs after _initCamera()'s
-  // own catch/early-return paths already completed the same completer.
+  // Guards against completing an already-completed Completer, which throws.
   void _completeRelease() {
     if (_releaseCompleter != null && !_releaseCompleter!.isCompleted) {
       _releaseCompleter!.complete();
@@ -197,11 +192,9 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     if (mounted) setState(() {});
   }
 
-  // Shared exit path for both "finished cycling through all signs" (_advance)
-  // and manual back navigation (PopScope below). If anything was captured or
-  // cleared this session, prompts the user to restart the app before this
-  // pops, rather than after — so the dialog still has the Calibration
-  // screen's context to anchor to.
+  // Shared exit path for both finishing all signs and manual back nav. If
+  // anything changed this session, prompts to restart before popping, so the
+  // dialog still has this screen's context to anchor to.
   Future<void> _exitScreen() async {
     await _releaseCamera();
     if (!mounted) return;
@@ -217,19 +210,38 @@ class _CalibrationScreenState extends ConsumerState<CalibrationScreen> {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Restart Required'),
-        content: const Text(
-          'Your calibration changes are saved. Please close and reopen the '
-          'app so sign recognition picks them up.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => SystemNavigator.pop(),
-            child: const Text('Exit App'),
+      builder: (ctx) {
+        var exiting = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: const Text('Restart Required'),
+            content: const Text(
+              'Your calibration changes are saved. Please close and reopen the '
+              'app so sign recognition picks them up.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: exiting
+                    ? null
+                    : () async {
+                        setDialogState(() => exiting = true);
+                        // Give any in-flight calibration writes a chance to
+                        // reach Firestore before the process is killed.
+                        await CalibrationService.instance.flushPendingWrites();
+                        SystemNavigator.pop();
+                      },
+                child: exiting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Exit App'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

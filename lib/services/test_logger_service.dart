@@ -1,10 +1,6 @@
-/// Opt-in logger for physical-device gesture-recognition testing.
-///
-/// NOT used by any production screen — only wired into
-/// lib/screens/debug/recognition_test_screen.dart. Buffers one row per
-/// processed frame in memory (a test session is a few minutes of ~10fps
-/// frames, well within memory limits) and flushes to a CSV file on
-/// [exportCsv]. See docs/GESTURE_TESTING_PROTOCOL.md for how this is used.
+// Opt-in logger for physical-device gesture-recognition testing, not used by
+// any production screen. Buffers one row per frame in memory, flushes to a
+// CSV file on exportCsv.
 library;
 
 import 'dart:io';
@@ -40,9 +36,8 @@ class TestLogEntry {
       'timestamp_ms,target_letter,top_label,top_confidence,second_label,'
       'second_confidence,hand_detected,is_confident,correct,latency_ms';
 
-  /// correct = the model's top prediction matched the tester-declared
-  /// ground-truth target for this frame. Ground truth is set by the tester
-  /// selecting a letter on screen, NOT derived from the model itself.
+  // correct = top prediction matched the tester-declared target, not
+  // anything derived from the model itself.
   String toCsvRow() {
     final correct = handDetected && topLabel == targetLetter;
     return [
@@ -82,8 +77,7 @@ class TestLoggerService {
     _entries.add(entry);
   }
 
-  /// Running per-letter accuracy for the on-screen HUD: label -> [correct, total].
-  /// Frames with no hand detected are excluded (not attempts).
+  // label -> [correct, total]. Frames with no hand detected are excluded, not attempts.
   Map<String, List<int>> get perLetterStats {
     final map = <String, List<int>>{};
     for (final e in _entries) {
@@ -95,12 +89,10 @@ class TestLoggerService {
     return map;
   }
 
-  /// Writes the buffered session to a CSV file and returns it. On desktop
-  /// (Windows/macOS/Linux), writes to a `test_logs/` dir under the current
-  /// working directory. On Android/iOS, unchanged: prefers the app's
-  /// external files dir (adb-pullable without `run-as` on most devices),
-  /// falling back to the internal app documents dir.
-  /// Does NOT clear the buffer or end the session — call [endSession] after.
+  // On desktop, writes to a test_logs/ dir under the current working
+  // directory. On Android/iOS, prefers the app's external files dir
+  // (adb-pullable without run-as), falling back to app documents.
+  // Does NOT clear the buffer or end the session — call endSession after.
   Future<File> exportCsv() async {
     final name = _sessionName;
     if (name == null) {

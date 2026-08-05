@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/feedback_service.dart';
 
-/// Bottom-of-camera pill/banner showing the current [FeedbackState] from
-/// FeedbackService. Purely presentational — fades between states only.
+// Bottom-of-camera pill/banner showing the current FeedbackState. Purely
+// presentational — fades between states only.
 class FeedbackWidget extends StatelessWidget {
   final FeedbackState state;
   final String message;

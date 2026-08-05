@@ -11,7 +11,6 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import 'widgets/social_auth_widgets.dart';
 
-// S-25 — Google Sign-In (link current anonymous progress to a Google account)
 class LinkAccountScreen extends ConsumerStatefulWidget {
   const LinkAccountScreen({super.key});
 
@@ -47,9 +46,8 @@ class _LinkAccountScreenState extends ConsumerState<LinkAccountScreen> {
         debugPrint('[TEMP DEBUG] updateUser threw: $e');
       }
 
-      // Always proceed forward on success, regardless of entry point — a
-      // completed link should never bounce back to the screen it was
-      // launched from.
+      // Always proceed forward on success — a completed link should never
+      // bounce back to the screen it was launched from.
       if (mounted) context.go(kRouteHome);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'credential-already-in-use') {

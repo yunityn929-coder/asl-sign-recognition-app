@@ -10,7 +10,6 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import 'widgets/social_auth_widgets.dart';
 
-// S-25 — Google Sign-In (switch to a different existing account)
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
 
@@ -33,10 +32,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (result.user == null) return; // user dismissed picker
 
       if (result.isNewUser) {
-        // No account was ever registered under this Google identity — undo
-        // the Firebase Auth user signInWithCredential() just auto-created
-        // and fall back to an anonymous session instead of treating this as
-        // a successful sign-in.
+        // No account was ever registered under this identity — undo the
+        // Firebase Auth user signInWithCredential() just auto-created and
+        // fall back to an anonymous session.
         try {
           await result.user!.delete();
         } catch (_) {
@@ -48,9 +46,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         return;
       }
 
-      // Always proceed forward on success, regardless of entry point — a
-      // completed sign-in should never bounce back to the pre-auth screen
-      // it was launched from (e.g. Welcome Brand).
+      // Always proceed forward on success — a completed sign-in should never
+      // bounce back to the pre-auth screen it was launched from.
       if (mounted) context.go(kRouteHome);
     } on PlatformException {
       setState(() => _error = "Google sign-in didn't complete. Please try again.");

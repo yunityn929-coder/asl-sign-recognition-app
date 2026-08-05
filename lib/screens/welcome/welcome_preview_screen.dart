@@ -8,7 +8,6 @@ import '../../widgets/app_button.dart';
 import '../../widgets/mascot_image.dart';
 import '../../widgets/speech_bubble.dart';
 
-// S-04 — Welcome: Questions Preview
 class WelcomePreviewScreen extends ConsumerStatefulWidget {
   const WelcomePreviewScreen({super.key});
 

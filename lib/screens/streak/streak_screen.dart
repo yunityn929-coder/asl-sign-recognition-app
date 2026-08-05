@@ -14,7 +14,6 @@ const _kWeekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 String _isoDate(DateTime d) => d.toIso8601String().substring(0, 10);
 
-// S-10 — Streak Page
 class StreakScreen extends ConsumerWidget {
   final bool justEarned;
   final bool skipQuestScreen;
@@ -261,8 +260,8 @@ class _DayCircle extends StatelessWidget {
   }
 }
 
-/// Draws a dashed circular outline, used for missed-day circles since
-/// BoxDecoration/Border has no built-in dashed style.
+// Draws a dashed circular outline for missed-day circles — BoxDecoration/Border
+// has no built-in dashed style.
 class _DashedCircleBorderPainter extends CustomPainter {
   final Color color;
   static const double _strokeWidth = 1.5;

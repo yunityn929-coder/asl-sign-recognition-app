@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/lesson_question_generator.dart';
 
-/// Displays a text-based lesson question (a word, a name, a random-number
-/// prompt) in place of the single-sign hand-model card, with a per-sign
-/// sequence-progress row when the question spans more than one sign.
+// Shown in place of the single-sign hand-model card for text-based questions
+// (a word, a name, a random-number prompt), with per-sign sequence progress.
 class QuestionTextCard extends StatelessWidget {
   final LessonQuestion question;
   final int sequenceIndex;

@@ -7,7 +7,6 @@ import '../../controllers/placement_test_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 
-// S-10 — Placement Test
 // 10 random signs, 5s timer per sign, no skip, no TTS, no XP.
 // Signs auto-advance on timeout (camera recognition not wired yet).
 class PlacementTestScreen extends ConsumerStatefulWidget {

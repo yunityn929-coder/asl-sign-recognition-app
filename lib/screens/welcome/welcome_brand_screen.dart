@@ -6,7 +6,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/route_constants.dart';
 import '../../widgets/app_button.dart';
 
-// S-02 — Welcome: Brand Screen
 class WelcomeBrandScreen extends ConsumerWidget {
   const WelcomeBrandScreen({super.key});
 

@@ -61,7 +61,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   bool _autoAdvancing = false;
   bool _finishing = false;
   StreamSubscription<RecognitionResult>? _resultSub;
-  // TEMP: response time logging for FYP testing, remove before final release.
   DateTime? _handFirstDetectedAt;
   String? _rtLastTarget;
   bool _rtLoggedThisAttempt = false;
@@ -92,7 +91,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     final uid = ref.read(authStateProvider).value?.uid;
     if (uid != null) {
       CalibrationService.instance.ensureLoaded(uid).then((_) {
-        // TEMP: calibration diagnosis, remove after.
         debugPrint(
             '[CALIB_CHECK] hasAnyCalibration=${CalibrationService.instance.hasAnyCalibration}');
         for (final label in kSignLabels) {
@@ -127,10 +125,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   @override
   void dispose() {
     _resultSub?.cancel();
-    // Chains completion onto the real async teardown (rather than firing
-    // stopImageStream/dispose and forgetting about them) so the shared
-    // CameraGate never unblocks the next screen's camera-open before this
-    // screen's camera hardware is actually closed.
+    // Chains onto the real teardown so the shared CameraGate doesn't unblock
+    // the next screen's camera-open before this camera is actually closed.
     final controller = _cameraController;
     _cameraController = null;
     if (controller != null) {
@@ -185,10 +181,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     } catch (_) {}
   }
 
-  // INTEGRATION POINT (reference impl): camera + MediaPipe are initialized
-  // together — MediaPipe/mlp_model.tflite loading happens lazily inside
-  // RecognitionControllerImpl the first time a frame is processed, triggered
-  // by _onCameraFrame below. practice_session_screen.dart should mirror this.
   Future<void> _initCamera() async {
     final previous = CameraGate.chain;
     _releaseCompleter = Completer<void>();
@@ -205,8 +197,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
         (c) => c.lensDirection == _lensDirection,
         orElse: () => cameras.first,
       );
-      // Sensor mount angle vs. natural (portrait) orientation.
-      // Assumes device held upright; does not track live device rotation.
+      // Sensor mount angle vs. portrait orientation — assumes device held
+      // upright, doesn't track live device rotation.
       _rotationDegrees = selected.sensorOrientation % 360;
       final controller = CameraController(
         selected,
@@ -234,17 +226,11 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     ref.read(recognitionControllerProvider).processFrame(image, _rotationDegrees);
   }
 
-  // INTEGRATION POINT (reference impl): this is where a recognized sign
-  // feeds into the lesson flow — result.label/result.confidence come from
-  // RecognitionControllerImpl (MediaPipe landmarks → mlp_model.tflite).
-  // practice_session_screen.dart's timer-based scoring should consume the
-  // results stream the same way.
   void _onRecognitionResult(RecognitionResult result) {
     if (!mounted) return;
     if (_autoAdvancing) return;
     if (_questions.isEmpty) return;
 
-    // TEMP: response time logging for FYP testing, remove before final release.
     if (_currentTargetSign != _rtLastTarget) {
       _rtLastTarget = _currentTargetSign;
       _handFirstDetectedAt = null;
@@ -254,6 +240,13 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     if (result.handDetected) {
       _handFirstDetectedAt ??= DateTime.now();
     } else {
+      if (_handFirstDetectedAt != null) {
+        // Hand just left frame — that attempt concluded. Reset independently
+        // of the target-changed check above, so a retry of the same target
+        // gets its own log lines too, not just a new target.
+        _rtLoggedThisAttempt = false;
+        _rtFirstReactionLogged = false;
+      }
       _handFirstDetectedAt = null;
     }
 
@@ -266,7 +259,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       _feedbackResult = feedback;
     });
 
-    // TEMP: response time logging for FYP testing, remove before final release.
     if (!_rtFirstReactionLogged &&
         _handFirstDetectedAt != null &&
         feedback.state != FeedbackState.noHand &&
@@ -277,7 +269,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       _rtFirstReactionLogged = true;
     }
 
-    // TEMP: response time logging for FYP testing, remove before final release.
     if (!_rtLoggedThisAttempt &&
         _handFirstDetectedAt != null &&
         (feedback.state == FeedbackState.correct ||
@@ -287,6 +278,11 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       debugPrint(
           '[RESPONSE_TIME] ${elapsedMs}ms for target $_currentTargetSign, state ${feedback.state}, '
           'predicted ${result.topLabel} (${result.topConfidence})');
+      // "correct" reflects the corrected feedback_service.dart logic (top-1 match
+      // only, no B/4 exception) — separate from offline held-out-test accuracy.
+      debugPrint(
+          '[ATTEMPT_LOG] target=$_currentTargetSign recognized=${result.topLabel} '
+          'correct=${feedback.state == FeedbackState.correct}');
       _rtLoggedThisAttempt = true;
     }
 
@@ -446,9 +442,8 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
             {};
       } catch (_) {}
 
-      // All independent writes run in parallel — markLessonComplete/addXp
-      // touch separate Firestore docs (lessons subcollection vs. the user
-      // doc) so there's no ordering dependency between them.
+      // Runs in parallel — these touch separate Firestore docs, no ordering
+      // dependency between them.
       await Future.wait([
         ref.read(lessonActionsProvider(uid)).markLessonComplete(widget.lessonId),
         ref.read(userActionsProvider(uid)).addXp(xpEarned),
@@ -534,7 +529,6 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     final uid = ref.read(authStateProvider).value?.uid;
     final user = uid != null ? ref.watch(userProvider(uid)).value : null;
     CalibrationService.instance.enabled = user?.calibrationEnabled ?? true;
-    // TEMP: calibration diagnosis, remove after.
     debugPrint('[CALIB_CHECK] enabled=${CalibrationService.instance.enabled}');
     final ttsEnabled = user?.ttsEnabled ?? true;
     final soundEnabled = user?.soundEnabled ?? true;

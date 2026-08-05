@@ -246,9 +246,8 @@ class _QuestProgressBar extends StatelessWidget {
   }
 }
 
-// The "collect" button: a treasure chest that is muted and inert while the
-// quest is in progress, gains a red "ready" dot once completed, and turns
-// into a dimmed checkmark once the reward has been claimed.
+// Muted and inert while in progress, gains a red "ready" dot once completed,
+// turns into a dimmed checkmark once claimed.
 class _ChestButton extends StatefulWidget {
   final bool completed;
   final bool collected;

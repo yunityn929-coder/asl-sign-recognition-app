@@ -11,11 +11,9 @@ const Set<String> kAvailableSigns = {
 
 const String kSignImagePath = 'assets/models/3d/';
 
-// Path for unlabeled hand sign images (no answer label)
-// Used in quiz to avoid giving away the answer
+// No answer label — avoids giving away the answer in quiz mode.
 const String kUnlabeledSignImagePath = 'assets/images/hand_sign/';
 
-// Signs that have unlabeled images available
 const Set<String> kUnlabeledSigns = {
   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
@@ -29,18 +27,16 @@ const Set<String> kUnlabeledSigns = {
 
 String? quizImagePath(String sign) {
   if (kUnlabeledSigns.contains(sign)) {
-    // Use unlabeled image — no label visible in quiz
     final name = sign.contains(RegExp(r'[0-9]'))
         ? 'hand_$sign'
         : 'hand_${sign.toLowerCase()}';
     return '$kUnlabeledSignImagePath$name.png';
   }
   if (kAvailableSigns.contains(sign)) {
-    // Fall back to labeled 3d model image (only reachable now if a sign
-    // isn't in kUnlabeledSigns, which currently covers all of kAvailableSigns)
+    // Currently unreachable — kUnlabeledSigns already covers all of kAvailableSigns.
     return '$kSignImagePath$sign.png';
   }
-  return null; // no image available
+  return null;
 }
 
 class QuizService {
